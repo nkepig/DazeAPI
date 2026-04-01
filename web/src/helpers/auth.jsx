@@ -36,7 +36,7 @@ export const AuthRedirect = ({ children }) => {
   const user = localStorage.getItem('user');
 
   if (user) {
-    return <Navigate to='/console' replace />;
+    return <Navigate to='/console/dashboard' replace />;
   }
 
   return children;
@@ -62,7 +62,7 @@ export function AdminRoute({ children }) {
   } catch (e) {
     // ignore
   }
-  return <Navigate to='/forbidden' replace />;
+  return <Navigate to='/console/dashboard' replace />;
 }
 
 export { PrivateRoute };

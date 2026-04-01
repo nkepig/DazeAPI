@@ -3347,6 +3347,18 @@
     "输出价格：{{symbol}}{{price}} / 1M tokens": "Output Price: {{symbol}}{{price}} / 1M tokens",
     "输出价格：{{symbol}}{{total}} / 1M tokens": "Output Price: {{symbol}}{{total}} / 1M tokens",
     "例如：gpt-4.1-nano,regex:^claude-.*$,regex:^sora-.*$": "Example: gpt-4.1-nano,regex:^claude-.*$,regex:^sora-.*$",
-    "支持精确匹配；使用 regex: 开头可按正则匹配。": "Supports exact matching. Use a regex: prefix for regex matching."
+    "支持精确匹配；使用 regex: 开头可按正则匹配。": "Supports exact matching. Use a regex: prefix for regex matching.",
+    "浏览所有可以通过 API 调用的模型": "Browse all models available via API",
+    "搜索模型或供应商...": "Search models or providers...",
+    "未找到模型": "No models found",
+    "个模型": "models",
+    "个供应商": "providers",
+    "输入倍率": "Input ratio",
+    "补全倍率": "Completion ratio",
+    "管理你的 API 密钥，控制访问权限": "Manage your API keys and access control",
+    "查看 API 调用记录和使用统计": "View API call logs and usage statistics",
+    "配置和管理 API 渠道": "Configure and manage API channels",
+    "已有账户？登录": "Already have an account? Sign in",
+    "使用 用户名 注册": "Register with username"
   }
 }

@@ -1,215 +1,129 @@
 /*
 Copyright (C) 2025 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
-import { Layout, TabPane, Tabs } from '@douyinfe/semi-ui';
+import React, { useEffect, useState, useRef } from 'react';
+import { Collapsible } from '@douyinfe/semi-ui';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Settings,
   Calculator,
-  Gauge,
-  Shapes,
-  Cog,
-  MoreHorizontal,
-  LayoutDashboard,
-  MessageSquare,
-  Palette,
-  CreditCard,
-  Server,
   Activity,
+  ChevronDown,
 } from 'lucide-react';
 
-import SystemSetting from '../../components/settings/SystemSetting';
 import { isRoot } from '../../helpers';
-import OtherSetting from '../../components/settings/OtherSetting';
 import OperationSetting from '../../components/settings/OperationSetting';
-import RateLimitSetting from '../../components/settings/RateLimitSetting';
-import ModelSetting from '../../components/settings/ModelSetting';
-import DashboardSetting from '../../components/settings/DashboardSetting';
 import RatioSetting from '../../components/settings/RatioSetting';
-import ChatsSetting from '../../components/settings/ChatsSetting';
-import DrawingSetting from '../../components/settings/DrawingSetting';
-import PaymentSetting from '../../components/settings/PaymentSetting';
-import ModelDeploymentSetting from '../../components/settings/ModelDeploymentSetting';
 import PerformanceSetting from '../../components/settings/PerformanceSetting';
+
+const sections = [
+  { key: 'operation', icon: Settings, label: '运营设置', Component: OperationSetting },
+  { key: 'ratio', icon: Calculator, label: '分组与模型定价', Component: RatioSetting },
+  { key: 'performance', icon: Activity, label: '性能设置', Component: PerformanceSetting },
+];
+
+function SectionBlock({ sectionKey, icon: Icon, label, children, defaultOpen, t }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div id={`section-${sectionKey}`} className='mb-8'>
+      <button
+        onClick={() => setOpen(!open)}
+        className='w-full flex items-center justify-between py-3 bg-transparent border-0 cursor-pointer transition-colors'
+      >
+        <span className='flex items-center gap-2.5 text-[15px] font-medium text-[#1A1A1A]'>
+          <Icon size={18} strokeWidth={1.5} color='#999' />
+          {t(label)}
+        </span>
+        <ChevronDown
+          size={16}
+          strokeWidth={1.5}
+          color='#C8C8C8'
+          style={{
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+          }}
+        />
+      </button>
+      <Collapsible isOpen={open}>
+        <div className='pt-2 pb-4'>
+          {children}
+        </div>
+      </Collapsible>
+      <div className='border-b border-[#F0F0F0]' />
+    </div>
+  );
+}
 
 const Setting = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [tabActiveKey, setTabActiveKey] = useState('1');
-  let panes = [];
+  const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState('operation');
 
-  if (isRoot()) {
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Settings size={18} />
-          {t('运营设置')}
-        </span>
-      ),
-      content: <OperationSetting />,
-      itemKey: 'operation',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <LayoutDashboard size={18} />
-          {t('仪表盘设置')}
-        </span>
-      ),
-      content: <DashboardSetting />,
-      itemKey: 'dashboard',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <MessageSquare size={18} />
-          {t('聊天设置')}
-        </span>
-      ),
-      content: <ChatsSetting />,
-      itemKey: 'chats',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Palette size={18} />
-          {t('绘图设置')}
-        </span>
-      ),
-      content: <DrawingSetting />,
-      itemKey: 'drawing',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <CreditCard size={18} />
-          {t('支付设置')}
-        </span>
-      ),
-      content: <PaymentSetting />,
-      itemKey: 'payment',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Calculator size={18} />
-          {t('分组与模型定价设置')}
-        </span>
-      ),
-      content: <RatioSetting />,
-      itemKey: 'ratio',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Gauge size={18} />
-          {t('速率限制设置')}
-        </span>
-      ),
-      content: <RateLimitSetting />,
-      itemKey: 'ratelimit',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Shapes size={18} />
-          {t('模型相关设置')}
-        </span>
-      ),
-      content: <ModelSetting />,
-      itemKey: 'models',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Server size={18} />
-          {t('模型部署设置')}
-        </span>
-      ),
-      content: <ModelDeploymentSetting />,
-      itemKey: 'model-deployment',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Activity size={18} />
-          {t('性能设置')}
-        </span>
-      ),
-      content: <PerformanceSetting />,
-      itemKey: 'performance',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Cog size={18} />
-          {t('系统设置')}
-        </span>
-      ),
-      content: <SystemSetting />,
-      itemKey: 'system',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <MoreHorizontal size={18} />
-          {t('其他设置')}
-        </span>
-      ),
-      content: <OtherSetting />,
-      itemKey: 'other',
-    });
-  }
-  const onChangeTab = (key) => {
-    setTabActiveKey(key);
-    navigate(`?tab=${key}`);
-  };
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const tab = searchParams.get('tab');
-    if (tab) {
-      setTabActiveKey(tab);
-    } else {
-      onChangeTab('operation');
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section');
+    if (section) {
+      setActiveSection(section);
+      setTimeout(() => {
+        const el = document.getElementById(`section-${section}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     }
   }, [location.search]);
+
+  if (!isRoot()) {
+    return (
+      <div className='px-6 lg:px-10 py-8'>
+        <p className='text-[#999]'>{t('无权访问')}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className='mt-[60px] px-2'>
-      <Layout>
-        <Layout.Content>
-          <Tabs
-            type='card'
-            collapsible
-            activeKey={tabActiveKey}
-            onChange={(key) => onChangeTab(key)}
+    <div className='px-6 lg:px-10 py-8'>
+      <div className='mb-6'>
+        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('运营设置')}</h1>
+        <p className='text-[13px] text-[#999] mt-1'>{t('管理核心运营配置')}</p>
+      </div>
+
+      {/* Quick nav */}
+      <div className='flex gap-2 flex-wrap mb-8'>
+        {sections.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => {
+              setActiveSection(key);
+              navigate(`?section=${key}`);
+              const el = document.getElementById(`section-${key}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all border ${
+              activeSection === key
+                ? 'text-[#1A1A1A] border-[#1A1A1A] bg-white'
+                : 'text-[#999] border-[#EBEBEB] bg-white hover:bg-[#F5F5F5] hover:text-[#1A1A1A]'
+            }`}
           >
-            {panes.map((pane) => (
-              <TabPane itemKey={pane.itemKey} tab={pane.tab} key={pane.itemKey}>
-                {tabActiveKey === pane.itemKey && pane.content}
-              </TabPane>
-            ))}
-          </Tabs>
-        </Layout.Content>
-      </Layout>
+            {t(label)}
+          </button>
+        ))}
+      </div>
+
+      {sections.map(({ key, icon, label, Component }) => (
+        <SectionBlock
+          key={key}
+          sectionKey={key}
+          icon={icon}
+          label={label}
+          defaultOpen={activeSection === key}
+          t={t}
+        >
+          <Component />
+        </SectionBlock>
+      ))}
     </div>
   );
 };

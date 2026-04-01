@@ -18,14 +18,26 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import ChannelsTable from '../../components/table/channels';
 
-const File = () => {
+const Channel = () => {
+  const { t } = useTranslation();
   return (
-    <div className='mt-[60px] px-2'>
+    <div className='px-6 lg:px-10 py-8'>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className='mb-6'
+      >
+        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('渠道管理')}</h1>
+        <p className='text-[13px] text-[#999] mt-1'>{t('配置和管理 API 渠道')}</p>
+      </motion.div>
       <ChannelsTable />
     </div>
   );
 };
 
-export default File;
+export default Channel;

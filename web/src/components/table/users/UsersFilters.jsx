@@ -58,56 +58,47 @@ const UsersFilters = ({
       layout='horizontal'
       trigger='change'
       stopValidateWithError={false}
-      className='w-full md:w-auto order-1 md:order-2'
+      className='flex items-center gap-2 flex-wrap'
     >
-      <div className='flex flex-col md:flex-row items-center gap-2 w-full md:w-auto'>
-        <div className='relative w-full md:w-64'>
-          <Form.Input
-            field='searchKeyword'
-            prefix={<IconSearch />}
-            placeholder={t('支持搜索用户的 ID、用户名、显示名称和邮箱地址')}
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-        <div className='w-full md:w-48'>
-          <Form.Select
-            field='searchGroup'
-            placeholder={t('选择分组')}
-            optionList={groupOptions}
-            onChange={(value) => {
-              // Group change triggers automatic search
-              setTimeout(() => {
-                searchUsers(1, pageSize);
-              }, 100);
-            }}
-            className='w-full'
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-        <div className='flex gap-2 w-full md:w-auto'>
-          <Button
-            type='tertiary'
-            htmlType='submit'
-            loading={loading || searching}
-            className='flex-1 md:flex-initial md:w-auto'
-            size='small'
-          >
-            {t('查询')}
-          </Button>
-          <Button
-            type='tertiary'
-            onClick={handleReset}
-            className='flex-1 md:flex-initial md:w-auto'
-            size='small'
-          >
-            {t('重置')}
-          </Button>
-        </div>
+      <div className='w-48'>
+        <Form.Input
+          field='searchKeyword'
+          prefix={<IconSearch />}
+          placeholder={t('搜索用户名/邮箱')}
+          showClear
+          pure
+          size='small'
+        />
       </div>
+      <div className='w-32'>
+        <Form.Select
+          field='searchGroup'
+          placeholder={t('选择分组')}
+          optionList={groupOptions}
+          onChange={() => {
+            setTimeout(() => {
+              searchUsers(1, pageSize);
+            }, 100);
+          }}
+          className='w-full'
+          showClear
+          pure
+          size='small'
+        />
+      </div>
+      <Button
+        size='small'
+        htmlType='submit'
+        loading={loading || searching}
+      >
+        {t('查询')}
+      </Button>
+      <Button
+        size='small'
+        onClick={handleReset}
+      >
+        {t('重置')}
+      </Button>
     </Form>
   );
 };

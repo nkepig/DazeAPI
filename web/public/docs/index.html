@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Daze AI API Reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    
+    <div id="app">
+    </div>
+
+    <!-- Load Scalar Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      // 1. Define API Specification Data (OpenAPI Spec)
+      const apiSpec = {
+        "openapi": "1.0.0",
+        "info": {
+          "title": "Daze AI API Documentation",
+          "version": "1.0.0",
+          "description": "Unified API service integrating Gemini, OpenAI, Claude, and Sora. Supports multiple native model formats in a single gateway.",
+          "contact": {
+            "name": "API Support",
+            "url": "https://api.dazeai.com"
+          },
+          "license": {
+            "name": "Daze AI",
+            "url": "https://api.dazeai.com"
+          }
+        },
+        "servers":[
+          { 
+            "url": "https://api.dazeai.com", 
+            "description": "Daze AI Main Gateway"
+          }
+        ],
+        "tags":[
+          {
+            "name": "OpenAI",
+            "description": "OpenAI compatible APIs for Chat, Image Generation, Embeddings, and Models.\n\n🔗 **[Official OpenAI Documentation](https://platform.openai.com/docs/api-reference)**"
+          },
+          {
+            "name": "Gemini",
+            "description": "Google Gemini native APIs for multimodal content generation.\n\n🔗 **[Official Google Gemini Documentation](https://ai.google.dev/api)**"
+          },
+          {
+            "name": "Anthropic (Claude)",
+            "description": "Anthropic Claude native APIs. Requires `anthropic-version` header.\n\n🔗 **[Official Anthropic Documentation](https://docs.anthropic.com/en/api/messages)**"
+          },
+          {
+            "name": "Reverse APIs",
+            "description": "Reverse-engineered APIs for advanced image and video generation (e.g., GPT-Image, Sora)."
+          }
+        ],
+        "components": {
+          "securitySchemes": {
+            "BearerAuth": {
+              "type": "apiKey",
+              "in": "header",
+              "name": "Authorization"
+            }
+          }
+        },
+        "security":[
+          {
+            "BearerAuth": []
+          }
+        ],
+        "paths": {
+          "/v1/models": {
+            "get": {
+              "operationId": "listModels",
+              "tags": ["OpenAI"],
+              "summary": "List Models",
+              "description": "Retrieve the list of available models using the standard OpenAI format.",
+              "responses": {
+                "200": {
+                  "description": "Successfully returned model list.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "object": "list",
+                        "data":[
+                          {
+                            "id": "gpt-4o-mini",
+                            "object": "model",
+                            "created": 1677610602,
+                            "owned_by": "openai"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/chat/completions": {
+            "post": {
+              "operationId": "createChatCompletion",
+              "tags":["OpenAI"],
+              "summary": "Chat Completions",
+              "description": "Create chat completions using OpenAI models or any compatible model.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "gpt-4o-mini",
+                      "messages":[
+                        { "role": "system", "content": "You are a helpful assistant." },
+                        { "role": "user", "content": "Hello, how are you?" }
+                      ],
+                      "stream": false
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned chat response.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "chatcmpl-123",
+                        "object": "chat.completion",
+                        "created": 1677652288,
+                        "choices":[
+                          {
+                            "index": 0,
+                            "message": {
+                              "role": "assistant",
+                              "content": "I'm doing well, thank you!"
+                            },
+                            "finish_reason": "stop"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/images/generations": {
+            "post": {
+              "operationId": "createImage",
+              "tags":["OpenAI"],
+              "summary": "Create Image",
+              "description": "Generate an image based on a text prompt. Supports DALL-E 2 and DALL-E 3 models.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "prompt": "A cute baby sea otter",
+                      "model": "dall-e-3",
+                      "n": 1,
+                      "size": "1024x1024"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully generated image.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "created": 1589478378,
+                        "data":[
+                          {
+                            "url": "https://api.dazeai.com/images/sample.png"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/embeddings": {
+            "post": {
+              "operationId": "createEmbedding",
+              "tags": ["OpenAI"],
+              "summary": "Create Embeddings",
+              "description": "Convert text into an embedding vector for semantic search and similarity calculations.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "text-embedding-3-small",
+                      "input": "The food was delicious and the waiter was friendly."
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned embedding vector.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "object": "list",
+                        "data":[
+                          {
+                            "object": "embedding",
+                            "index": 0,
+                            "embedding":[0.002, -0.009, 0.018]
+                          }
+                        ],
+                        "model": "text-embedding-3-small"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1beta/models": {
+            "get": {
+              "operationId": "listModelsGemini",
+              "tags":["Gemini"],
+              "summary": "List Models",
+              "description": "Retrieve the list of available models using the native Gemini API format.",
+              "responses": {
+                "200": {
+                  "description": "Successfully returned Gemini model list.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "models":[
+                          {
+                            "name": "models/gemini-2.5-flash",
+                            "displayName": "Gemini 2.5 Flash",
+                            "description": "Fast and versatile multimodal model"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1beta/models/{model}:generateContent": {
+            "post": {
+              "operationId": "generateContentGemini",
+              "tags": ["Gemini"],
+              "summary": "Generate Content",
+              "description": "Generate text or multimodal content using Google Gemini's native API format.",
+              "parameters":[
+                {
+                  "name": "model",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "example": "gemini-2.5-flash" },
+                  "description": "The name of the Gemini model to use."
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "contents": [
+                        {
+                          "parts":[
+                            { "text": "Hello, AI! Please introduce yourself." }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully generated content.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "candidates":[
+                          {
+                            "content": {
+                              "parts":[
+                                { "text": "Hello! I am Gemini..." }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/messages": {
+            "post": {
+              "operationId": "createMessage",
+              "tags": ["Anthropic (Claude)"],
+              "summary": "Create Message",
+              "description": "Create a message using the Anthropic Claude native API format.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "claude-3-5-sonnet-20241022",
+                      "max_tokens": 1024,
+                      "messages":[
+                        {
+                          "role": "user",
+                          "content": "Hello, Claude! How are you today?"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned Claude response.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "msg_123",
+                        "type": "message",
+                        "role": "assistant",
+                        "content":[
+                          {
+                            "type": "text",
+                            "text": "Hello! I'm doing well, thank you for asking."
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/chat/completions/reverse": {
+             "post": {
+              "operationId": "createImageReverse",
+              "tags": ["Reverse APIs"],
+              "summary": "Generate Image (GPT Image)",
+              "description": "Generate images using reverse-engineered GPT Image models.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "gpt-image-1.5",
+                      "messages":[
+                        { "role": "user", "content": "A cute cat" }
+                      ],
+                      "size": "360x360"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully generated image.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "created": 1713833628,
+                        "data":[
+                          {
+                            "url": "https://api.dazeai.com/images/cat.png"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/videos": {
+            "post": {
+              "operationId": "createVideoReverse",
+              "tags": ["Reverse APIs"],
+              "summary": "Generate Video (Sora)",
+              "description": "Generate videos using reverse-engineered Sora model.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "prompt": "A cute cat playing with a ball",
+                      "model": "sora-2",
+                      "seconds": "10",
+                      "size": "720x1280"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully generated video.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "video_abc123",
+                        "object": "video",
+                        "model": "sora-2",
+                        "status": "completed",
+                        "url": "https://api.dazeai.com/videos/video_abc123.mp4"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+
+      // 2. Initialize Scalar API Reference
+      Scalar.createApiReference('#app', {
+        spec: {
+          content: apiSpec,
+        },
+        theme: 'alternate',             
+        layout: 'modern',               
+        hideClientButton: true,         
+        defaultOpenAllTags: true,       
+        showSidebar: true,              
+        operationTitleSource: 'summary',
+        persistAuth: false,             
+        searchHotKey: 'k',              
+        hideModels: true,               
+        documentDownloadType: 'both',   
+        hideTestRequestButton: false,   
+        hideSearch: false,              
+        hideDarkModeToggle: false,      
+        withDefaultFonts: true,         
+        orderSchemaPropertiesBy: 'alpha', 
+        orderRequiredPropertiesFirst: true, 
+        
+        // Disable Agent AI features
+        agent: {
+          disabled: true,               
+        },
+        
+        // Advanced developer options
+        showToolbar: 'localhost',
+        telemetry: false,               
+        isEditable: false,
+        isLoading: false,
+        showOperationId: false,
+        expandAllModelSections: false,
+        expandAllResponses: true,
+      })
+    </script>
+  </body>
+</html>

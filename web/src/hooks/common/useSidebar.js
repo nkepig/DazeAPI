@@ -26,19 +26,6 @@ const sidebarEventTarget = new EventTarget();
 const SIDEBAR_REFRESH_EVENT = 'sidebar-refresh';
 
 export const DEFAULT_ADMIN_CONFIG = {
-  chat: {
-    enabled: true,
-    playground: true,
-    chat: true,
-  },
-  console: {
-    enabled: true,
-    detail: true,
-    token: true,
-    log: true,
-    midjourney: true,
-    task: true,
-  },
   personal: {
     enabled: true,
     topup: true,
@@ -47,11 +34,6 @@ export const DEFAULT_ADMIN_CONFIG = {
   admin: {
     enabled: true,
     channel: true,
-    models: true,
-    deployment: true,
-    redemption: true,
-    user: true,
-    subscription: true,
     setting: true,
   },
 };
@@ -62,15 +44,15 @@ export const mergeAdminConfig = (savedConfig) => {
   const merged = deepClone(DEFAULT_ADMIN_CONFIG);
   if (!savedConfig || typeof savedConfig !== 'object') return merged;
 
-  for (const [sectionKey, sectionConfig] of Object.entries(savedConfig)) {
+  for (const sectionKey of Object.keys(DEFAULT_ADMIN_CONFIG)) {
+    const sectionConfig = savedConfig[sectionKey];
     if (!sectionConfig || typeof sectionConfig !== 'object') continue;
 
-    if (!merged[sectionKey]) {
-      merged[sectionKey] = { ...sectionConfig };
-      continue;
+    for (const moduleKey of Object.keys(merged[sectionKey])) {
+      if (Object.prototype.hasOwnProperty.call(sectionConfig, moduleKey)) {
+        merged[sectionKey][moduleKey] = sectionConfig[moduleKey];
+      }
     }
-
-    merged[sectionKey] = { ...merged[sectionKey], ...sectionConfig };
   }
 
   return merged;

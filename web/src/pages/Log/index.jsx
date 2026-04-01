@@ -18,12 +18,26 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import UsageLogsTable from '../../components/table/usage-logs';
 
-const Token = () => (
-  <div className='mt-[60px] px-2'>
-    <UsageLogsTable />
-  </div>
-);
+const Log = () => {
+  const { t } = useTranslation();
+  return (
+    <div className='px-6 lg:px-10 py-8'>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className='mb-6'
+      >
+        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('使用日志')}</h1>
+        <p className='text-[13px] text-[#999] mt-1'>{t('查看 API 调用记录和使用统计')}</p>
+      </motion.div>
+      <UsageLogsTable />
+    </div>
+  );
+};
 
-export default Token;
+export default Log;

@@ -27,11 +27,9 @@ const UsersActions = ({ setShowAddUser, t }) => {
   };
 
   return (
-    <div className='flex gap-2 w-full md:w-auto order-2 md:order-1'>
-      <Button className='w-full md:w-auto' onClick={handleAddUser} size='small'>
-        {t('添加用户')}
-      </Button>
-    </div>
+    <Button onClick={handleAddUser} size='small' className='shrink-0'>
+      {t('添加用户')}
+    </Button>
   );
 };
 

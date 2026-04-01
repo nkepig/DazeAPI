@@ -148,6 +148,31 @@ const renderTagType = (t) => {
   );
 };
 
+const STATUS_STYLES = {
+  1: { background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' },
+  2: { background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3' },
+  3: { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' },
+  default: { background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' },
+};
+
+const StatusBadge = ({ status, children }) => {
+  const style = STATUS_STYLES[status] || STATUS_STYLES.default;
+  return (
+    <span style={{
+      ...style,
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '2px 10px',
+      borderRadius: '9999px',
+      fontSize: '12px',
+      fontWeight: 500,
+      whiteSpace: 'nowrap',
+    }}>
+      {children}
+    </span>
+  );
+};
+
 const renderStatus = (status, channelInfo = undefined, t) => {
   if (channelInfo) {
     if (channelInfo.is_multi_key) {
@@ -162,58 +187,26 @@ const renderStatus = (status, channelInfo = undefined, t) => {
   }
   switch (status) {
     case 1:
-      return (
-        <Tag color='green' shape='circle'>
-          {t('已启用')}
-        </Tag>
-      );
+      return <StatusBadge status={1}>{t('已启用')}</StatusBadge>;
     case 2:
-      return (
-        <Tag color='red' shape='circle'>
-          {t('已禁用')}
-        </Tag>
-      );
+      return <StatusBadge status={2}>{t('已禁用')}</StatusBadge>;
     case 3:
-      return (
-        <Tag color='yellow' shape='circle'>
-          {t('自动禁用')}
-        </Tag>
-      );
+      return <StatusBadge status={3}>{t('自动禁用')}</StatusBadge>;
     default:
-      return (
-        <Tag color='grey' shape='circle'>
-          {t('未知状态')}
-        </Tag>
-      );
+      return <StatusBadge status={0}>{t('未知状态')}</StatusBadge>;
   }
 };
 
 const renderMultiKeyStatus = (status, keySize, enabledKeySize, t) => {
   switch (status) {
     case 1:
-      return (
-        <Tag color='green' shape='circle'>
-          {t('已启用')} {enabledKeySize}/{keySize}
-        </Tag>
-      );
+      return <StatusBadge status={1}>{t('已启用')} {enabledKeySize}/{keySize}</StatusBadge>;
     case 2:
-      return (
-        <Tag color='red' shape='circle'>
-          {t('已禁用')} {enabledKeySize}/{keySize}
-        </Tag>
-      );
+      return <StatusBadge status={2}>{t('已禁用')} {enabledKeySize}/{keySize}</StatusBadge>;
     case 3:
-      return (
-        <Tag color='yellow' shape='circle'>
-          {t('自动禁用')} {enabledKeySize}/{keySize}
-        </Tag>
-      );
+      return <StatusBadge status={3}>{t('自动禁用')} {enabledKeySize}/{keySize}</StatusBadge>;
     default:
-      return (
-        <Tag color='grey' shape='circle'>
-          {t('未知状态')} {enabledKeySize}/{keySize}
-        </Tag>
-      );
+      return <StatusBadge status={0}>{t('未知状态')} {enabledKeySize}/{keySize}</StatusBadge>;
   }
 };
 
@@ -333,6 +326,10 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.ID,
       title: t('ID'),
       dataIndex: 'id',
+      render: (text, record) => {
+        const color = record.status === 2 ? '#ef4444' : record.status === 3 ? '#f59e0b' : undefined;
+        return <span style={color ? { color } : undefined}>{text}</span>;
+      },
     },
     {
       key: COLUMN_KEYS.NAME,
@@ -348,6 +345,9 @@ export const getChannelsColumns = ({
           upstreamUpdateMeta.supported &&
           upstreamUpdateMeta.enabled &&
           (pendingAddCount > 0 || pendingRemoveCount > 0);
+        const nameColor =
+          record.status === 2 ? '#ef4444' : record.status === 3 ? '#f59e0b' : undefined;
+        const nameStyle = nameColor ? { color: nameColor, fontWeight: 500 } : undefined;
         const nameNode =
           record.remark && record.remark.trim() !== '' ? (
             <Tooltip
@@ -377,10 +377,10 @@ export const getChannelsColumns = ({
               trigger='hover'
               position='topLeft'
             >
-              <span>{text}</span>
+              <span style={nameStyle}>{text}</span>
             </Tooltip>
           ) : (
-            <span>{text}</span>
+            <span style={nameStyle}>{text}</span>
           );
 
         if (!passThroughEnabled && !showUpstreamUpdateTag) {

@@ -907,21 +907,16 @@ export const createCardProPagination = ({
 
   const start = (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, total);
-  const totalText = `${t('显示第')} ${start} ${t('条 - 第')} ${end} ${t('条，共')} ${total} ${t('条')}`;
+  const totalText = `${start}–${end} / ${total}`;
 
   return (
     <>
-      {/* 桌面端左侧总数信息 */}
       {!isMobile && (
-        <span
-          className='text-sm select-none'
-          style={{ color: 'var(--semi-color-text-2)' }}
-        >
+        <span className='text-[12px] text-[#bbb] font-medium select-none tabular-nums'>
           {totalText}
         </span>
       )}
 
-      {/* 右侧分页控件 */}
       <Pagination
         currentPage={currentPage}
         pageSize={pageSize}

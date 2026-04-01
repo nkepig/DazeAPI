@@ -94,8 +94,12 @@ const ChannelsPage = () => {
       <CardPro
         type='type3'
         tabsArea={<ChannelsTabs {...channelsData} />}
-        actionsArea={<ChannelsActions {...channelsData} />}
-        searchArea={<ChannelsFilters {...channelsData} />}
+        searchArea={
+          <div className='flex items-center gap-2 w-full flex-wrap'>
+            <ChannelsFilters {...channelsData} />
+            <ChannelsActions {...channelsData} />
+          </div>
+        }
         paginationArea={createCardProPagination({
           currentPage: channelsData.activePage,
           pageSize: channelsData.pageSize,

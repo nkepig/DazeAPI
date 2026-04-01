@@ -29,7 +29,6 @@ const TokensFilters = ({
   searching,
   t,
 }) => {
-  // Handle form reset and immediate search
   const formApiRef = useRef(null);
 
   const handleReset = () => {
@@ -53,52 +52,31 @@ const TokensFilters = ({
       layout='horizontal'
       trigger='change'
       stopValidateWithError={false}
-      className='w-full md:w-auto order-1 md:order-2'
+      className='flex items-center gap-2 flex-wrap'
     >
-      <div className='flex flex-col md:flex-row items-center gap-2 w-full md:w-auto'>
-        <div className='relative w-full md:w-56'>
-          <Form.Input
-            field='searchKeyword'
-            prefix={<IconSearch />}
-            placeholder={t('搜索关键字')}
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-
-        <div className='relative w-full md:w-56'>
-          <Form.Input
-            field='searchToken'
-            prefix={<IconSearch />}
-            placeholder={t('密钥')}
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-
-        <div className='flex gap-2 w-full md:w-auto'>
-          <Button
-            type='tertiary'
-            htmlType='submit'
-            loading={loading || searching}
-            className='flex-1 md:flex-initial md:w-auto'
-            size='small'
-          >
-            {t('查询')}
-          </Button>
-
-          <Button
-            type='tertiary'
-            onClick={handleReset}
-            className='flex-1 md:flex-initial md:w-auto'
-            size='small'
-          >
-            {t('重置')}
-          </Button>
-        </div>
+      <div className='w-40'>
+        <Form.Input
+          field='searchKeyword'
+          prefix={<IconSearch />}
+          placeholder={t('搜索令牌名称')}
+          showClear
+          pure
+          size='small'
+        />
       </div>
+      <Button
+        size='small'
+        htmlType='submit'
+        loading={loading || searching}
+      >
+        {t('查询')}
+      </Button>
+      <Button
+        size='small'
+        onClick={handleReset}
+      >
+        {t('重置')}
+      </Button>
     </Form>
   );
 };

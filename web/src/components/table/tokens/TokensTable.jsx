@@ -36,45 +36,31 @@ const TokensTable = (tokensData) => {
     compactMode,
     handlePageChange,
     handlePageSizeChange,
-    rowSelection,
     handleRow,
-    showKeys,
-    resolvedTokenKeys,
     loadingTokenKeys,
-    toggleTokenVisibility,
     copyTokenKey,
     manageToken,
-    onOpenLink,
     setEditingToken,
     setShowEdit,
     refresh,
     t,
   } = tokensData;
 
-  // Get all columns
   const columns = useMemo(() => {
     return getTokensColumns({
       t,
-      showKeys,
-      resolvedTokenKeys,
       loadingTokenKeys,
-      toggleTokenVisibility,
       copyTokenKey,
       manageToken,
-      onOpenLink,
       setEditingToken,
       setShowEdit,
       refresh,
     });
   }, [
     t,
-    showKeys,
-    resolvedTokenKeys,
     loadingTokenKeys,
-    toggleTokenVisibility,
     copyTokenKey,
     manageToken,
-    onOpenLink,
     setEditingToken,
     setShowEdit,
     refresh,
@@ -109,7 +95,6 @@ const TokensTable = (tokensData) => {
       }}
       hidePagination={true}
       loading={loading}
-      rowSelection={rowSelection}
       onRow={handleRow}
       empty={
         <Empty

@@ -18,11 +18,23 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import TokensTable from '../../components/table/tokens';
 
 const Token = () => {
+  const { t } = useTranslation();
   return (
-    <div className='mt-[60px] px-2'>
+    <div className='px-6 lg:px-10 py-8'>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className='mb-6'
+      >
+        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('API 密钥')}</h1>
+        <p className='text-[13px] text-[#999] mt-1'>{t('管理你的 API 密钥，控制访问权限')}</p>
+      </motion.div>
       <TokensTable />
     </div>
   );
