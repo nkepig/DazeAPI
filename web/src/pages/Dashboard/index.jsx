@@ -1,13 +1,11 @@
-import React, { useContext, useEffect, useState, useCallback } from 'react';
+import React, { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import {
-  Zap, Activity, Wallet, Layers, Clock, CheckCircle2, XCircle,
-} from 'lucide-react';
+import { Zap, Activity, Wallet, Building2 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { API, isAdmin } from '../../helpers';
+import { API, isAdmin, renderQuota } from '../../helpers';
 import { UserContext } from '../../context/User';
 
 const fadeUp = {
@@ -18,7 +16,7 @@ const fadeUp = {
   }),
 };
 
-function CountUp({ end, duration = 1200, prefix = '', suffix = '' }) {
+function CountUp({ end, duration = 1200, prefix = '', suffix = '', formatter }) {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (end === 0) { setVal(0); return; }
@@ -30,6 +28,7 @@ function CountUp({ end, duration = 1200, prefix = '', suffix = '' }) {
     };
     requestAnimationFrame(step);
   }, [end, duration]);
+  if (formatter) return <>{formatter(val)}</>;
   return <>{prefix}{val.toLocaleString()}{suffix}</>;
 }
 
@@ -40,23 +39,31 @@ function getGreeting() {
   return '晚上好';
 }
 
-function CustomTooltip({ active, payload, label }) {
+function ChartTooltip({ active, payload, label, metric: metricType }) {
   if (!active || !payload?.length) return null;
+  const val = payload[0].value;
+  const display = metricType === 'quota' ? renderQuota(val) : `${val?.toLocaleString()} 次`;
   return (
     <div className='bg-white border border-[#EBEBEB] rounded-lg shadow-sm px-3 py-2'>
       <p className='text-[11px] text-[#999] mb-0.5'>{label}</p>
-      <p className='text-sm font-semibold text-[#1A1A1A]'>{payload[0].value?.toLocaleString()} 次</p>
+      <p className='text-sm font-semibold text-[#1A1A1A]'>{display}</p>
     </div>
   );
 }
 
+const CHART_COLORS = [
+  '#1A1A1A', '#6366f1', '#0891b2', '#16a34a', '#ea580c',
+  '#e11d48', '#9333ea', '#d97706', '#0d9488', '#2563eb',
+];
+
 const Dashboard = () => {
   const { t } = useTranslation();
   const [userState] = useContext(UserContext);
-  const [stats, setStats] = useState({ tokens: 0, requests: 0, balance: 0, models: 0 });
-  const [chartData, setChartData] = useState([]);
-  const [recentLogs, setRecentLogs] = useState([]);
+  const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, vendors: 0 });
+  const [rawData, setRawData] = useState([]);
   const [chartRange, setChartRange] = useState(7);
+  const [metric, setMetric] = useState('quota');
+  const [selectedModel, setSelectedModel] = useState('all');
   const [loading, setLoading] = useState(true);
 
   const username = userState?.user?.display_name || userState?.user?.username || '';
@@ -64,25 +71,43 @@ const Dashboard = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const endpoint = isAdmin() ? '/api/data/' : '/api/data/self/';
-      const [dataRes, logRes] = await Promise.all([
-        API.get(endpoint),
-        API.get(isAdmin() ? '/api/log/?p=0&page_size=8' : '/api/log/self/?p=0&page_size=8'),
+      const now = Math.floor(Date.now() / 1000);
+      const todayStart = now - (now % 86400);
+      const rangeStart = todayStart - chartRange * 86400;
+
+      const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
+      const sep = endpoint.includes('?') ? '&' : '?';
+
+      const [dataRes, pricingRes] = await Promise.all([
+        API.get(`${endpoint}${sep}start_timestamp=${rangeStart}&end_timestamp=${now}`),
+        API.get('/api/pricing'),
       ]);
+
       if (dataRes.data.success) {
-        const d = dataRes.data.data;
-        setStats({
-          tokens: d?.token_used_today || d?.totalTokens || 0,
-          requests: d?.request_count_today || d?.totalCount || 0,
-          balance: userState?.user?.quota || 0,
-          models: d?.model_count || 0,
+        const records = dataRes.data.data || [];
+        setRawData(records);
+
+        let todayQuota = 0;
+        let todayCount = 0;
+        records.forEach((r) => {
+          if (r.created_at >= todayStart) {
+            todayQuota += r.quota || 0;
+            todayCount += r.count || 0;
+          }
         });
-        if (d?.chart_data || d?.chartData) {
-          setChartData((d.chart_data || d.chartData || []).slice(-chartRange));
+
+        let vendorCount = 0;
+        if (pricingRes.data.success) {
+          const vendors = pricingRes.data.vendors || [];
+          vendorCount = vendors.filter((v) => v.name && v.name !== '').length;
         }
-      }
-      if (logRes.data.success) {
-        setRecentLogs((logRes.data.data || []).slice(0, 8));
+
+        setStats({
+          quota: todayQuota,
+          requests: todayCount,
+          balance: userState?.user?.quota || 0,
+          vendors: vendorCount,
+        });
       }
     } catch (e) {
       console.error('Dashboard load failed:', e);
@@ -93,16 +118,54 @@ const Dashboard = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const modelNames = useMemo(() => {
+    const totals = {};
+    rawData.forEach((r) => {
+      if (!r.model_name) return;
+      totals[r.model_name] = (totals[r.model_name] || 0) + (r.quota || 0);
+    });
+    return Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+  }, [rawData]);
+
+  const chartData = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000);
+    const todayStart = now - (now % 86400);
+    const rangeStart = todayStart - (chartRange - 1) * 86400;
+
+    const dayMap = {};
+    for (let d = 0; d < chartRange; d++) {
+      const ts = rangeStart + d * 86400;
+      const date = new Date(ts * 1000);
+      const label = `${date.getMonth() + 1}/${date.getDate()}`;
+      dayMap[label] = { date: label, count: 0, quota: 0 };
+    }
+
+    const filtered = selectedModel === 'all' ? rawData : rawData.filter((r) => r.model_name === selectedModel);
+
+    filtered.forEach((r) => {
+      const date = new Date(r.created_at * 1000);
+      const label = `${date.getMonth() + 1}/${date.getDate()}`;
+      if (dayMap[label]) {
+        dayMap[label].count += r.count || 0;
+        dayMap[label].quota += r.quota || 0;
+      }
+    });
+
+    return Object.values(dayMap);
+  }, [rawData, chartRange, selectedModel]);
+
   const today = new Date().toLocaleDateString('zh-CN', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
 
   const statItems = [
-    { icon: Zap, label: t('今日 Token 消耗'), value: stats.tokens },
+    { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v) },
     { icon: Activity, label: t('今日请求次数'), value: stats.requests },
-    { icon: Wallet, label: t('账户余额'), value: stats.balance, prefix: '$' },
-    { icon: Layers, label: t('可用模型数量'), value: stats.models },
+    { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v) },
+    { icon: Building2, label: t('支持供应商'), value: stats.vendors },
   ];
+
+  const dataKey = metric;
 
   return (
     <div className='px-6 lg:px-10 py-8'>
@@ -112,7 +175,7 @@ const Dashboard = () => {
         <p className='text-[13px] text-[#999] mt-1'>{today}</p>
       </motion.div>
 
-      {/* Stats — flat, no card container */}
+      {/* Stats */}
       <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 mb-10 pb-8 border-b border-[#F0F0F0]'>
         {statItems.map((item, i) => {
           const Icon = item.icon;
@@ -123,33 +186,111 @@ const Dashboard = () => {
                 <span className='text-[12px] text-[#999] font-medium'>{item.label}</span>
               </div>
               <p className='text-[26px] font-semibold text-[#1A1A1A] leading-tight'>
-                <CountUp end={item.value} prefix={item.prefix || ''} />
+                {item.formatter
+                  ? <CountUp end={item.value} formatter={item.formatter} />
+                  : <CountUp end={item.value} />
+                }
               </p>
             </motion.div>
           );
         })}
       </div>
 
-      {/* Chart — flat, no card */}
-      <motion.div custom={4} variants={fadeUp} initial='hidden' animate='show' className='mb-10 pb-8 border-b border-[#F0F0F0]'>
-        <div className='flex items-center justify-between mb-4'>
+      {/* Chart */}
+      <motion.div custom={4} variants={fadeUp} initial='hidden' animate='show'>
+        {/* Controls Row */}
+        <div className='flex items-center justify-between mb-4 flex-wrap gap-3'>
           <h2 className='text-[15px] font-medium text-[#1A1A1A]'>{t('调用趋势')}</h2>
-          <div className='flex gap-1'>
-            {[7, 30].map((d) => (
+          <div className='flex items-center gap-3'>
+            {/* Metric toggle: 次数 / 花费 */}
+            <div className='flex rounded-lg overflow-hidden border border-[#ebebeb]'>
+              {[
+                { key: 'count', label: t('次数') },
+                { key: 'quota', label: t('花费') },
+              ].map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setMetric(m.key)}
+                  style={{
+                    padding: '4px 14px',
+                    fontSize: '12px',
+                    fontWeight: metric === m.key ? 600 : 400,
+                    background: metric === m.key ? '#1A1A1A' : '#fff',
+                    color: metric === m.key ? '#fff' : '#999',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {/* Day range */}
+            <div className='flex gap-1'>
+              {[7, 30].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setChartRange(d)}
+                  className='cursor-pointer transition-colors border-0 outline-none'
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: chartRange === d ? 600 : 400,
+                    background: chartRange === d ? '#f5f5f5' : 'transparent',
+                    color: chartRange === d ? '#1A1A1A' : '#ccc',
+                  }}
+                >
+                  {d}{t('日')}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Model pills */}
+        {modelNames.length > 0 && (
+          <div className='flex gap-1.5 flex-wrap mb-4 pb-4 border-b border-[#f5f5f5]'>
+            <button
+              onClick={() => setSelectedModel('all')}
+              className='transition-all duration-150 cursor-pointer border-0 outline-none'
+              style={{
+                padding: '3px 10px',
+                borderRadius: '9999px',
+                fontSize: '11px',
+                fontWeight: selectedModel === 'all' ? 600 : 400,
+                background: selectedModel === 'all' ? '#1A1A1A' : '#f5f5f5',
+                color: selectedModel === 'all' ? '#fff' : '#888',
+              }}
+            >
+              {t('全部模型')}
+            </button>
+            {modelNames.map((name, i) => (
               <button
-                key={d}
-                onClick={() => setChartRange(d)}
-                className={`px-3 py-1 text-xs font-medium rounded-md cursor-pointer transition-colors border ${
-                  chartRange === d ? 'text-[#1A1A1A] border-[#1A1A1A] bg-white' : 'text-[#C8C8C8] border-[#EBEBEB] bg-white hover:bg-[#F5F5F5]'
-                }`}
+                key={name}
+                onClick={() => setSelectedModel(name)}
+                className='transition-all duration-150 cursor-pointer border-0 outline-none'
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '11px',
+                  fontWeight: selectedModel === name ? 600 : 400,
+                  background: selectedModel === name ? (CHART_COLORS[i % CHART_COLORS.length]) : '#f5f5f5',
+                  color: selectedModel === name ? '#fff' : '#888',
+                }}
               >
-                {d}{t('日')}
+                {name}
               </button>
             ))}
           </div>
-        </div>
-        <div className='h-[240px]'>
-          {chartData.length > 0 ? (
+        )}
+
+        {/* Chart area */}
+        <div className='h-[280px]'>
+          {loading ? (
+            <div className='skeleton w-full h-full rounded-lg' />
+          ) : chartData.some((d) => d[dataKey] > 0) ? (
             <ResponsiveContainer width='100%' height='100%'>
               <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <defs>
@@ -160,70 +301,28 @@ const Dashboard = () => {
                 </defs>
                 <CartesianGrid strokeDasharray='3 3' stroke='#F0F0F0' />
                 <XAxis dataKey='date' tick={{ fontSize: 11, fill: '#C8C8C8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#C8C8C8' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type='monotone' dataKey='count' stroke='#1A1A1A' strokeWidth={1.5} fill='url(#fillGrad)' />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#C8C8C8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={metric === 'quota' ? (v) => renderQuota(v) : undefined}
+                />
+                <Tooltip content={<ChartTooltip metric={metric} />} />
+                <Area
+                  type='monotone'
+                  dataKey={dataKey}
+                  stroke={selectedModel === 'all' ? '#1A1A1A' : CHART_COLORS[modelNames.indexOf(selectedModel) % CHART_COLORS.length]}
+                  strokeWidth={1.5}
+                  fill='url(#fillGrad)'
+                />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
-              {loading ? <div className='skeleton w-full h-full' /> : t('暂无数据')}
+              {t('暂无数据')}
             </div>
           )}
         </div>
-      </motion.div>
-
-      {/* Recent Logs — flat table */}
-      <motion.div custom={5} variants={fadeUp} initial='hidden' animate='show'>
-        <h2 className='text-[15px] font-medium text-[#1A1A1A] mb-4'>{t('最近调用')}</h2>
-        {loading ? (
-          <div className='space-y-3'>{[...Array(4)].map((_, i) => <div key={i} className='skeleton h-10 w-full' />)}</div>
-        ) : recentLogs.length > 0 ? (
-          <div className='overflow-x-auto'>
-            <table className='w-full text-sm'>
-              <thead>
-                <tr className='border-b border-[#F0F0F0]'>
-                  <th className='text-left py-2.5 text-[11px] font-medium text-[#C8C8C8] uppercase tracking-wider'>{t('模型')}</th>
-                  <th className='text-left py-2.5 text-[11px] font-medium text-[#C8C8C8] uppercase tracking-wider'>{t('时间')}</th>
-                  <th className='text-right py-2.5 text-[11px] font-medium text-[#C8C8C8] uppercase tracking-wider'>Tokens</th>
-                  <th className='text-right py-2.5 text-[11px] font-medium text-[#C8C8C8] uppercase tracking-wider'>{t('状态')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentLogs.map((log, i) => (
-                  <tr key={log.id || i} className='border-b border-[#F0F0F0] last:border-0 hover:bg-[#FAFAFA] transition-colors'>
-                    <td className='py-3 font-medium text-[#1A1A1A]'>{log.model_name || log.model || '-'}</td>
-                    <td className='py-3 text-[#999]'>
-                      <span className='flex items-center gap-1'>
-                        <Clock size={12} strokeWidth={1.5} />
-                        {log.created_at ? new Date(log.created_at * 1000).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </span>
-                    </td>
-                    <td className='py-3 text-right text-[#1A1A1A] tabular-nums'>
-                      {(log.prompt_tokens || 0) + (log.completion_tokens || 0)}
-                    </td>
-                    <td className='py-3 text-right'>
-                      {log.code === 200 || log.type === 2 ? (
-                        <span className='inline-flex items-center gap-1 text-[11px] font-medium text-[#1A1A1A]'>
-                          <CheckCircle2 size={12} strokeWidth={1.5} /> {t('成功')}
-                        </span>
-                      ) : (
-                        <span className='inline-flex items-center gap-1 text-[11px] font-medium text-[#C8C8C8]'>
-                          <XCircle size={12} strokeWidth={1.5} /> {t('失败')}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className='flex flex-col items-center justify-center py-16 text-[#C8C8C8]'>
-            <Activity size={36} strokeWidth={1} className='mb-3' />
-            <p className='text-sm text-[#999]'>{t('暂无调用记录')}</p>
-          </div>
-        )}
       </motion.div>
     </div>
   );

@@ -93,51 +93,45 @@ function buildChannelAffinityTooltip(affinity, t) {
   );
 }
 
+const LOG_TYPE_STYLES = {
+  1: { background: '#ecfeff', color: '#0891b2', border: '1px solid #a5f3fc' },   // 充值 - cyan
+  2: { background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' },   // 消费 - green
+  3: { background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa' },   // 管理 - orange
+  4: { background: '#faf5ff', color: '#9333ea', border: '1px solid #e9d5ff' },   // 系统 - purple
+  5: { background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3' },   // 错误 - red
+  6: { background: '#f0fdfa', color: '#0d9488', border: '1px solid #99f6e4' },   // 退款 - teal
+};
+
+const LOG_TYPE_DEFAULT = { background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' };
+
+const LogTypeBadge = ({ type, children }) => {
+  const style = LOG_TYPE_STYLES[type] || LOG_TYPE_DEFAULT;
+  return (
+    <span style={{
+      ...style,
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '2px 10px',
+      borderRadius: '9999px',
+      fontSize: '12px',
+      fontWeight: 500,
+      whiteSpace: 'nowrap',
+    }}>
+      {children}
+    </span>
+  );
+};
+
 // Render functions
 function renderType(type, t) {
   switch (type) {
-    case 1:
-      return (
-        <Tag color='cyan' shape='circle'>
-          {t('充值')}
-        </Tag>
-      );
-    case 2:
-      return (
-        <Tag color='lime' shape='circle'>
-          {t('消费')}
-        </Tag>
-      );
-    case 3:
-      return (
-        <Tag color='orange' shape='circle'>
-          {t('管理')}
-        </Tag>
-      );
-    case 4:
-      return (
-        <Tag color='purple' shape='circle'>
-          {t('系统')}
-        </Tag>
-      );
-    case 5:
-      return (
-        <Tag color='red' shape='circle'>
-          {t('错误')}
-        </Tag>
-      );
-    case 6:
-      return (
-        <Tag color='teal' shape='circle'>
-          {t('退款')}
-        </Tag>
-      );
-    default:
-      return (
-        <Tag color='grey' shape='circle'>
-          {t('未知')}
-        </Tag>
-      );
+    case 1: return <LogTypeBadge type={1}>{t('充值')}</LogTypeBadge>;
+    case 2: return <LogTypeBadge type={2}>{t('消费')}</LogTypeBadge>;
+    case 3: return <LogTypeBadge type={3}>{t('管理')}</LogTypeBadge>;
+    case 4: return <LogTypeBadge type={4}>{t('系统')}</LogTypeBadge>;
+    case 5: return <LogTypeBadge type={5}>{t('错误')}</LogTypeBadge>;
+    case 6: return <LogTypeBadge type={6}>{t('退款')}</LogTypeBadge>;
+    default: return <LogTypeBadge type={0}>{t('未知')}</LogTypeBadge>;
   }
 }
 
