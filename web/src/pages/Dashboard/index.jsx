@@ -56,14 +56,17 @@ const CHART_COLORS = [
   '#e11d48', '#9333ea', '#d97706', '#0d9488', '#2563eb',
 ];
 
+const TOP_MODEL_COUNT = 5;
+
 const Dashboard = () => {
   const { t } = useTranslation();
   const [userState] = useContext(UserContext);
   const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, vendors: 0 });
   const [rawData, setRawData] = useState([]);
-  const [chartRange, setChartRange] = useState(7);
+  const [chartRange, setChartRange] = useState(1);
   const [metric, setMetric] = useState('quota');
   const [selectedModel, setSelectedModel] = useState('all');
+  const [showAllModels, setShowAllModels] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const username = userState?.user?.display_name || userState?.user?.username || '';
@@ -73,7 +76,7 @@ const Dashboard = () => {
     try {
       const now = Math.floor(Date.now() / 1000);
       const todayStart = now - (now % 86400);
-      const rangeStart = todayStart - chartRange * 86400;
+      const rangeStart = chartRange === 1 ? todayStart : todayStart - chartRange * 86400;
 
       const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
       const sep = endpoint.includes('?') ? '&' : '?';
@@ -127,11 +130,42 @@ const Dashboard = () => {
     return Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
   }, [rawData]);
 
+  // Pills shown: top 5 or all
+  const visibleModelNames = showAllModels ? modelNames : modelNames.slice(0, TOP_MODEL_COUNT);
+  const hiddenCount = modelNames.length - TOP_MODEL_COUNT;
+
+  const handleCollapseModels = () => {
+    setShowAllModels(false);
+    // If the currently selected model is no longer visible, reset to 'all'
+    if (modelNames.indexOf(selectedModel) >= TOP_MODEL_COUNT) {
+      setSelectedModel('all');
+    }
+  };
+
   const chartData = useMemo(() => {
     const now = Math.floor(Date.now() / 1000);
     const todayStart = now - (now % 86400);
-    const rangeStart = todayStart - (chartRange - 1) * 86400;
+    const filtered = selectedModel === 'all' ? rawData : rawData.filter((r) => r.model_name === selectedModel);
 
+    if (chartRange === 1) {
+      // Hourly buckets for today (0–23)
+      const hourMap = Array.from({ length: 24 }, (_, h) => ({
+        date: `${h}:00`,
+        count: 0,
+        quota: 0,
+      }));
+      filtered.forEach((r) => {
+        if (r.created_at >= todayStart) {
+          const h = new Date(r.created_at * 1000).getHours();
+          hourMap[h].count += r.count || 0;
+          hourMap[h].quota += r.quota || 0;
+        }
+      });
+      return hourMap;
+    }
+
+    // Daily buckets
+    const rangeStart = todayStart - (chartRange - 1) * 86400;
     const dayMap = {};
     for (let d = 0; d < chartRange; d++) {
       const ts = rangeStart + d * 86400;
@@ -139,9 +173,6 @@ const Dashboard = () => {
       const label = `${date.getMonth() + 1}/${date.getDate()}`;
       dayMap[label] = { date: label, count: 0, quota: 0 };
     }
-
-    const filtered = selectedModel === 'all' ? rawData : rawData.filter((r) => r.model_name === selectedModel);
-
     filtered.forEach((r) => {
       const date = new Date(r.created_at * 1000);
       const label = `${date.getMonth() + 1}/${date.getDate()}`;
@@ -150,7 +181,6 @@ const Dashboard = () => {
         dayMap[label].quota += r.quota || 0;
       }
     });
-
     return Object.values(dayMap);
   }, [rawData, chartRange, selectedModel]);
 
@@ -228,7 +258,7 @@ const Dashboard = () => {
             </div>
             {/* Day range */}
             <div className='flex gap-1'>
-              {[7, 30].map((d) => (
+              {[1, 3, 7].map((d) => (
                 <button
                   key={d}
                   onClick={() => setChartRange(d)}
@@ -251,7 +281,7 @@ const Dashboard = () => {
 
         {/* Model pills */}
         {modelNames.length > 0 && (
-          <div className='flex gap-1.5 flex-wrap mb-4 pb-4 border-b border-[#f5f5f5]'>
+          <div className='flex gap-1.5 flex-wrap mb-4 pb-4 border-b border-[#f5f5f5] items-center'>
             <button
               onClick={() => setSelectedModel('all')}
               className='transition-all duration-150 cursor-pointer border-0 outline-none'
@@ -266,7 +296,7 @@ const Dashboard = () => {
             >
               {t('全部模型')}
             </button>
-            {modelNames.map((name, i) => (
+            {visibleModelNames.map((name, i) => (
               <button
                 key={name}
                 onClick={() => setSelectedModel(name)}
@@ -283,16 +313,52 @@ const Dashboard = () => {
                 {name}
               </button>
             ))}
+            {!showAllModels && hiddenCount > 0 && (
+              <button
+                onClick={() => setShowAllModels(true)}
+                className='transition-all duration-150 cursor-pointer border-0 outline-none'
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '11px',
+                  fontWeight: 400,
+                  background: 'transparent',
+                  color: '#aaa',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '2px',
+                }}
+              >
+                +{hiddenCount} {t('更多')}
+              </button>
+            )}
+            {showAllModels && hiddenCount > 0 && (
+              <button
+                onClick={handleCollapseModels}
+                className='transition-all duration-150 cursor-pointer border-0 outline-none'
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '11px',
+                  fontWeight: 400,
+                  background: 'transparent',
+                  color: '#aaa',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '2px',
+                }}
+              >
+                {t('收起')}
+              </button>
+            )}
           </div>
         )}
 
-        {/* Chart area */}
-        <div className='h-[280px]'>
+        {/* Chart area — extra bottom padding so XAxis labels aren't clipped */}
+        <div className='h-[300px]'>
           {loading ? (
             <div className='skeleton w-full h-full rounded-lg' />
           ) : chartData.some((d) => d[dataKey] > 0) ? (
             <ResponsiveContainer width='100%' height='100%'>
-              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 24 }}>
                 <defs>
                   <linearGradient id='fillGrad' x1='0' y1='0' x2='0' y2='1'>
                     <stop offset='0%' stopColor='#E0E0E0' stopOpacity={0.3} />
@@ -300,7 +366,16 @@ const Dashboard = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray='3 3' stroke='#F0F0F0' />
-                <XAxis dataKey='date' tick={{ fontSize: 11, fill: '#C8C8C8' }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey='date'
+                  tick={{ fontSize: 11, fill: '#C8C8C8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={chartRange === 1 ? 5 : 0}
+                  angle={chartRange === 3 ? -30 : 0}
+                  textAnchor={chartRange === 3 ? 'end' : 'middle'}
+                  dy={chartRange === 3 ? 4 : 6}
+                />
                 <YAxis
                   tick={{ fontSize: 11, fill: '#C8C8C8' }}
                   axisLine={false}
