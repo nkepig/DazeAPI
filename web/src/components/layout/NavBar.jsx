@@ -17,6 +17,7 @@ import {
 import { UserContext } from '../../context/User';
 import { isAdmin, isRoot } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
+import { normalizeLanguage } from '../../i18n/language';
 
 const navItems = [
   { key: 'dashboard', path: '/console/dashboard', icon: LayoutDashboard, label: '控制台' },
@@ -26,7 +27,8 @@ const navItems = [
 ];
 
 const languages = [
-  { code: 'zh', label: '中文' },
+  { code: 'zh-CN', label: '简体中文' },
+  { code: 'zh-TW', label: '繁體中文' },
   { code: 'en', label: 'English' },
   { code: 'ja', label: '日本語' },
   { code: 'fr', label: 'Français' },
@@ -73,20 +75,26 @@ const NavBar = () => {
   };
 
   const switchLang = (code) => {
-    i18n.changeLanguage(code);
-    localStorage.setItem('i18nextLng', code);
+    const normalized = normalizeLanguage(code) || code;
+    i18n.changeLanguage(normalized);
+    localStorage.setItem('i18nextLng', normalized);
     setLangOpen(false);
   };
 
-  const currentLang = languages.find((l) => i18n.language?.startsWith(l.code))?.label || '中文';
+  const activeLang = normalizeLanguage(i18n.language) || 'zh-CN';
+  const currentLang = languages.find((l) => l.code === activeLang)?.label || '简体中文';
 
   return (
     <nav className='fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)] bg-white/80 backdrop-blur-lg'>
       <div className='h-full px-6 lg:px-10 flex items-center justify-between'>
         {/* Logo */}
-        <Link to='/' className='flex items-center gap-2.5 no-underline shrink-0'>
-          <img src='/logo.png' alt='Logo' className='w-8 h-8 rounded-lg' />
-          <span className='text-[18px] font-bold text-[#1A1A1A]'>DazeAI</span>
+        <Link to='/' className='flex items-center gap-3 no-underline shrink-0'>
+          <img
+            src='/logo.png'
+            alt='Logo'
+            className='w-11 h-11 rounded-lg shrink-0 object-contain relative top-[4px]'
+          />
+          <span className='text-[18px] font-bold text-[#1A1A1A] leading-none'>DazeAI</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -164,13 +172,13 @@ const NavBar = () => {
               {currentLang}
             </button>
             {langOpen && (
-              <div className='absolute right-0 top-10 w-36 bg-white rounded-xl border border-[#EBEBEB] shadow-lg py-1 z-50'>
+              <div className='absolute right-0 top-10 w-40 bg-white rounded-xl border border-[#EBEBEB] shadow-lg py-1 z-50'>
                 {languages.map((lang) => (
                   <button
                     key={lang.code}
                     onClick={() => switchLang(lang.code)}
                     className={`w-full text-left px-4 py-2 text-sm cursor-pointer bg-transparent border-0 transition-colors ${
-                      i18n.language?.startsWith(lang.code) ? 'text-[#1A1A1A] font-medium bg-[#F5F5F5]' : 'text-[#999] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]'
+                      activeLang === lang.code ? 'text-[#1A1A1A] font-medium bg-[#F5F5F5]' : 'text-[#999] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]'
                     }`}
                   >
                     {lang.label}
@@ -325,7 +333,7 @@ const NavBar = () => {
                 key={lang.code}
                 onClick={() => { switchLang(lang.code); setMobileOpen(false); }}
                 className={`px-3 py-1.5 text-xs rounded-full cursor-pointer border transition-colors ${
-                  i18n.language?.startsWith(lang.code)
+                  activeLang === lang.code
                     ? 'text-[#1A1A1A] font-medium border-[#1A1A1A] bg-white'
                     : 'text-[#999] border-[#EBEBEB] bg-white hover:bg-[#F5F5F5]'
                 }`}

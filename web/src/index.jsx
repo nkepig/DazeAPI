@@ -15,14 +15,30 @@ import './index.css';
 import { LocaleProvider } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import zh_CN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
+import zh_TW from '@douyinfe/semi-ui/lib/es/locale/source/zh_TW';
 import en_GB from '@douyinfe/semi-ui/lib/es/locale/source/en_GB';
+import ja_JP from '@douyinfe/semi-ui/lib/es/locale/source/ja_JP';
+import fr from '@douyinfe/semi-ui/lib/es/locale/source/fr';
+import ru_RU from '@douyinfe/semi-ui/lib/es/locale/source/ru_RU';
+import vi_VN from '@douyinfe/semi-ui/lib/es/locale/source/vi_VN';
+import { normalizeLanguage } from './i18n/language';
+
+const semiLocaleByI18n = {
+  'zh-CN': zh_CN,
+  'zh-TW': zh_TW,
+  en: en_GB,
+  ja: ja_JP,
+  fr,
+  ru: ru_RU,
+  vi: vi_VN,
+};
 
 function SemiLocaleWrapper({ children }) {
   const { i18n } = useTranslation();
-  const semiLocale = React.useMemo(
-    () => ({ zh: zh_CN, en: en_GB })[i18n.language] || zh_CN,
-    [i18n.language],
-  );
+  const semiLocale = React.useMemo(() => {
+    const lang = normalizeLanguage(i18n.language) || 'zh-CN';
+    return semiLocaleByI18n[lang] || zh_CN;
+  }, [i18n.language]);
   return <LocaleProvider locale={semiLocale}>{children}</LocaleProvider>;
 }
 

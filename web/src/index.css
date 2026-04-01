@@ -256,11 +256,28 @@ body {
 .semi-spin-dot .semi-spin-dot-item {
   background: var(--color-secondary) !important;
 }
-.semi-switch-checked {
-  background-color: #555 !important;
-}
+/* Switch: clear on/off (especially in 设置) */
 .semi-switch {
-  background-color: #e0e0e0 !important;
+  min-width: 44px !important;
+  height: 24px !important;
+  background-color: #e8e8e8 !important;
+  border: 1px solid #c4c4c4 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+}
+.semi-switch-checked {
+  background-color: #16a34a !important;
+  border-color: #15803d !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+}
+.semi-switch-knob {
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18) !important;
+}
+.semi-switch:active:not(.semi-switch-disabled) .semi-switch-knob {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22) !important;
+}
+.semi-switch-disabled {
+  opacity: 0.45 !important;
 }
 .semi-pagination-item-active {
   background-color: #444 !important;

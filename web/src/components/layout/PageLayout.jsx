@@ -39,6 +39,12 @@ const PageLayout = () => {
       if (success) {
         statusDispatch({ type: 'set', payload: data });
         setStatusData(data);
+        document.title = getSystemName();
+        const logo = getLogo();
+        if (logo) {
+          const linkEl = document.querySelector("link[rel~='icon']");
+          if (linkEl) linkEl.href = logo;
+        }
       } else {
         showError('Unable to connect to server');
       }
@@ -49,7 +55,6 @@ const PageLayout = () => {
 
   useEffect(() => {
     loadUser();
-    loadStatus().catch(console.error);
     const systemName = getSystemName();
     if (systemName) document.title = systemName;
     const logo = getLogo();
@@ -57,6 +62,7 @@ const PageLayout = () => {
       const linkEl = document.querySelector("link[rel~='icon']");
       if (linkEl) linkEl.href = logo;
     }
+    loadStatus().catch(console.error);
   }, []);
 
   useEffect(() => {
