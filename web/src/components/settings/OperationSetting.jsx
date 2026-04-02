@@ -20,7 +20,6 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from '@douyinfe/semi-ui';
 import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
-import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensitiveWords';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
@@ -44,22 +43,14 @@ const OperationSetting = () => {
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
 
-    CheckSensitiveEnabled: false,
-    CheckSensitiveOnPromptEnabled: false,
-    SensitiveWords: '',
-
     LogConsumeEnabled: false,
 
-    ChannelDisableThreshold: 0,
     QuotaRemindThreshold: 0,
     AutomaticDisableChannelEnabled: false,
-    AutomaticEnableChannelEnabled: false,
     AutomaticDisableKeywords: '',
     AutomaticDisableStatusCodes: '401',
     AutomaticRetryStatusCodes:
       '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
-    'monitor_setting.auto_test_channel_enabled': false,
-    'monitor_setting.auto_test_channel_minutes': 10,
 
     'token_setting.max_user_tokens': 1000,
   });
@@ -103,9 +94,6 @@ const OperationSetting = () => {
     <Spin spinning={loading} size='large'>
       <Card style={{ marginTop: '10px' }}>
         <SettingsGeneral options={inputs} refresh={onRefresh} />
-      </Card>
-      <Card style={{ marginTop: '10px' }}>
-        <SettingsSensitiveWords options={inputs} refresh={onRefresh} />
       </Card>
       <Card style={{ marginTop: '10px' }}>
         <SettingsLog options={inputs} refresh={onRefresh} />

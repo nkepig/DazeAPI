@@ -61,7 +61,6 @@ import {
 import ModelSelectModal from './ModelSelectModal';
 import SingleModelSelectModal from './SingleModelSelectModal';
 import OllamaModelModal from './OllamaModelModal';
-import ParamOverrideEditorModal from './ParamOverrideEditorModal';
 import JSONEditor from '../../../common/ui/JSONEditor';
 import StatusCodeRiskGuardModal from './StatusCodeRiskGuardModal';
 import {
@@ -73,7 +72,6 @@ import {
   IconClose,
   IconServer,
   IconSetting,
-  IconCode,
   IconCopy,
   IconGlobe,
   IconBolt,
@@ -96,28 +94,6 @@ const REGION_EXAMPLE = {
   'gemini-1.5-pro-002': 'europe-west2',
   'gemini-1.5-flash-002': 'europe-west2',
   'claude-3-5-sonnet-20240620': 'europe-west1',
-};
-
-const PARAM_OVERRIDE_LEGACY_TEMPLATE = {
-  temperature: 0,
-};
-
-const PARAM_OVERRIDE_OPERATIONS_TEMPLATE = {
-  operations: [
-    {
-      path: 'temperature',
-      mode: 'set',
-      value: 0.7,
-      conditions: [
-        {
-          path: 'model',
-          mode: 'prefix',
-          value: 'openai/',
-        },
-      ],
-      logic: 'AND',
-    },
-  ],
 };
 
 const DEPRECATED_DOUBAO_CODING_PLAN_BASE_URL = 'doubao-coding-plan';
@@ -179,23 +155,9 @@ const EditChannelModal = (props) => {
     priority: 0,
     weight: 0,
     tag: '',
-    // 渠道额外设置的默认值
-    force_format: false,
-    thinking_to_content: false,
-    proxy: '',
-    pass_through_body_enabled: false,
-    system_prompt: '',
-    system_prompt_override: false,
     settings: '',
     // 企业账户设置
     is_enterprise_account: false,
-    // 字段透传控制默认值
-    allow_service_tier: false,
-    disable_store: false, // false = 允许透传（默认开启）
-    allow_safety_identifier: false,
-    allow_include_obfuscation: false,
-    allow_inference_geo: false,
-    claude_beta_query: false,
   };
   const [autoBan, setAutoBan] = useState(true);
   const [inputs, setInputs] = useState(originInputs);
@@ -260,67 +222,9 @@ const EditChannelModal = (props) => {
       name: keyword,
     });
   }, [modelSearchMatchedCount, modelSearchValue, t]);
-  const paramOverrideMeta = useMemo(() => {
-    const raw =
-      typeof inputs.param_override === 'string'
-        ? inputs.param_override.trim()
-        : '';
-    if (!raw) {
-      return {
-        tagLabel: t('不更改'),
-        tagColor: 'grey',
-        preview: t(
-          '此项可选，用于覆盖请求参数。不支持覆盖 stream 参数',
-        ),
-      };
-    }
-    if (!verifyJSON(raw)) {
-      return {
-        tagLabel: t('JSON格式错误'),
-        tagColor: 'red',
-        preview: raw,
-      };
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      const pretty = JSON.stringify(parsed, null, 2);
-      if (
-        parsed &&
-        typeof parsed === 'object' &&
-        !Array.isArray(parsed) &&
-        Array.isArray(parsed.operations)
-      ) {
-        return {
-          tagLabel: `${t('新格式模板')} (${parsed.operations.length})`,
-          tagColor: 'cyan',
-          preview: pretty,
-        };
-      }
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return {
-          tagLabel: `${t('旧格式模板')} (${Object.keys(parsed).length})`,
-          tagColor: 'blue',
-          preview: pretty,
-        };
-      }
-      return {
-        tagLabel: t('自定义 JSON'),
-        tagColor: 'orange',
-        preview: pretty,
-      };
-    } catch (error) {
-      return {
-        tagLabel: t('JSON格式错误'),
-        tagColor: 'red',
-        preview: raw,
-      };
-    }
-  }, [inputs.param_override, t]);
   const [isIonetChannel, setIsIonetChannel] = useState(false);
   const [ionetMetadata, setIonetMetadata] = useState(null);
   const [codexCredentialRefreshing, setCodexCredentialRefreshing] =
-    useState(false);
-  const [paramOverrideEditorVisible, setParamOverrideEditorVisible] =
     useState(false);
 
   useEffect(() => {
@@ -382,49 +286,11 @@ const EditChannelModal = (props) => {
     }
   };
 
-  // 渠道额外设置状态
-  const [channelSettings, setChannelSettings] = useState({
-    force_format: false,
-    thinking_to_content: false,
-    proxy: '',
-    pass_through_body_enabled: false,
-    system_prompt: '',
-  });
-  const showApiConfigCard = true; // 控制是否显示 API 配置卡片
-  const getInitValues = () => ({ ...originInputs });
-
-  // 处理渠道额外设置的更新
-  const handleChannelSettingsChange = (key, value) => {
-    // 更新内部状态
-    setChannelSettings((prev) => ({ ...prev, [key]: value }));
-
-    // 同步更新到表单字段
-    if (formApiRef.current) {
-      formApiRef.current.setValue(key, value);
-    }
-
-    // 同步更新inputs状态
-    setInputs((prev) => ({ ...prev, [key]: value }));
-
-    // 生成setting JSON并更新
-    const newSettings = { ...channelSettings, [key]: value };
-    const settingsJson = JSON.stringify(newSettings);
-    handleInputChange('setting', settingsJson);
-  };
-
   const handleChannelOtherSettingsChange = (key, value) => {
-    // 更新内部状态
-    setChannelSettings((prev) => ({ ...prev, [key]: value }));
-
-    // 同步更新到表单字段
     if (formApiRef.current) {
       formApiRef.current.setValue(key, value);
     }
-
-    // 同步更新inputs状态
     setInputs((prev) => ({ ...prev, [key]: value }));
-
-    // 需要更新settings，是一个json，例如{"azure_responses_version": "preview"}
     let settings = {};
     if (inputs.settings) {
       try {
@@ -434,9 +300,11 @@ const EditChannelModal = (props) => {
       }
     }
     settings[key] = value;
-    const settingsJson = JSON.stringify(settings);
-    handleInputChange('settings', settingsJson);
+    handleInputChange('settings', JSON.stringify(settings));
   };
+
+  const showApiConfigCard = true;
+  const getInitValues = () => ({ ...originInputs });
 
   const isIonetLocked = isIonetChannel && isEdit;
 
@@ -538,103 +406,6 @@ const EditChannelModal = (props) => {
     }
   };
 
-  const copyParamOverrideJson = async () => {
-    const raw =
-      typeof inputs.param_override === 'string'
-        ? inputs.param_override.trim()
-        : '';
-    if (!raw) {
-      showInfo(t('暂无可复制 JSON'));
-      return;
-    }
-
-    let content = raw;
-    if (verifyJSON(raw)) {
-      try {
-        content = JSON.stringify(JSON.parse(raw), null, 2);
-      } catch (error) {
-        content = raw;
-      }
-    }
-
-    const ok = await copy(content);
-    if (ok) {
-      showSuccess(t('参数覆盖 JSON 已复制'));
-    } else {
-      showError(t('复制失败'));
-    }
-  };
-
-  const parseParamOverrideInput = () => {
-    const raw =
-      typeof inputs.param_override === 'string'
-        ? inputs.param_override.trim()
-        : '';
-    if (!raw) return null;
-    if (!verifyJSON(raw)) {
-      throw new Error(t('当前参数覆盖不是合法的 JSON'));
-    }
-    return JSON.parse(raw);
-  };
-
-  const applyParamOverrideTemplate = (
-    templateType = 'operations',
-    applyMode = 'fill',
-  ) => {
-    try {
-      const parsedCurrent = parseParamOverrideInput();
-      if (templateType === 'legacy') {
-        if (applyMode === 'fill') {
-          handleInputChange(
-            'param_override',
-            JSON.stringify(PARAM_OVERRIDE_LEGACY_TEMPLATE, null, 2),
-          );
-          return;
-        }
-        const currentLegacy =
-          parsedCurrent &&
-          typeof parsedCurrent === 'object' &&
-          !Array.isArray(parsedCurrent) &&
-          !Array.isArray(parsedCurrent.operations)
-            ? parsedCurrent
-            : {};
-        const merged = {
-          ...PARAM_OVERRIDE_LEGACY_TEMPLATE,
-          ...currentLegacy,
-        };
-        handleInputChange('param_override', JSON.stringify(merged, null, 2));
-        return;
-      }
-
-      if (applyMode === 'fill') {
-        handleInputChange(
-          'param_override',
-          JSON.stringify(PARAM_OVERRIDE_OPERATIONS_TEMPLATE, null, 2),
-        );
-        return;
-      }
-      const currentOperations =
-        parsedCurrent &&
-        typeof parsedCurrent === 'object' &&
-        !Array.isArray(parsedCurrent) &&
-        Array.isArray(parsedCurrent.operations)
-          ? parsedCurrent.operations
-          : [];
-      const merged = {
-        operations: [
-          ...currentOperations,
-          ...PARAM_OVERRIDE_OPERATIONS_TEMPLATE.operations,
-        ],
-      };
-      handleInputChange('param_override', JSON.stringify(merged, null, 2));
-    } catch (error) {
-      showError(error.message || t('模板应用失败'));
-    }
-  };
-
-  const clearParamOverride = () => {
-    handleInputChange('param_override', '');
-  };
 
   const loadChannel = async () => {
     setLoading(true);
@@ -661,37 +432,6 @@ const EditChannelModal = (props) => {
           2,
         );
       }
-      // 解析渠道额外设置并合并到data中
-      if (data.setting) {
-        try {
-          const parsedSettings = JSON.parse(data.setting);
-          data.force_format = parsedSettings.force_format || false;
-          data.thinking_to_content =
-            parsedSettings.thinking_to_content || false;
-          data.proxy = parsedSettings.proxy || '';
-          data.pass_through_body_enabled =
-            parsedSettings.pass_through_body_enabled || false;
-          data.system_prompt = parsedSettings.system_prompt || '';
-          data.system_prompt_override =
-            parsedSettings.system_prompt_override || false;
-        } catch (error) {
-          console.error('解析渠道设置失败:', error);
-          data.force_format = false;
-          data.thinking_to_content = false;
-          data.proxy = '';
-          data.pass_through_body_enabled = false;
-          data.system_prompt = '';
-          data.system_prompt_override = false;
-        }
-      } else {
-        data.force_format = false;
-        data.thinking_to_content = false;
-        data.proxy = '';
-        data.pass_through_body_enabled = false;
-        data.system_prompt = '';
-        data.system_prompt_override = false;
-      }
-
       if (data.settings) {
         try {
           const parsedSettings = JSON.parse(data.settings);
@@ -700,37 +440,14 @@ const EditChannelModal = (props) => {
           // 读取企业账户设置
           data.is_enterprise_account =
             parsedSettings.openrouter_enterprise === true;
-          // 读取字段透传控制设置
-          data.allow_service_tier = parsedSettings.allow_service_tier || false;
-          data.disable_store = parsedSettings.disable_store || false;
-          data.allow_safety_identifier =
-            parsedSettings.allow_safety_identifier || false;
-          data.allow_include_obfuscation =
-            parsedSettings.allow_include_obfuscation || false;
-          data.allow_inference_geo =
-            parsedSettings.allow_inference_geo || false;
-          data.claude_beta_query = parsedSettings.claude_beta_query || false;
         } catch (error) {
           console.error('解析其他设置失败:', error);
           data.azure_responses_version = '';
           data.region = '';
           data.is_enterprise_account = false;
-          data.allow_service_tier = false;
-          data.disable_store = false;
-          data.allow_safety_identifier = false;
-          data.allow_include_obfuscation = false;
-          data.allow_inference_geo = false;
-          data.claude_beta_query = false;
         }
       } else {
-        // 兼容历史数据
         data.is_enterprise_account = false;
-        data.allow_service_tier = false;
-        data.disable_store = false;
-        data.allow_safety_identifier = false;
-        data.allow_include_obfuscation = false;
-        data.allow_inference_geo = false;
-        data.claude_beta_query = false;
       }
 
       if (
@@ -754,15 +471,6 @@ const EditChannelModal = (props) => {
       // 同步企业账户状态
       setIsEnterpriseAccount(data.is_enterprise_account || false);
       setBasicModels(getChannelModels(data.type));
-      // 同步更新channelSettings状态显示
-      setChannelSettings({
-        force_format: data.force_format,
-        thinking_to_content: data.thinking_to_content,
-        proxy: data.proxy,
-        pass_through_body_enabled: data.pass_through_body_enabled,
-        system_prompt: data.system_prompt,
-        system_prompt_override: data.system_prompt_override || false,
-      });
       initialModelsRef.current = (data.models || [])
         .map((model) => (model || '').trim())
         .filter(Boolean);
@@ -797,14 +505,7 @@ const EditChannelModal = (props) => {
         (data.tag && data.tag.trim()) ||
         (data.remark && data.remark.trim()) ||
         (data.priority && data.priority !== 0) ||
-        (data.weight && data.weight !== 0) ||
-        (data.proxy && data.proxy.trim()) ||
-        (data.system_prompt && data.system_prompt.trim()) ||
-        data.thinking_to_content ||
-        data.pass_through_body_enabled ||
-        data.force_format ||
-        data.claude_beta_query ||
-        data.system_prompt_override;
+        (data.weight && data.weight !== 0);
       if (hasAdvancedValues) {
         setAdvancedSettingsOpen(true);
       }
@@ -1076,15 +777,6 @@ const EditChannelModal = (props) => {
   const resetModalState = () => {
     resolveStatusCodeRiskConfirm(false);
     formApiRef.current?.reset();
-    // 重置渠道设置状态
-    setChannelSettings({
-      force_format: false,
-      thinking_to_content: false,
-      proxy: '',
-      pass_through_body_enabled: false,
-      system_prompt: '',
-      system_prompt_override: false,
-    });
     // 重置企业账户状态
     setIsEnterpriseAccount(false);
     // 重置豆包隐藏入口状态
@@ -1287,18 +979,7 @@ const EditChannelModal = (props) => {
       localInputs.other = 'v2.1';
     }
 
-    // 生成渠道额外设置JSON
-    const channelExtraSettings = {
-      force_format: localInputs.force_format || false,
-      thinking_to_content: localInputs.thinking_to_content || false,
-      proxy: localInputs.proxy || '',
-      pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
-      system_prompt: localInputs.system_prompt || '',
-      system_prompt_override: localInputs.system_prompt_override || false,
-    };
-    localInputs.setting = JSON.stringify(channelExtraSettings);
-
-    // 处理 settings 字段（包括企业账户设置和字段透传控制）
+    // 处理 settings 字段（企业账户设置）
     let settings = {};
     if (localInputs.settings) {
       try {
@@ -1314,40 +995,10 @@ const EditChannelModal = (props) => {
         localInputs.is_enterprise_account === true;
     }
 
-    // type === 1 (OpenAI) 或 type === 14 (Claude): 设置字段透传控制（显式保存布尔值）
-    if (localInputs.type === 1 || localInputs.type === 14) {
-      settings.allow_service_tier = localInputs.allow_service_tier === true;
-      // 仅 OpenAI 渠道需要 store / safety_identifier / include_obfuscation
-      if (localInputs.type === 1) {
-        settings.disable_store = localInputs.disable_store === true;
-        settings.allow_safety_identifier =
-          localInputs.allow_safety_identifier === true;
-        settings.allow_include_obfuscation =
-          localInputs.allow_include_obfuscation === true;
-      }
-      if (localInputs.type === 14) {
-        settings.allow_inference_geo = localInputs.allow_inference_geo === true;
-        settings.claude_beta_query = localInputs.claude_beta_query === true;
-      }
-    }
-
     localInputs.settings = JSON.stringify(settings);
 
     // 清理不需要发送到后端的字段
-    delete localInputs.force_format;
-    delete localInputs.thinking_to_content;
-    delete localInputs.proxy;
-    delete localInputs.pass_through_body_enabled;
-    delete localInputs.system_prompt;
-    delete localInputs.system_prompt_override;
     delete localInputs.is_enterprise_account;
-    // 清理字段透传控制的临时字段
-    delete localInputs.allow_service_tier;
-    delete localInputs.disable_store;
-    delete localInputs.allow_safety_identifier;
-    delete localInputs.allow_include_obfuscation;
-    delete localInputs.allow_inference_geo;
-    delete localInputs.claude_beta_query;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -1545,115 +1196,51 @@ const EditChannelModal = (props) => {
                     {t('请求配置')}
                   </Text>
 
-                  <div className='mb-4'>
-                    <div className='flex items-center justify-between gap-2 mb-1'>
-                      <Text className='text-sm font-medium'>{t('参数覆盖')}</Text>
-                      <Space>
-                        <Button
-                          size='small'
-                          type='primary'
-                          icon={<IconCode size={14} />}
-                          onClick={() => setParamOverrideEditorVisible(true)}
-                        >
-                          {t('可视化编辑')}
-                        </Button>
-                        <Dropdown
-                          trigger='click'
-                          position='bottomRight'
-                          menu={[
-                            { node: 'item', name: t('填充新模板'), onClick: () => applyParamOverrideTemplate('operations', 'fill') },
-                            { node: 'item', name: t('填充旧模板'), onClick: () => applyParamOverrideTemplate('legacy', 'fill') },
-                            { node: 'item', name: t('清空'), onClick: clearParamOverride },
-                          ]}
-                        >
-                          <Button size='small' type='tertiary'>
-                            {t('更多')} <IconChevronDown size={12} />
-                          </Button>
-                        </Dropdown>
-                      </Space>
-                    </div>
-                    <Text type='tertiary' size='small'>
-                      {t('此项可选，用于覆盖请求参数。不支持覆盖 stream 参数')}
-                    </Text>
-                    <div
-                      className='mt-2 rounded-xl p-3'
-                      style={{
-                        backgroundColor: 'var(--semi-color-fill-0)',
-                        border: '1px solid var(--semi-color-fill-2)',
-                      }}
-                    >
-                      <div className='flex items-center justify-between mb-2'>
-                        <Tag color={paramOverrideMeta.tagColor}>
-                          {paramOverrideMeta.tagLabel}
-                        </Tag>
-                        <Button
-                          size='small'
-                          icon={<IconCopy />}
-                          type='tertiary'
-                          onClick={copyParamOverrideJson}
-                        >
-                          {t('复制')}
-                        </Button>
-                      </div>
-                      <pre className='mb-0 text-xs leading-5 whitespace-pre-wrap break-all max-h-56 overflow-auto'>
-                        {paramOverrideMeta.preview}
-                      </pre>
-                    </div>
-                  </div>
+                  <Form.TextArea
+                    field='param_override'
+                    label={t('参数覆盖')}
+                    placeholder={t('此项可选，JSON 格式，用于覆盖请求参数，不支持覆盖 stream')}
+                    autosize={{ minRows: 3, maxRows: 10 }}
+                    onChange={(value) => handleInputChange('param_override', value)}
+                    showClear
+                    extraText={
+                      <Text
+                        className='!text-semi-color-primary cursor-pointer'
+                        onClick={() => formatJsonField('param_override')}
+                      >
+                        {t('格式化')}
+                      </Text>
+                    }
+                  />
 
                   <Form.TextArea
                     field='header_override'
                     label={t('请求头覆盖')}
-                    placeholder={
-                      t('此项可选，用于覆盖请求头参数') +
-                      '\n' +
-                      t('格式示例：') +
-                      '\n{\n  "User-Agent": "Mozilla/5.0 ...",\n  "Authorization": "Bearer {api_key}"\n}'
-                    }
-                    autosize
+                    placeholder={t('此项可选，JSON 格式，用于覆盖请求头，支持变量 {api_key}')}
+                    autosize={{ minRows: 3, maxRows: 10 }}
                     onChange={(value) =>
                       handleInputChange('header_override', value)
                     }
                     extraText={
-                      <div className='flex flex-col gap-1'>
-                        <div className='flex gap-2 flex-wrap items-center'>
-                          <Text
-                            className='!text-semi-color-primary cursor-pointer'
-                            onClick={() =>
-                              handleInputChange(
-                                'header_override',
-                                JSON.stringify({ '*': true, 're:^X-Trace-.*$': true, 'X-Foo': '{client_header:X-Foo}', Authorization: 'Bearer {api_key}', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0' }, null, 2),
-                              )
-                            }
-                          >
-                            {t('填入模板')}
-                          </Text>
-                          <Text
-                            className='!text-semi-color-primary cursor-pointer'
-                            onClick={() =>
-                              handleInputChange('header_override', JSON.stringify({ '*': true }, null, 2))
-                            }
-                          >
-                            {t('填入透传模版')}
-                          </Text>
-                          <Text
-                            className='!text-semi-color-primary cursor-pointer'
-                            onClick={() => formatJsonField('header_override')}
-                          >
-                            {t('格式化')}
-                          </Text>
-                        </div>
-                        <div>
-                          <Text type='tertiary' size='small'>
-                            {t('支持变量：')}
-                          </Text>
-                          <div className='text-xs text-tertiary ml-2'>
-                            <div>
-                              {t('渠道密钥')}: {'{api_key}'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <Space>
+                        <Text
+                          className='!text-semi-color-primary cursor-pointer'
+                          onClick={() =>
+                            handleInputChange(
+                              'header_override',
+                              JSON.stringify({ '*': true, Authorization: 'Bearer {api_key}' }, null, 2),
+                            )
+                          }
+                        >
+                          {t('填入模板')}
+                        </Text>
+                        <Text
+                          className='!text-semi-color-primary cursor-pointer'
+                          onClick={() => formatJsonField('header_override')}
+                        >
+                          {t('格式化')}
+                        </Text>
+                      </Space>
                     }
                     showClear
                   />
@@ -1661,11 +1248,7 @@ const EditChannelModal = (props) => {
                     key={`status_code_mapping-${isEdit ? channelId : 'new'}`}
                     field='status_code_mapping'
                     label={t('状态码复写')}
-                    placeholder={
-                      t('此项可选，用于复写返回的状态码，仅影响本地判断，不修改返回到上游的状态码，比如将claude渠道的400错误复写为500（用于重试），请勿滥用该功能，例如：') +
-                      '\n' +
-                      JSON.stringify(STATUS_CODE_MAPPING_EXAMPLE, null, 2)
-                    }
+                    placeholder={t('此项可选，键为原状态码，值为目标状态码，仅影响本地判断')}
                     value={inputs.status_code_mapping || ''}
                     onChange={(value) =>
                       handleInputChange('status_code_mapping', value)
@@ -1723,88 +1306,6 @@ const EditChannelModal = (props) => {
                     </Col>
                   </Row>
 
-                  {inputs.type === 1 && (
-                    <>
-                      <div className='mt-4 mb-1 text-sm font-medium text-gray-700'>
-                        {t('字段透传控制')}
-                      </div>
-                      <div className='rounded-xl overflow-hidden divide-y'
-                        style={{ border: '1px solid var(--semi-color-border)' }}>
-                        {[
-                          { field: 'allow_service_tier', label: t('允许 service_tier 透传'), desc: t('service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用'), onChange: (v) => handleChannelOtherSettingsChange('allow_service_tier', v) },
-                          { field: 'disable_store', label: t('禁用 store 透传'), desc: t('store 字段用于授权 OpenAI 存储请求数据以评估和优化产品。默认关闭，开启后可能导致 Codex 无法正常使用'), onChange: (v) => handleChannelOtherSettingsChange('disable_store', v) },
-                          { field: 'allow_safety_identifier', label: t('允许 safety_identifier 透传'), desc: t('safety_identifier 字段用于帮助 OpenAI 识别可能违反使用政策的应用程序用户。默认关闭以保护用户隐私'), onChange: (v) => handleChannelOtherSettingsChange('allow_safety_identifier', v) },
-                          { field: 'allow_include_obfuscation', label: t('允许 stream_options.include_obfuscation 透传'), desc: t('include_obfuscation 用于控制 Responses 流混淆字段。默认关闭以避免客户端关闭该安全保护'), onChange: (v) => handleChannelOtherSettingsChange('allow_include_obfuscation', v) },
-                        ].map(({ field, label, desc, onChange }) => (
-                          <div key={field} className='flex items-start justify-between gap-3 px-3 py-2.5'
-                            style={{ background: 'var(--semi-color-bg-0)' }}>
-                            <div className='flex-1 min-w-0'>
-                              <div className='text-sm font-medium leading-5'>{label}</div>
-                              <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{desc}</div>
-                            </div>
-                            <Form.Switch field={field} checkedText={t('开')} uncheckedText={t('关')}
-                              noLabel style={{ marginBottom: 0 }} onChange={onChange} />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {inputs.type === 14 && (
-                    <>
-                      <div className='mt-4 mb-1 text-sm font-medium text-gray-700'>
-                        {t('字段透传控制')}
-                      </div>
-                      <div className='rounded-xl overflow-hidden divide-y'
-                        style={{ border: '1px solid var(--semi-color-border)' }}>
-                        {[
-                          { field: 'allow_service_tier', label: t('允许 service_tier 透传'), desc: t('service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用'), onChange: (v) => handleChannelOtherSettingsChange('allow_service_tier', v) },
-                          { field: 'allow_inference_geo', label: t('允许 inference_geo 透传'), desc: t('inference_geo 字段用于控制 Claude 数据驻留推理区域。默认关闭以避免未经授权透传地域信息'), onChange: (v) => handleChannelOtherSettingsChange('allow_inference_geo', v) },
-                        ].map(({ field, label, desc, onChange }) => (
-                          <div key={field} className='flex items-start justify-between gap-3 px-3 py-2.5'
-                            style={{ background: 'var(--semi-color-bg-0)' }}>
-                            <div className='flex-1 min-w-0'>
-                              <div className='text-sm font-medium leading-5'>{label}</div>
-                              <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{desc}</div>
-                            </div>
-                            <Form.Switch field={field} checkedText={t('开')} uncheckedText={t('关')}
-                              noLabel style={{ marginBottom: 0 }} onChange={onChange} />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Extra Settings Section */}
-                <div className='pt-3'>
-                  <Text className='text-sm font-medium text-gray-500 mb-1 block'>
-                    {t('额外设置')}
-                  </Text>
-                  <div className='rounded-xl overflow-hidden divide-y mb-4'
-                    style={{ border: '1px solid var(--semi-color-border)' }}>
-                    {[
-                      inputs.type === 14 && { field: 'claude_beta_query', label: t('Claude 强制 beta=true'), desc: t('开启后，该渠道请求 Claude 时将强制追加 ?beta=true（无需客户端手动传参）'), onChange: (v) => handleChannelOtherSettingsChange('claude_beta_query', v) },
-                      inputs.type === 1 && { field: 'force_format', label: t('强制格式化'), desc: t('强制将响应格式化为 OpenAI 标准格式（只适用于OpenAI渠道类型）'), onChange: (v) => handleChannelSettingsChange('force_format', v) },
-                      { field: 'thinking_to_content', label: t('思考内容转换'), desc: t('将 reasoning_content 转换为 <think> 标签拼接到内容中'), onChange: (v) => handleChannelSettingsChange('thinking_to_content', v) },
-                      { field: 'pass_through_body_enabled', label: t('透传请求体'), desc: t('启用请求体透传功能'), onChange: (v) => handleChannelSettingsChange('pass_through_body_enabled', v) },
-                      { field: 'system_prompt_override', label: t('系统提示词拼接'), desc: t('如果用户请求中包含系统提示词，则使用此设置拼接到用户的系统提示词前面'), onChange: (v) => handleChannelSettingsChange('system_prompt_override', v) },
-                    ].filter(Boolean).map(({ field, label, desc, onChange }) => (
-                      <div key={field} className='flex items-start justify-between gap-3 px-3 py-2.5'
-                        style={{ background: 'var(--semi-color-bg-0)' }}>
-                        <div className='flex-1 min-w-0'>
-                          <div className='text-sm font-medium leading-5'>{label}</div>
-                          <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{desc}</div>
-                        </div>
-                        <Form.Switch field={field} checkedText={t('开')} uncheckedText={t('关')}
-                          noLabel style={{ marginBottom: 0 }} onChange={onChange} />
-                      </div>
-                    ))}
-                  </div>
-
-                  <Form.Input field='proxy' label={t('代理地址')} placeholder={t('例如: socks5://user:pass@host:port')} onChange={(value) => handleChannelSettingsChange('proxy', value)} showClear extraText={t('用于配置网络代理，支持 socks5 协议')} />
-
-                  <Form.TextArea field='system_prompt' label={t('系统提示词')} placeholder={t('输入系统提示词，用户的系统提示词将优先于此设置')} onChange={(value) => handleChannelSettingsChange('system_prompt', value)} autosize showClear extraText={t('用户优先：如果用户在请求中指定了系统提示词，将优先使用用户的设置')} />
                 </div>
               </div>
             );
@@ -1828,9 +1329,6 @@ const EditChannelModal = (props) => {
                       <Text className='text-lg font-medium'>
                         {t('核心配置')}
                       </Text>
-                      <div className='text-xs text-gray-600'>
-                        {t('创建渠道所需的基本信息')}
-                      </div>
                     </div>
                   </div>
 
@@ -1880,9 +1378,7 @@ const EditChannelModal = (props) => {
                         type='warning'
                         closeIcon={null}
                         className='mb-4 rounded-xl'
-                        description={t(
-                          '免责声明：仅限个人使用，请勿分发或共享任何凭证。该渠道存在前置条件与使用门槛，请在充分了解流程与风险后使用，并遵守 OpenAI 的相关条款与政策。相关凭证与配置仅限接入 Codex CLI 使用，不适用于其他客户端、平台或渠道。',
-                        )}
+                        description={t('仅限个人使用，凭证仅供 Codex CLI，请遵守 OpenAI 相关政策。')}
                       />
                     )}
 
@@ -1891,7 +1387,7 @@ const EditChannelModal = (props) => {
                         style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
                         <div className='flex-1 min-w-0'>
                           <div className='text-sm font-medium leading-5'>{t('是否为企业账户')}</div>
-                          <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{t('企业账户为特殊返回格式，需要特殊处理，如果非企业账户，请勿勾选')}</div>
+                          <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{t('企业账户返回格式特殊，非企业账户勿开启')}</div>
                         </div>
                         <Form.Switch
                           field='is_enterprise_account'
@@ -1923,7 +1419,7 @@ const EditChannelModal = (props) => {
                         field='other'
                         label={t('模型版本')}
                         placeholder={
-                          '请输入星火大模型版本，注意是接口地址中的版本号，例如：v2.1'
+                          'v2.1'
                         }
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
@@ -1935,9 +1431,7 @@ const EditChannelModal = (props) => {
                         key={`region-${isEdit ? channelId : 'new'}`}
                         field='other'
                         label={t('部署地区')}
-                        placeholder={t(
-                          '请输入部署地区，例如：us-central1\n支持使用模型映射格式\n{\n    "default": "us-central1",\n    "claude-3-5-sonnet-20240620": "europe-west1"\n}',
-                        )}
+                        placeholder={t('例如：us-central1，支持 JSON 格式设置不同模型的地区')}
                         value={inputs.other || ''}
                         onChange={(value) => handleInputChange('other', value)}
                         rules={[
@@ -1947,7 +1441,6 @@ const EditChannelModal = (props) => {
                         templateLabel={t('填入模板')}
                         editorType='region'
                         formApi={formApiRef.current}
-                        extraText={t('设置默认地区和特定模型的专用地区')}
                       />
                     )}
 
@@ -2028,18 +1521,14 @@ const EditChannelModal = (props) => {
                         <>
                           <Banner
                             type='warning'
-                            description={t(
-                              '2025年5月10日后添加的渠道，不需要再在部署的时候移除模型名称中的"."',
-                            )}
+                            description={t('2025-05-10 后添加的渠道无需移除模型名中的"."')}
                             className='!rounded-lg'
                           />
                           <div>
                             <Form.Input
                               field='base_url'
                               label='AZURE_OPENAI_ENDPOINT'
-                              placeholder={t(
-                                '请输入 AZURE_OPENAI_ENDPOINT，例如：https://docs-test-001.openai.azure.com',
-                              )}
+                        placeholder='https://docs-test-001.openai.azure.com'
                               onChange={(value) =>
                                 handleInputChange('base_url', value)
                               }
@@ -2051,9 +1540,7 @@ const EditChannelModal = (props) => {
                             <Form.Input
                               field='other'
                               label={t('默认 API 版本')}
-                              placeholder={t(
-                                '请输入默认 API 版本，例如：2025-04-01-preview',
-                              )}
+                              placeholder='2025-04-01-preview'
                               onChange={(value) =>
                                 handleInputChange('other', value)
                               }
@@ -2083,18 +1570,14 @@ const EditChannelModal = (props) => {
                         <>
                           <Banner
                             type='warning'
-                            description={t(
-                              '如果你对接的是上游One API或者New API等转发项目，请使用OpenAI类型，不要使用此类型，除非你知道你在做什么。',
-                            )}
+                            description={t('对接转发项目（One API/New API 等）请使用 OpenAI 类型，而非此类型。')}
                             className='!rounded-lg'
                           />
                           <div>
                             <Form.Input
                               field='base_url'
                               label={t('完整的 Base URL，支持变量{model}')}
-                              placeholder={t(
-                                '请输入完整的URL，例如：https://api.openai.com/v1/chat/completions',
-                              )}
+                              placeholder='https://api.openai.com/v1/chat/completions'
                               onChange={(value) =>
                                 handleInputChange('base_url', value)
                               }
@@ -2108,9 +1591,7 @@ const EditChannelModal = (props) => {
                       {inputs.type === 37 && (
                         <Banner
                           type='warning'
-                          description={t(
-                            'Dify渠道只适配chatflow和agent，并且agent不支持图片！',
-                          )}
+                        description={t('仅适配 chatflow 和 agent，agent 不支持图片')}
                           className='!rounded-lg'
                         />
                       )}
@@ -2124,17 +1605,13 @@ const EditChannelModal = (props) => {
                             <Form.Input
                               field='base_url'
                               label={t('API地址')}
-                              placeholder={t(
-                                '此项可选，用于通过自定义API地址来进行 API 调用，末尾不要带/v1和/',
-                              )}
+                          placeholder={t('可选，末尾不要带 /v1 或 /')}
                               onChange={(value) =>
                                 handleInputChange('base_url', value)
                               }
                               showClear
                               disabled={isIonetLocked}
-                              extraText={t(
-                                '对于官方渠道，new-api已经内置地址，除非是第三方代理站点或者Azure的特殊接入地址，否则不需要填写',
-                              )}
+                              extraText={t('官方渠道已内置，第三方代理或自定义地址时填写')}
                             />
                           </div>
                         )}
@@ -2144,9 +1621,7 @@ const EditChannelModal = (props) => {
                           <Form.Input
                             field='base_url'
                             label={t('私有部署地址')}
-                            placeholder={t(
-                              '请输入私有部署地址，格式为：https://fastgpt.run/api/openapi',
-                            )}
+                            placeholder='https://fastgpt.run/api/openapi'
                             onChange={(value) =>
                               handleInputChange('base_url', value)
                             }
@@ -2160,12 +1635,8 @@ const EditChannelModal = (props) => {
                         <div>
                           <Form.Input
                             field='base_url'
-                            label={t(
-                              '注意非Chat API，请务必填写正确的API地址，否则可能导致无法使用',
-                            )}
-                            placeholder={t(
-                              '请输入到 /suno 前的路径，通常就是域名，例如：https://api.example.com',
-                            )}
+                            label={t('API 地址（非 Chat API）')}
+                            placeholder='https://api.example.com'
                             onChange={(value) =>
                               handleInputChange('base_url', value)
                             }
@@ -2345,9 +1816,7 @@ const EditChannelModal = (props) => {
                     placeholder={t('请选择可以使用该渠道的分组')}
                     multiple
                     allowAdditions
-                    additionLabel={t(
-                      '请在系统设置页面编辑分组倍率以添加新的分组：',
-                    )}
+                    additionLabel={t('新增分组：')}
                     optionList={groupOptions}
                     style={{ width: '100%' }}
                     position='top'
@@ -2359,12 +1828,7 @@ const EditChannelModal = (props) => {
                     key={`model_mapping-${isEdit ? channelId : 'new'}`}
                     field='model_mapping'
                     label={t('模型重定向')}
-                    placeholder={
-                      t(
-                        '此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称，例如：',
-                      ) +
-                      `\n${JSON.stringify(MODEL_MAPPING_EXAMPLE, null, 2)}`
-                    }
+                    placeholder={t('此项可选，键为请求的模型名，值为替换的模型名')}
                     value={inputs.model_mapping || ''}
                     onChange={(value) =>
                       handleInputChange('model_mapping', value)
@@ -2404,7 +1868,7 @@ const EditChannelModal = (props) => {
                     style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
                     <div className='flex-1 min-w-0'>
                       <div className='text-sm font-medium leading-5'>{t('是否自动禁用')}</div>
-                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{t('仅当自动禁用开启时有效，关闭后不会自动禁用该渠道')}</div>
+                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{t('关闭后不会自动禁用该渠道')}</div>
                     </div>
                     <Form.Switch
                       field='auto_ban'
@@ -2557,16 +2021,6 @@ const EditChannelModal = (props) => {
         onCancel={() => resolveStatusCodeRiskConfirm(false)}
         onConfirm={() => resolveStatusCodeRiskConfirm(true)}
       />
-      <ParamOverrideEditorModal
-        visible={paramOverrideEditorVisible}
-        value={inputs.param_override || ''}
-        onCancel={() => setParamOverrideEditorVisible(false)}
-        onSave={(nextValue) => {
-          handleInputChange('param_override', nextValue);
-          setParamOverrideEditorVisible(false);
-        }}
-      />
-
       <ModelSelectModal
         visible={modelModalVisible}
         models={fetchedModels}
