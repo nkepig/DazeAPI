@@ -367,7 +367,25 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Add keys
+  const runAddKeysRequest = async (trimmed, multiKeyMode) => {
+    const res = await API.post('/api/channel/multi_key/manage', {
+      channel_id: channel.id,
+      action: 'add_keys',
+      new_key_value: trimmed,
+      multi_key_mode: multiKeyMode,
+    });
+    if (res.data.success) {
+      showSuccess(res.data.message || t('密钥已添加'));
+      setCurrentPage(1);
+      await loadKeyStatus(1, pageSize);
+      onRefresh && onRefresh();
+      return true;
+    }
+    showError(res.data.message);
+    return false;
+  };
+
+  // Add keys（弹窗）
   const handleAddKeys = async () => {
     const trimmed = addKeysValue.trim();
     if (!trimmed) {
@@ -376,21 +394,10 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
     setAddKeysLoading(true);
     try {
-      const res = await API.post('/api/channel/multi_key/manage', {
-        channel_id: channel.id,
-        action: 'add_keys',
-        new_key_value: trimmed,
-        multi_key_mode: addMultiKeyMode,
-      });
-      if (res.data.success) {
-        showSuccess(res.data.message || t('密钥已添加'));
+      const ok = await runAddKeysRequest(trimmed, addMultiKeyMode);
+      if (ok) {
         setAddKeysVisible(false);
         setAddKeysValue('');
-        setCurrentPage(1);
-        await loadKeyStatus(1, pageSize);
-        onRefresh && onRefresh();
-      } else {
-        showError(res.data.message);
       }
     } catch (error) {
       showError(t('添加密钥失败'));
@@ -857,21 +864,19 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                               </Button>
                             </Popconfirm>
                           )}
-                          {isMultiKey && (
-                            <Button
-                              size='small'
-                              type='primary'
-                              onClick={() => {
-                                setAddMultiKeyMode(
-                                  channel?.channel_info?.multi_key_mode || 'random',
-                                );
-                                setAddKeysValue('');
-                                setAddKeysVisible(true);
-                              }}
-                            >
-                              {t('添加密钥')}
-                            </Button>
-                          )}
+                          <Button
+                            size='small'
+                            type='primary'
+                            onClick={() => {
+                              setAddMultiKeyMode(
+                                channel?.channel_info?.multi_key_mode || 'random',
+                              );
+                              setAddKeysValue('');
+                              setAddKeysVisible(true);
+                            }}
+                          >
+                            {t('添加密钥')}
+                          </Button>
                         </Space>
                       </Col>
                     </Row>
@@ -911,7 +916,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                         <IllustrationNoResultDark style={{ width: 140, height: 140 }} />
                       }
                       title={t('暂无密钥数据')}
-                      description={t('请点击"添加密钥"来配置密钥')}
+                      description={t('请点击「添加密钥」来配置密钥')}
                       style={{ padding: 30 }}
                     />
                   }

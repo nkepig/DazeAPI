@@ -662,7 +662,9 @@ func AddChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.InitChannelCache()
 	service.ResetProxyClientCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -679,6 +681,7 @@ func DeleteChannel(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -693,6 +696,7 @@ func DeleteDisabledChannel(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -729,6 +733,7 @@ func DisableTagChannels(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -752,6 +757,7 @@ func EnableTagChannels(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -804,6 +810,7 @@ func EditTagChannels(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -832,6 +839,7 @@ func DeleteChannelBatch(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -960,6 +968,29 @@ func UpdateChannel(c *gin.Context) {
 			// 覆盖模式：直接使用新密钥（默认行为，不需要特殊处理）
 		}
 	}
+
+	// 原为单密钥渠道时，若提交的密钥为多条（换行分隔，且非 JSON 数组），自动升级为多密钥
+	trimmedSubmitKey := strings.TrimSpace(channel.Key)
+	if trimmedSubmitKey != "" && !channel.ChannelInfo.IsMultiKey {
+		if !strings.HasPrefix(trimmedSubmitKey, "[") {
+			parts := make([]string, 0)
+			for _, line := range strings.Split(channel.Key, "\n") {
+				line = strings.TrimSpace(line)
+				if line != "" {
+					parts = append(parts, line)
+				}
+			}
+			if len(parts) > 1 {
+				channel.ChannelInfo.IsMultiKey = true
+				channel.ChannelInfo.MultiKeySize = len(parts)
+				if channel.ChannelInfo.MultiKeyMode == "" {
+					channel.ChannelInfo.MultiKeyMode = constant.MultiKeyModeRandom
+				}
+				channel.Key = strings.Join(parts, "\n")
+			}
+		}
+	}
+
 	err = channel.Update()
 	if err != nil {
 		common.ApiError(c, err)
@@ -967,6 +998,7 @@ func UpdateChannel(c *gin.Context) {
 	}
 	model.InitChannelCache()
 	service.ResetProxyClientCache()
+	go model.RefreshPricing()
 	channel.Key = ""
 	clearChannelInfo(&channel.Channel)
 	c.JSON(http.StatusOK, gin.H{
@@ -1113,6 +1145,7 @@ func BatchSetChannelTag(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -1210,6 +1243,7 @@ func CopyChannel(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
+	go model.RefreshPricing()
 	// success
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": gin.H{"id": clone.Id}})
 }
@@ -1336,6 +1370,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "密钥已更新"})
 		return
 
@@ -1379,6 +1414,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("已添加 %d 个密钥", len(newKeys))})
 		return
 
@@ -1578,6 +1614,7 @@ func ManageMultiKeys(c *gin.Context) {
 				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
 			}
 			model.InitChannelCache()
+			go model.RefreshPricing()
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "密钥已禁用"})
 			return
 		}
@@ -1608,6 +1645,7 @@ func ManageMultiKeys(c *gin.Context) {
 		}
 
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "密钥已禁用",
@@ -1639,6 +1677,7 @@ func ManageMultiKeys(c *gin.Context) {
 				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
 			}
 			model.InitChannelCache()
+			go model.RefreshPricing()
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "密钥已启用"})
 			return
 		}
@@ -1668,6 +1707,7 @@ func ManageMultiKeys(c *gin.Context) {
 		}
 
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "密钥已启用",
@@ -1690,6 +1730,7 @@ func ManageMultiKeys(c *gin.Context) {
 				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
 			}
 			model.InitChannelCache()
+			go model.RefreshPricing()
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "已启用 1 个密钥"})
 			return
 		}
@@ -1710,6 +1751,7 @@ func ManageMultiKeys(c *gin.Context) {
 		}
 
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": fmt.Sprintf("已启用 %d 个密钥", enabledCount),
@@ -1736,6 +1778,7 @@ func ManageMultiKeys(c *gin.Context) {
 				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
 			}
 			model.InitChannelCache()
+			go model.RefreshPricing()
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "已禁用 1 个密钥"})
 			return
 		}
@@ -1779,6 +1822,7 @@ func ManageMultiKeys(c *gin.Context) {
 		}
 
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": fmt.Sprintf("已禁用 %d 个密钥", disabledCount),
@@ -1859,6 +1903,7 @@ func ManageMultiKeys(c *gin.Context) {
 		}
 
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "密钥已删除",
@@ -1931,6 +1976,7 @@ func ManageMultiKeys(c *gin.Context) {
 		}
 
 		model.InitChannelCache()
+		go model.RefreshPricing()
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": fmt.Sprintf("已删除 %d 个自动禁用的密钥", deletedCount),

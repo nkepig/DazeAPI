@@ -877,3 +877,9 @@ svg.lucide, .lucide-icon {
   .auth-button-matrix { flex-direction: column; gap: 10px; }
   .auth-glitch-logo { letter-spacing: -2px; }
 }
+
+/* Hide illustration images in table/list empty states */
+.semi-table-empty .semi-empty-image,
+.semi-list-empty .semi-empty-image {
+  display: none !important;
+}

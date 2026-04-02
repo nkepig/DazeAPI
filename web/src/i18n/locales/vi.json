@@ -3861,5 +3861,17 @@
     "输出价格 {{symbol}}{{price}} / 1M tokens": "Giá đầu ra {{symbol}}{{price}} / 1M tokens",
     "输出价格：{{symbol}}{{price}} / 1M tokens": "Giá đầu ra: {{symbol}}{{price}} / 1M tokens",
     "输出价格：{{symbol}}{{total}} / 1M tokens": "Giá đầu ra: {{symbol}}{{total}} / 1M tokens"
-  }
+  },
+  "去充值": "Nạp tiền",
+  "留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。": "Để trống để giữ nguyên khóa. Nhiều dòng được gộp thành các khóa riêng và chuyển kênh sang đa khóa.",
+  "可选。每行一个密钥；多行将创建为同一渠道的多密钥模式（随机调度）。": "Tùy chọn. Một khóa mỗi dòng; nhiều dòng tạo một kênh đa khóa (ngẫu nhiên).",
+  "批量添加密钥": "Thêm khóa hàng loạt",
+  "每行一个密钥，与弹窗「添加密钥」效果相同；支持一次粘贴多行。": "Một khóa mỗi dòng, giống hộp thoại «Thêm khóa»; dán nhiều dòng cùng lúc.",
+  "添加至渠道": "Thêm vào kênh",
+  "单密钥渠道添加多个时将自动切换为多密钥模式": "Thêm nhiều khóa vào kênh một khóa sẽ tự chuyển sang đa khóa.",
+  "请在上方批量输入框粘贴密钥，或点击「添加密钥」": "Dán khóa vào ô phía trên hoặc nhấp «Thêm khóa».",
+  "请先保存渠道；若未在表单中填写密钥，请在保存后于密钥管理中配置再获取模型列表": "Hãy lưu kênh trước. Nếu chưa nhập khóa trong biểu mẫu, hãy cấu hình trong quản lý khóa sau khi lưu, rồi mới lấy danh sách model.",
+  "请点击「添加密钥」来配置密钥": "Nhấp «Thêm khóa» để cấu hình khóa.",
+  "控制台充值跳转地址": "URL chuyển nạp tiền bảng điều khiển",
+  "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "vd: https://example.com/topup hoặc /console/topup; để trống thì dùng liên kết nạp tiền trong cài đặt vận hành."
 }

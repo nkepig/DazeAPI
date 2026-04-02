@@ -17,11 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useContext } from 'react';
 import { Card, Avatar, Skeleton, Tag } from '@douyinfe/semi-ui';
 import { VChart } from '@visactor/react-vchart';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { goToRecharge } from '../../helpers';
+import { StatusContext } from '../../context/Status';
 
 const StatsCards = ({
   groupedStatsData,
@@ -32,6 +34,7 @@ const StatsCards = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [statusState] = useContext(StatusContext);
   return (
     <div className='mb-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
@@ -87,7 +90,7 @@ const StatsCards = ({
                       size='large'
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate('/console/topup');
+                        goToRecharge(navigate, statusState?.status);
                       }}
                     >
                       {t('充值')}

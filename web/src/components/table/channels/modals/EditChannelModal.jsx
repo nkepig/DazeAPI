@@ -156,6 +156,7 @@ const EditChannelModal = (props) => {
     weight: 0,
     tag: '',
     settings: '',
+    key: '',
     // 企业账户设置
     is_enterprise_account: false,
   };
@@ -458,6 +459,7 @@ const EditChannelModal = (props) => {
       }
 
       initialBaseUrlRef.current = data.base_url || '';
+      data.key = '';
       setInputs(data);
       if (formApiRef.current) {
         formApiRef.current.setValues(data);
@@ -535,8 +537,11 @@ const EditChannelModal = (props) => {
         err = true;
       }
     } else {
-      // 如果是新建模式，通过后端代理获取模型列表（需要先在密钥管理中配置密钥）
-      showError(t('请先保存渠道并在密钥管理中配置密钥后再获取模型列表'));
+      showError(
+        t(
+          '请先保存渠道；若未在表单中填写密钥，请在保存后于密钥管理中配置再获取模型列表',
+        ),
+      );
       err = true;
     }
 
@@ -989,14 +994,49 @@ const EditChannelModal = (props) => {
     localInputs.groups = groupsForSubmit;
     localInputs.group = groupsForSubmit.join(',');
 
+    const keyRaw = typeof localInputs.key === 'string' ? localInputs.key : '';
     if (isEdit) {
+      const k = keyRaw.trim();
+      if (!k) {
+        delete localInputs.key;
+      } else if (k.startsWith('[')) {
+        localInputs.key = k;
+      } else {
+        const lines = k
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+        localInputs.key = lines.join('\n');
+      }
       res = await API.put(`/api/channel/`, {
         ...localInputs,
         id: parseInt(channelId),
       });
     } else {
-      res = await API.post(`/api/channel/`, {
-        mode: 'single',
+      let mode = 'single';
+      let multiKeyMode = 'random';
+      let keyVal = '';
+      const trimmedAll = keyRaw.trim();
+      if (trimmedAll) {
+        if (localInputs.type === 57 || trimmedAll.startsWith('[')) {
+          keyVal = trimmedAll;
+        } else {
+          const lines = keyRaw
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean);
+          if (lines.length > 1) {
+            mode = 'multi_to_single';
+            keyVal = lines.join('\n');
+          } else {
+            keyVal = lines[0] || '';
+          }
+        }
+      }
+      localInputs.key = keyVal;
+      res = await API.post('/api/channel/', {
+        mode,
+        multi_key_mode: multiKeyMode,
         channel: localInputs,
       });
     }
@@ -1658,6 +1698,29 @@ const EditChannelModal = (props) => {
                             ]}
                             defaultValue='https://ark.cn-beijing.volces.com'
                             disabled={isIonetLocked}
+                          />
+                        </div>
+                      )}
+
+                      {!isIonetLocked && (
+                        <div className='mt-2'>
+                          <Form.TextArea
+                            field='key'
+                            label={t('密钥')}
+                            placeholder={type2secretPrompt(inputs.type)}
+                            extraText={
+                              isEdit
+                                ? t(
+                                    '留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。',
+                                  )
+                                : t(
+                                    '可选。每行一个密钥；多行将创建为同一渠道的多密钥模式（随机调度）。',
+                                  )
+                            }
+                            autosize={{ minRows: 3, maxRows: 12 }}
+                            onChange={(value) => handleInputChange('key', value)}
+                            style={{ fontFamily: 'monospace', fontSize: 13 }}
+                            autoComplete='new-password'
                           />
                         </div>
                       )}

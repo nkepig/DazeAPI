@@ -12,6 +12,8 @@ const (
 
 type GeneralSetting struct {
 	DocsLink            string `json:"docs_link"`
+	// 控制台「去充值」等跳转地址，优先生效；空则回退运营设置「充值链接」TopUpLink
+	RechargeRedirectUrl string `json:"recharge_redirect_url"`
 	PingIntervalEnabled bool   `json:"ping_interval_enabled"`
 	PingIntervalSeconds int    `json:"ping_interval_seconds"`
 	// 当前站点额度展示类型：USD / CNY / TOKENS

@@ -3310,5 +3310,17 @@
     "输出价格 {{symbol}}{{price}} / 1M tokens": "Prix de sortie {{symbol}}{{price}} / 1M tokens",
     "输出价格：{{symbol}}{{price}} / 1M tokens": "Prix de sortie : {{symbol}}{{price}} / 1M tokens",
     "输出价格：{{symbol}}{{total}} / 1M tokens": "Prix de sortie : {{symbol}}{{total}} / 1M tokens"
-  }
+  },
+  "去充值": "Recharger",
+  "留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。": "Laisser vide pour conserver la clé. Plusieurs lignes fusionnées en clés distinctes passent le canal en multi-clés.",
+  "可选。每行一个密钥；多行将创建为同一渠道的多密钥模式（随机调度）。": "Facultatif. Une clé par ligne ; plusieurs lignes créent un canal multi-clés (aléatoire).",
+  "批量添加密钥": "Ajout groupé de clés",
+  "每行一个密钥，与弹窗「添加密钥」效果相同；支持一次粘贴多行。": "Une clé par ligne, identique à la fenêtre « Ajouter des clés » ; collage multi-lignes possible.",
+  "添加至渠道": "Ajouter au canal",
+  "单密钥渠道添加多个时将自动切换为多密钥模式": "Plusieurs clés sur un canal à clé unique le passent en mode multi-clés.",
+  "请在上方批量输入框粘贴密钥，或点击「添加密钥」": "Collez les clés dans la zone ci-dessus ou cliquez sur « Ajouter des clés ».",
+  "请先保存渠道；若未在表单中填写密钥，请在保存后于密钥管理中配置再获取模型列表": "Enregistrez d’abord le canal. Si la clé n’a pas été saisie dans le formulaire, configurez-la dans la gestion des clés après enregistrement, puis récupérez les modèles.",
+  "请点击「添加密钥」来配置密钥": "Cliquez sur « Ajouter des clés » pour configurer les clés.",
+  "控制台充值跳转地址": "URL de redirection recharge (console)",
+  "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "ex. https://example.com/topup ou /console/topup ; vide = lien de recharge des paramètres d’exploitation."
 }

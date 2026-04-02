@@ -1,12 +1,14 @@
 import React, { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Zap, Activity, Wallet, Building2 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { API, isAdmin, renderQuota } from '../../helpers';
+import { API, isAdmin, renderQuota, goToRecharge } from '../../helpers';
 import { UserContext } from '../../context/User';
+import { StatusContext } from '../../context/Status';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -60,7 +62,9 @@ const TOP_MODEL_COUNT = 5;
 
 const Dashboard = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [userState] = useContext(UserContext);
+  const [statusState] = useContext(StatusContext);
   const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, vendors: 0 });
   const [rawData, setRawData] = useState([]);
   const [chartRange, setChartRange] = useState(1);
@@ -209,18 +213,31 @@ const Dashboard = () => {
       <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 mb-10 pb-8 border-b border-[#F0F0F0]'>
         {statItems.map((item, i) => {
           const Icon = item.icon;
+          const isBalance = item.label === t('账户余额');
           return (
             <motion.div key={i} custom={i} variants={fadeUp} initial='hidden' animate='show'>
               <div className='flex items-center gap-2 mb-2'>
                 <Icon size={16} strokeWidth={1.5} color='#999' />
                 <span className='text-[12px] text-[#999] font-medium'>{item.label}</span>
               </div>
-              <p className='text-[26px] font-semibold text-[#1A1A1A] leading-tight'>
-                {item.formatter
-                  ? <CountUp end={item.value} formatter={item.formatter} />
-                  : <CountUp end={item.value} />
-                }
-              </p>
+              <div className='flex items-end gap-2'>
+                <p className='text-[26px] font-semibold text-[#1A1A1A] leading-tight'>
+                  {item.formatter
+                    ? <CountUp end={item.value} formatter={item.formatter} />
+                    : <CountUp end={item.value} />
+                  }
+                </p>
+                {isBalance && (
+                  <button
+                    onClick={() =>
+                      goToRecharge(navigate, statusState?.status)
+                    }
+                    className='mb-1 text-[11px] text-[#2563eb] hover:text-[#1d4ed8] font-medium cursor-pointer border-none bg-transparent p-0'
+                  >
+                    {t('去充值')}
+                  </button>
+                )}
+              </div>
             </motion.div>
           );
         })}

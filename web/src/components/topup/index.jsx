@@ -28,6 +28,7 @@ import {
   renderQuotaWithAmount,
   copy,
   getQuotaPerUnit,
+  resolveRechargeRedirectUrl,
 } from '../../helpers';
 import { Modal, Toast } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +54,7 @@ const TopUp = () => {
     statusState?.status?.min_topup || 1,
   );
   const [topUpLink, setTopUpLink] = useState(
-    statusState?.status?.top_up_link || '',
+    resolveRechargeRedirectUrl(statusState?.status) || '',
   );
   const [enableOnlineTopUp, setEnableOnlineTopUp] = useState(
     statusState?.status?.enable_online_topup || false,
@@ -603,7 +604,7 @@ const TopUp = () => {
       // const minTopUpValue = statusState.status.min_topup || 1;
       // setMinTopUp(minTopUpValue);
       // setTopUpCount(minTopUpValue);
-      setTopUpLink(statusState.status.top_up_link || '');
+      setTopUpLink(resolveRechargeRedirectUrl(statusState.status) || '');
       setPriceRatio(statusState.status.price || 1);
 
       setStatusLoading(false);

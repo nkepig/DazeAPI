@@ -34,6 +34,7 @@ export default function GeneralSettings(props) {
   const [inputs, setInputs] = useState({
     RetryTimes: '',
     SelfUseModeEnabled: false,
+    'general_setting.recharge_redirect_url': '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -70,11 +71,20 @@ export default function GeneralSettings(props) {
       .finally(() => setLoading(false));
   }
 
+  const formFieldKeys = [
+    'RetryTimes',
+    'SelfUseModeEnabled',
+    'general_setting.recharge_redirect_url',
+  ];
+
   useEffect(() => {
     const currentInputs = {};
-    for (let key in props.options) {
-      if (Object.keys(inputs).includes(key)) {
+    for (const key of formFieldKeys) {
+      if (Object.prototype.hasOwnProperty.call(props.options, key)) {
         currentInputs[key] = props.options[key];
+      } else {
+        currentInputs[key] =
+          key === 'SelfUseModeEnabled' ? false : '';
       }
     }
     setInputs(currentInputs);
@@ -110,6 +120,18 @@ export default function GeneralSettings(props) {
                 checkedText='｜'
                 uncheckedText='〇'
                 onChange={handleFieldChange('SelfUseModeEnabled')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={16} lg={16} xl={16}>
+              <Form.Input
+                field={'general_setting.recharge_redirect_url'}
+                label={t('控制台充值跳转地址')}
+                initValue={''}
+                placeholder={t('例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接')}
+                onChange={handleFieldChange(
+                  'general_setting.recharge_redirect_url',
+                )}
+                showClear
               />
             </Col>
           </Row>

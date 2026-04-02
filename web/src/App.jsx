@@ -22,6 +22,7 @@ import SetupCheck from './components/layout/SetupCheck';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Models = lazy(() => import('./pages/Models'));
+const TopUp = lazy(() => import('./components/topup'));
 
 function Loading() {
   return (
@@ -61,6 +62,10 @@ function App() {
         <Route
           path='/console/personal'
           element={<PrivateRoute><Suspense fallback={<Loading />}><PersonalSetting /></Suspense></PrivateRoute>}
+        />
+        <Route
+          path='/console/topup'
+          element={<PrivateRoute><Suspense fallback={<Loading />}><TopUp /></Suspense></PrivateRoute>}
         />
         <Route path='/user/reset' element={<Suspense fallback={<Loading />}><PasswordResetConfirm /></Suspense>} />
         <Route path='/login' element={<Suspense fallback={<Loading />}><LoginForm /></Suspense>} />

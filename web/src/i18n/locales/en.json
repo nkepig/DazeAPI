@@ -414,7 +414,7 @@
     "使用 Passkey 登录": "Sign in with Passkey",
     "使用 Passkey 验证": "Verify with Passkey",
     "使用 微信 继续": "Continue with WeChat",
-    "使用 用户名 注册": "Sign up with Username",
+    "使用 用户名 注册": "Register with username",
     "使用 邮箱或用户名 登录": "Sign in with Email or Username",
     "使用ID排序": "Sort by ID",
     "使用日志": "Usage Logs",
@@ -3352,14 +3352,23 @@
     "浏览所有可以通过 API 调用的模型": "Browse all models available via API",
     "搜索模型或供应商...": "Search models or providers...",
     "未找到模型": "No models found",
-    "个模型": "models",
     "个供应商": "providers",
     "输入倍率": "Input ratio",
-    "补全倍率": "Completion ratio",
     "管理你的 API 密钥，控制访问权限": "Manage your API keys and access control",
     "查看 API 调用记录和使用统计": "View API call logs and usage statistics",
     "配置和管理 API 渠道": "Configure and manage API channels",
-    "已有账户？登录": "Already have an account? Sign in",
-    "使用 用户名 注册": "Register with username"
-  }
+    "已有账户？登录": "Already have an account? Sign in"
+  },
+  "去充值": "Recharge",
+  "留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。": "Leave blank to keep the current key. Multiple lines are merged as separate keys and will upgrade the channel to multi-key.",
+  "可选。每行一个密钥；多行将创建为同一渠道的多密钥模式（随机调度）。": "Optional. One key per line; multiple lines create one channel in multi-key mode (random).",
+  "批量添加密钥": "Batch add keys",
+  "每行一个密钥，与弹窗「添加密钥」效果相同；支持一次粘贴多行。": "One key per line, same as the “Add keys” dialog; you can paste multiple lines at once.",
+  "添加至渠道": "Add to channel",
+  "单密钥渠道添加多个时将自动切换为多密钥模式": "Adding multiple keys to a single-key channel switches it to multi-key mode.",
+  "请在上方批量输入框粘贴密钥，或点击「添加密钥」": "Paste keys in the batch field above, or click “Add keys”.",
+  "请先保存渠道；若未在表单中填写密钥，请在保存后于密钥管理中配置再获取模型列表": "Save the channel first. If you did not enter a key in the form, configure it in key management after saving, then fetch models.",
+  "请点击「添加密钥」来配置密钥": "Click “Add keys” to configure keys.",
+  "控制台充值跳转地址": "Console recharge redirect URL",
+  "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "e.g. https://example.com/topup or /console/topup; leave empty to use the Top Up Link in operation settings."
 }

@@ -19,14 +19,23 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API, showError, showSuccess, setUserData, renderQuota } from '../../helpers';
+import {
+  API,
+  showError,
+  showSuccess,
+  setUserData,
+  renderQuota,
+  goToRecharge,
+} from '../../helpers';
 import { UserContext } from '../../context/User';
+import { StatusContext } from '../../context/Status';
 import { Modal, Form, Button } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { Wallet, Users, KeyRound, LogOut } from 'lucide-react';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
+  const [statusState] = useContext(StatusContext);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -118,7 +127,19 @@ const PersonalSetting = () => {
 
         {/* Info Items */}
         <div className='space-y-0'>
-          <InfoRow icon={Wallet} label={t('账户余额')} value={renderQuota(user?.quota)} />
+          <InfoRow
+            icon={Wallet}
+            label={t('账户余额')}
+            value={renderQuota(user?.quota)}
+            action={
+              <button
+                onClick={() => goToRecharge(navigate, statusState?.status)}
+                className='text-[11px] text-[#2563eb] hover:text-[#1d4ed8] font-medium cursor-pointer border-none bg-transparent p-0'
+              >
+                {t('去充值')}
+              </button>
+            }
+          />
           <InfoRow icon={Wallet} label={t('已用额度')} value={renderQuota(user?.used_quota)} />
           <InfoRow icon={Users} label={t('用户分组')} value={user?.group || t('默认')} />
           <InfoRow icon={KeyRound} label={t('请求次数')} value={String(user?.request_count || 0)} />
@@ -180,14 +201,17 @@ const PersonalSetting = () => {
   );
 };
 
-function InfoRow({ icon: Icon, label, value }) {
+function InfoRow({ icon: Icon, label, value, action }) {
   return (
     <div className='flex items-center justify-between py-4 border-b border-[#F5F5F5] last:border-0'>
       <div className='flex items-center gap-2.5'>
         <Icon size={16} strokeWidth={1.5} color='#BBB' />
         <span className='text-[13px] text-[#999]'>{label}</span>
       </div>
-      <span className='text-[14px] font-medium text-[#1A1A1A]'>{value}</span>
+      <div className='flex items-center gap-2'>
+        <span className='text-[14px] font-medium text-[#1A1A1A]'>{value}</span>
+        {action}
+      </div>
     </div>
   );
 }
