@@ -23,7 +23,6 @@ import {
   Button,
   Input,
   Table,
-  Tag,
   Typography,
   Select,
   Switch,
@@ -32,6 +31,7 @@ import {
 import { IconSearch, IconInfoCircle } from '@douyinfe/semi-icons';
 import { copy, showError, showInfo, showSuccess } from '../../../../helpers';
 import { MODEL_TABLE_PAGE_SIZE } from '../../../../constants';
+import { StatusPill } from '../../../common/ui/StatusPill';
 
 const ModelTestModal = ({
   showModelTestModal,
@@ -152,26 +152,18 @@ const ModelTestModal = ({
         const isTesting = testingModels.has(record.model);
 
         if (isTesting) {
-          return (
-            <Tag color='blue' shape='circle'>
-              {t('测试中')}
-            </Tag>
-          );
+          return <StatusPill variant='info'>{t('测试中')}</StatusPill>;
         }
 
         if (!testResult) {
-          return (
-            <Tag color='grey' shape='circle'>
-              {t('未开始')}
-            </Tag>
-          );
+          return <StatusPill variant='neutral'>{t('未开始')}</StatusPill>;
         }
 
         return (
           <div className='flex items-center gap-2'>
-            <Tag color={testResult.success ? 'green' : 'red'} shape='circle'>
+            <StatusPill variant={testResult.success ? 'success' : 'danger'}>
               {testResult.success ? t('成功') : t('失败')}
-            </Tag>
+            </StatusPill>
             {testResult.success && (
               <Typography.Text type='tertiary'>
                 {t('请求时长: ${time}s').replace(
@@ -189,9 +181,16 @@ const ModelTestModal = ({
       dataIndex: 'operate',
       render: (text, record) => {
         const isTesting = testingModels.has(record.model);
+        const testResult =
+          modelTestResults[`${currentTestChannel.id}-${record.model}`];
+        let btnType = 'tertiary';
+        if (testResult) {
+          btnType = testResult.success ? 'primary' : 'danger';
+        }
         return (
           <Button
-            type='tertiary'
+            type={btnType}
+            theme={testResult ? 'solid' : 'light'}
             onClick={() =>
               testChannel(
                 currentTestChannel,

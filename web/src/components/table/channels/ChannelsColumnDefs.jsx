@@ -50,6 +50,7 @@ import {
   IconAlertTriangle,
 } from '@douyinfe/semi-icons';
 import { FaRandom } from 'react-icons/fa';
+import { StatusPill } from '../../common/ui/StatusPill';
 
 // Render functions
 const renderType = (type, record = {}, t) => {
@@ -148,31 +149,6 @@ const renderTagType = (t) => {
   );
 };
 
-const STATUS_STYLES = {
-  1: { background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' },
-  2: { background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3' },
-  3: { background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' },
-  default: { background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' },
-};
-
-const StatusBadge = ({ status, children }) => {
-  const style = STATUS_STYLES[status] || STATUS_STYLES.default;
-  return (
-    <span style={{
-      ...style,
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '2px 10px',
-      borderRadius: '9999px',
-      fontSize: '12px',
-      fontWeight: 500,
-      whiteSpace: 'nowrap',
-    }}>
-      {children}
-    </span>
-  );
-};
-
 const renderStatus = (status, channelInfo = undefined, t) => {
   if (channelInfo) {
     if (channelInfo.is_multi_key) {
@@ -187,26 +163,42 @@ const renderStatus = (status, channelInfo = undefined, t) => {
   }
   switch (status) {
     case 1:
-      return <StatusBadge status={1}>{t('已启用')}</StatusBadge>;
+      return <StatusPill variant={1}>{t('已启用')}</StatusPill>;
     case 2:
-      return <StatusBadge status={2}>{t('已禁用')}</StatusBadge>;
+      return <StatusPill variant={2}>{t('已禁用')}</StatusPill>;
     case 3:
-      return <StatusBadge status={3}>{t('自动禁用')}</StatusBadge>;
+      return <StatusPill variant={3}>{t('自动禁用')}</StatusPill>;
     default:
-      return <StatusBadge status={0}>{t('未知状态')}</StatusBadge>;
+      return <StatusPill variant={0}>{t('未知状态')}</StatusPill>;
   }
 };
 
 const renderMultiKeyStatus = (status, keySize, enabledKeySize, t) => {
   switch (status) {
     case 1:
-      return <StatusBadge status={1}>{t('已启用')} {enabledKeySize}/{keySize}</StatusBadge>;
+      return (
+        <StatusPill variant={1}>
+          {t('已启用')} {enabledKeySize}/{keySize}
+        </StatusPill>
+      );
     case 2:
-      return <StatusBadge status={2}>{t('已禁用')} {enabledKeySize}/{keySize}</StatusBadge>;
+      return (
+        <StatusPill variant={2}>
+          {t('已禁用')} {enabledKeySize}/{keySize}
+        </StatusPill>
+      );
     case 3:
-      return <StatusBadge status={3}>{t('自动禁用')} {enabledKeySize}/{keySize}</StatusBadge>;
+      return (
+        <StatusPill variant={3}>
+          {t('自动禁用')} {enabledKeySize}/{keySize}
+        </StatusPill>
+      );
     default:
-      return <StatusBadge status={0}>{t('未知状态')} {enabledKeySize}/{keySize}</StatusBadge>;
+      return (
+        <StatusPill variant={0}>
+          {t('未知状态')} {enabledKeySize}/{keySize}
+        </StatusPill>
+      );
   }
 };
 
@@ -214,36 +206,18 @@ const renderResponseTime = (responseTime, t) => {
   let time = responseTime / 1000;
   time = time.toFixed(2) + t(' 秒');
   if (responseTime === 0) {
-    return (
-      <Tag color='grey' shape='circle'>
-        {t('未测试')}
-      </Tag>
-    );
-  } else if (responseTime <= 1000) {
-    return (
-      <Tag color='green' shape='circle'>
-        {time}
-      </Tag>
-    );
-  } else if (responseTime <= 3000) {
-    return (
-      <Tag color='lime' shape='circle'>
-        {time}
-      </Tag>
-    );
-  } else if (responseTime <= 5000) {
-    return (
-      <Tag color='yellow' shape='circle'>
-        {time}
-      </Tag>
-    );
-  } else {
-    return (
-      <Tag color='red' shape='circle'>
-        {time}
-      </Tag>
-    );
+    return <StatusPill variant='neutral'>{t('未测试')}</StatusPill>;
   }
+  if (responseTime <= 1000) {
+    return <StatusPill variant='success'>{time}</StatusPill>;
+  }
+  if (responseTime <= 3000) {
+    return <StatusPill variant='lime'>{time}</StatusPill>;
+  }
+  if (responseTime <= 5000) {
+    return <StatusPill variant='warning'>{time}</StatusPill>;
+  }
+  return <StatusPill variant='danger'>{time}</StatusPill>;
 };
 
 const isRequestPassThroughEnabled = (record) => {

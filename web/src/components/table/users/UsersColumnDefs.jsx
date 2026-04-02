@@ -30,6 +30,7 @@ import {
 } from '@douyinfe/semi-ui';
 import { IconMore } from '@douyinfe/semi-icons';
 import { renderGroup, renderNumber, renderQuota } from '../../../helpers';
+import { StatusPill } from '../../common/ui/StatusPill';
 
 /**
  * Render user role
@@ -67,16 +68,18 @@ const renderRole = (role, t) => {
  * Render username with remark
  */
 const renderUsername = (text, record) => {
+  const isUserDisabled = record.status === 2 && record.DeletedAt == null;
+  const nameClass = isUserDisabled ? 'text-red-600 font-semibold' : '';
   const remark = record.remark;
   if (!remark) {
-    return <span>{text}</span>;
+    return <span className={nameClass}>{text}</span>;
   }
   const maxLen = 10;
   const displayRemark =
     remark.length > maxLen ? remark.slice(0, maxLen) + '…' : remark;
   return (
     <Space spacing={2}>
-      <span>{text}</span>
+      <span className={nameClass}>{text}</span>
       <Tooltip content={remark} position='top' showArrow>
         <Tag color='white' shape='circle' className='!text-xs'>
           <div className='flex items-center gap-1'>
@@ -98,25 +101,20 @@ const renderUsername = (text, record) => {
 const renderStatistics = (text, record, showEnableDisableModal, t) => {
   const isDeleted = record.DeletedAt !== null;
 
-  // Determine tag text & color like original status column
-  let tagColor = 'grey';
+  let variant = 0;
   let tagText = t('未知状态');
   if (isDeleted) {
-    tagColor = 'red';
+    variant = 2;
     tagText = t('已注销');
   } else if (record.status === 1) {
-    tagColor = 'green';
+    variant = 1;
     tagText = t('已启用');
   } else if (record.status === 2) {
-    tagColor = 'red';
+    variant = 2;
     tagText = t('已禁用');
   }
 
-  const content = (
-    <Tag color={tagColor} shape='circle' size='small'>
-      {tagText}
-    </Tag>
-  );
+  const content = <StatusPill variant={variant}>{tagText}</StatusPill>;
 
   const tooltipContent = (
     <div className='text-xs'>
@@ -242,22 +240,17 @@ const renderOperations = (
       {record.status === 1 ? (
         <Button
           type='danger'
-          size='small'
           onClick={() => showEnableDisableModal(record, 'disable')}
         >
           {t('禁用')}
         </Button>
       ) : (
-        <Button
-          size='small'
-          onClick={() => showEnableDisableModal(record, 'enable')}
-        >
+        <Button onClick={() => showEnableDisableModal(record, 'enable')}>
           {t('启用')}
         </Button>
       )}
       <Button
         type='tertiary'
-        size='small'
         onClick={() => {
           setEditingUser(record);
           setShowEditUser(true);
@@ -265,22 +258,14 @@ const renderOperations = (
       >
         {t('编辑')}
       </Button>
-      <Button
-        type='warning'
-        size='small'
-        onClick={() => showPromoteModal(record)}
-      >
+      <Button type='warning' onClick={() => showPromoteModal(record)}>
         {t('提升')}
       </Button>
-      <Button
-        type='secondary'
-        size='small'
-        onClick={() => showDemoteModal(record)}
-      >
+      <Button type='secondary' onClick={() => showDemoteModal(record)}>
         {t('降级')}
       </Button>
       <Dropdown menu={moreMenu} trigger='click' position='bottomRight'>
-        <Button type='tertiary' size='small' icon={<IconMore />} />
+        <Button type='tertiary' icon={<IconMore />} />
       </Dropdown>
     </Space>
   );

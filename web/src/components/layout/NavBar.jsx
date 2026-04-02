@@ -21,7 +21,7 @@ import { normalizeLanguage } from '../../i18n/language';
 
 const navItems = [
   { key: 'dashboard', path: '/console/dashboard', icon: LayoutDashboard, label: '控制台' },
-  { key: 'models', path: '/console/models', icon: Layers, label: '模型列表' },
+  { key: 'models', path: '/console/models', icon: Layers, label: '可用模型' },
   { key: 'apikeys', path: '/console/token', icon: KeyRound, label: 'API 密钥' },
   { key: 'logs', path: '/console/log', icon: FileText, label: '使用日志' },
 ];
@@ -154,6 +154,23 @@ const NavBar = () => {
             >
               {t('渠道管理')}
               {location.pathname.startsWith('/console/channel') && (
+                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+              )}
+            </Link>
+          )}
+          {isLoggedIn && isAdmin() && (
+            <Link
+              to='/console/user'
+              className='relative px-4 py-2 text-sm font-medium rounded-lg no-underline transition-colors duration-150'
+              style={{
+                color: location.pathname.startsWith('/console/user') ? '#1A1A1A' : '#999',
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => { if (!location.pathname.startsWith('/console/user')) e.currentTarget.style.backgroundColor = '#F5F5F5'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              {t('用户管理')}
+              {location.pathname.startsWith('/console/user') && (
                 <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
               )}
             </Link>
@@ -322,6 +339,13 @@ const NavBar = () => {
                 className='flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[#999] no-underline hover:bg-[#F5F5F5]'
               >
                 {t('渠道管理')}
+              </Link>
+              <Link
+                to='/console/user'
+                onClick={() => setMobileOpen(false)}
+                className='flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[#999] no-underline hover:bg-[#F5F5F5]'
+              >
+                {t('用户管理')}
               </Link>
             </>
           )}

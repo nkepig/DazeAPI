@@ -33,6 +33,7 @@ import {
   Select,
   Tag,
 } from '@douyinfe/semi-ui';
+import { StatusPill } from '../common/ui/StatusPill';
 import { IconSearch } from '@douyinfe/semi-icons';
 
 const OFFICIAL_RATIO_PRESET_ID = -100;
@@ -180,32 +181,16 @@ const ChannelSelectorModal = forwardRef(
       let statusTag = null;
       switch (status) {
         case 1:
-          statusTag = (
-            <Tag color='green' shape='circle'>
-              {t('已启用')}
-            </Tag>
-          );
+          statusTag = <StatusPill variant={1}>{t('已启用')}</StatusPill>;
           break;
         case 2:
-          statusTag = (
-            <Tag color='red' shape='circle'>
-              {t('已禁用')}
-            </Tag>
-          );
+          statusTag = <StatusPill variant={2}>{t('已禁用')}</StatusPill>;
           break;
         case 3:
-          statusTag = (
-            <Tag color='yellow' shape='circle'>
-              {t('自动禁用')}
-            </Tag>
-          );
+          statusTag = <StatusPill variant={3}>{t('自动禁用')}</StatusPill>;
           break;
         default:
-          statusTag = (
-            <Tag color='grey' shape='circle'>
-              {t('未知状态')}
-            </Tag>
-          );
+          statusTag = <StatusPill variant={0}>{t('未知状态')}</StatusPill>;
       }
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

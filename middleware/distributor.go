@@ -54,6 +54,21 @@ func Distribute() func(c *gin.Context) {
 		} else {
 			// Select a channel for the user
 			// check token model mapping
+			// check user-level model overrides (whitelist)
+			if userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting); ok {
+				if len(userSetting.ModelOverrides) > 0 {
+					matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model)
+					_, matchOk := userSetting.ModelOverrides[matchName]
+					if !matchOk {
+						_, matchOk = userSetting.ModelOverrides[modelRequest.Model]
+					}
+					if !matchOk {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("model %s is not enabled for your account", modelRequest.Model))
+						return
+					}
+				}
+			}
+
 			modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
 			if modelLimitEnable {
 				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)

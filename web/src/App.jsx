@@ -14,6 +14,7 @@ import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import Channel from './pages/Channel';
 import Token from './pages/Token';
 import Log from './pages/Log';
+import User from './pages/User';
 import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
@@ -50,6 +51,7 @@ function App() {
           element={<PrivateRoute><Suspense fallback={<Loading />}><Models /></Suspense></PrivateRoute>}
         />
         <Route path='/console/channel' element={<AdminRoute><Channel /></AdminRoute>} />
+        <Route path='/console/user' element={<AdminRoute><User /></AdminRoute>} />
         <Route path='/console/token' element={<PrivateRoute><Token /></PrivateRoute>} />
         <Route path='/console/log' element={<PrivateRoute><Log /></PrivateRoute>} />
         <Route

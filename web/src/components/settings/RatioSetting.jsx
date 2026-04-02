@@ -21,8 +21,6 @@ import React, { useEffect, useState } from 'react';
 import { Card, Spin, Tabs } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
-import GroupRatioSettings from '../../pages/Setting/Ratio/GroupRatioSettings';
-import ModelRatioSettings from '../../pages/Setting/Ratio/ModelRatioSettings';
 import ModelSettingsVisualEditor from '../../pages/Setting/Ratio/ModelSettingsVisualEditor';
 import ModelRatioNotSetEditor from '../../pages/Setting/Ratio/ModelRationNotSetEditor';
 import UpstreamRatioSync from '../../pages/Setting/Ratio/UpstreamRatioSync';
@@ -38,16 +36,10 @@ const RatioSetting = () => {
     CacheRatio: '',
     CreateCacheRatio: '',
     CompletionRatio: '',
-    GroupRatio: '',
-    GroupGroupRatio: '',
     ImageRatio: '',
     AudioRatio: '',
     AudioCompletionRatio: '',
-    AutoGroups: '',
-    DefaultUseAutoGroup: false,
     ExposeRatioEnabled: false,
-    UserUsableGroups: '',
-    'group_ratio_setting.group_special_usable_group': '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -65,7 +57,7 @@ const RatioSetting = () => {
             // 如果后端返回的不是合法 JSON，直接展示
           }
         }
-        if (['DefaultUseAutoGroup', 'ExposeRatioEnabled'].includes(item.key)) {
+        if (['ExposeRatioEnabled'].includes(item.key)) {
           newInputs[item.key] = toBoolean(item.value);
         } else {
           newInputs[item.key] = item.value;
@@ -98,12 +90,6 @@ const RatioSetting = () => {
       {/* 模型倍率设置以及价格编辑器 */}
       <Card style={{ marginTop: '10px' }}>
         <Tabs type='card' defaultActiveKey='visual'>
-          <Tabs.TabPane tab={t('模型倍率设置')} itemKey='model'>
-            <ModelRatioSettings options={inputs} refresh={onRefresh} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab={t('分组相关设置')} itemKey='group'>
-            <GroupRatioSettings options={inputs} refresh={onRefresh} />
-          </Tabs.TabPane>
           <Tabs.TabPane tab={t('价格设置')} itemKey='visual'>
             <ModelSettingsVisualEditor options={inputs} refresh={onRefresh} />
           </Tabs.TabPane>

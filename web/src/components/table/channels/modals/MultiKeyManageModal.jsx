@@ -50,6 +50,7 @@ import {
   timestamp2string,
   isRoot,
 } from '../../../../helpers';
+import { StatusPill } from '../../../common/ui/StatusPill';
 
 const { Text } = Typography;
 
@@ -89,6 +90,9 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
   const [addKeysValue, setAddKeysValue] = useState('');
   const [addKeysLoading, setAddKeysLoading] = useState(false);
   const [addMultiKeyMode, setAddMultiKeyMode] = useState('random');
+
+  /** 最近一次单密钥测试结果（仅前端展示） */
+  const [keyTestResults, setKeyTestResults] = useState({});
 
   const isMultiKey = channel?.channel_info?.is_multi_key;
 
@@ -253,11 +257,26 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         key_index: keyIndex,
       });
       if (res.data.success) {
-        showSuccess(res.data.message || t('密钥测试成功'));
+        const msg = res.data.message || t('密钥测试成功');
+        setKeyTestResults((prev) => ({
+          ...prev,
+          [keyIndex]: { success: true, message: msg },
+        }));
+        showSuccess(msg);
       } else {
-        showError(res.data.message || t('密钥测试失败'));
+        const msg = res.data.message || t('密钥测试失败');
+        setKeyTestResults((prev) => ({
+          ...prev,
+          [keyIndex]: { success: false, message: msg },
+        }));
+        showError(msg);
       }
     } catch (error) {
+      const msg = error?.message || t('密钥测试失败');
+      setKeyTestResults((prev) => ({
+        ...prev,
+        [keyIndex]: { success: false, message: msg },
+      }));
       showError(t('密钥测试失败'));
     } finally {
       setOperationLoading((prev) => ({ ...prev, [operationId]: false }));
@@ -409,6 +428,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       setManualDisabledCount(0);
       setAutoDisabledCount(0);
       setStatusFilter(null);
+      setKeyTestResults({});
     }
   }, [visible]);
 
@@ -422,29 +442,13 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
   const renderStatusTag = (status) => {
     switch (status) {
       case 1:
-        return (
-          <Tag color='green' shape='circle' size='small'>
-            {t('已启用')}
-          </Tag>
-        );
+        return <StatusPill variant={1}>{t('已启用')}</StatusPill>;
       case 2:
-        return (
-          <Tag color='red' shape='circle' size='small'>
-            {t('已禁用')}
-          </Tag>
-        );
+        return <StatusPill variant={2}>{t('已禁用')}</StatusPill>;
       case 3:
-        return (
-          <Tag color='orange' shape='circle' size='small'>
-            {t('自动禁用')}
-          </Tag>
-        );
+        return <StatusPill variant={3}>{t('自动禁用')}</StatusPill>;
       default:
-        return (
-          <Tag color='grey' shape='circle' size='small'>
-            {t('未知状态')}
-          </Tag>
-        );
+        return <StatusPill variant={0}>{t('未知状态')}</StatusPill>;
     }
   };
 
@@ -486,9 +490,24 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         if (record.status === 1 || !reason) {
           return <Text type='quaternary'>-</Text>;
         }
+        const modelRelated = /model|模型|404|not\s*found|invalid/i.test(reason);
+        const color =
+          record.status === 3
+            ? '#d97706'
+            : modelRelated
+              ? '#b91c1c'
+              : '#dc2626';
         return (
           <Tooltip content={reason}>
-            <Text style={{ maxWidth: '200px', display: 'block' }} ellipsis>
+            <Text
+              style={{
+                maxWidth: '200px',
+                display: 'block',
+                color,
+                fontWeight: modelRelated ? 600 : 500,
+              }}
+              ellipsis
+            >
               {reason}
             </Text>
           </Tooltip>
@@ -505,6 +524,24 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         return (
           <Tooltip content={timestamp2string(time)}>
             <Text style={{ fontSize: '12px' }}>{timestamp2string(time)}</Text>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: t('最近测试'),
+      key: 'last_test',
+      width: 96,
+      render: (_, record) => {
+        const tr = keyTestResults[record.index];
+        if (!tr) {
+          return <Text type='quaternary'>-</Text>;
+        }
+        return (
+          <Tooltip content={tr.message}>
+            <StatusPill variant={tr.success ? 'success' : 'danger'}>
+              {tr.success ? t('成功') : t('失败')}
+            </StatusPill>
           </Tooltip>
         );
       },
@@ -539,18 +576,26 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
               </Button>
             </Tooltip>
           )}
-          {isRoot() && (
-            <Tooltip content={t('测试该密钥')}>
-              <Button
-                size='small'
-                type='tertiary'
-                loading={operationLoading[`test_${record.index}`]}
-                onClick={() => handleTestKey(record.index)}
-              >
-                {t('测试')}
-              </Button>
-            </Tooltip>
-          )}
+          {isRoot() && (() => {
+            const tr = keyTestResults[record.index];
+            let btnType = 'tertiary';
+            if (tr) {
+              btnType = tr.success ? 'primary' : 'danger';
+            }
+            return (
+              <Tooltip content={t('测试该密钥')}>
+                <Button
+                  size='small'
+                  type={btnType}
+                  theme={tr ? 'solid' : 'light'}
+                  loading={operationLoading[`test_${record.index}`]}
+                  onClick={() => handleTestKey(record.index)}
+                >
+                  {t('测试')}
+                </Button>
+              </Tooltip>
+            );
+          })()}
           {record.status === 1 ? (
             <Button
               type='danger'
@@ -597,7 +642,9 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       <Modal
         title={
           <Space>
-            <Text>{t('密钥管理')}</Text>
+            <Text>
+              {isMultiKey ? t('多密钥管理') : t('密钥管理')}
+            </Text>
             {channel?.name && (
               <Tag size='small' shape='circle' color='white'>
                 {channel.name}
@@ -621,16 +668,15 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         footer={null}
       >
         <div className='flex flex-col mb-5'>
-          {/* Stats */}
-          {isMultiKey && (
-            <div
-              className='rounded-xl p-4 mb-3'
-              style={{
-                background: 'var(--semi-color-bg-1)',
-                border: '1px solid var(--semi-color-border)',
-              }}
-            >
-              <Row gutter={16} align='middle'>
+          {/* Stats：单密钥与多密钥均展示，与参考布局一致 */}
+          <div
+            className='rounded-xl p-4 mb-3'
+            style={{
+              background: 'var(--semi-color-bg-1)',
+              border: '1px solid var(--semi-color-border)',
+            }}
+          >
+            <Row gutter={16} align='middle'>
                 <Col span={8}>
                   <div
                     style={{
@@ -722,8 +768,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                   </div>
                 </Col>
               </Row>
-            </div>
-          )}
+          </div>
 
           {/* Table */}
           <div className='flex-1 flex flex-col min-h-0'>
@@ -734,21 +779,19 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                     <Row gutter={12} style={{ width: '100%' }}>
                       <Col span={14}>
                         <Row gutter={12} style={{ alignItems: 'center' }}>
-                          {isMultiKey && (
-                            <Col>
-                              <Select
-                                value={statusFilter}
-                                onChange={handleStatusFilterChange}
-                                size='small'
-                                placeholder={t('全部状态')}
-                              >
-                                <Select.Option value={null}>{t('全部状态')}</Select.Option>
-                                <Select.Option value={1}>{t('已启用')}</Select.Option>
-                                <Select.Option value={2}>{t('手动禁用')}</Select.Option>
-                                <Select.Option value={3}>{t('自动禁用')}</Select.Option>
-                              </Select>
-                            </Col>
-                          )}
+                          <Col>
+                            <Select
+                              value={statusFilter}
+                              onChange={handleStatusFilterChange}
+                              size='small'
+                              placeholder={t('全部状态')}
+                            >
+                              <Select.Option value={null}>{t('全部状态')}</Select.Option>
+                              <Select.Option value={1}>{t('已启用')}</Select.Option>
+                              <Select.Option value={2}>{t('手动禁用')}</Select.Option>
+                              <Select.Option value={3}>{t('自动禁用')}</Select.Option>
+                            </Select>
+                          </Col>
                         </Row>
                       </Col>
                       <Col
@@ -764,35 +807,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                           >
                             {t('刷新')}
                           </Button>
-                          <Button
-                            size='small'
-                            type='primary'
-                            onClick={() => {
-                              setAddMultiKeyMode(
-                                channel?.channel_info?.multi_key_mode || 'random',
-                              );
-                              setAddKeysValue('');
-                              setAddKeysVisible(true);
-                            }}
-                          >
-                            {t('添加密钥')}
-                          </Button>
-                          {isMultiKey && manualDisabledCount + autoDisabledCount > 0 && (
-                            <Popconfirm
-                              title={t('确定要启用所有密钥吗？')}
-                              onConfirm={handleEnableAll}
-                              position={'topRight'}
-                            >
-                              <Button
-                                size='small'
-                                type='primary'
-                                loading={operationLoading.enable_all}
-                              >
-                                {t('启用全部')}
-                              </Button>
-                            </Popconfirm>
-                          )}
-                          {isMultiKey && enabledCount > 0 && (
+                          {enabledCount > 0 && (
                             <Popconfirm
                               title={t('确定要禁用所有的密钥吗？')}
                               onConfirm={handleDisableAll}
@@ -802,6 +817,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                               <Button
                                 size='small'
                                 type='danger'
+                                theme='light'
                                 loading={operationLoading.disable_all}
                               >
                                 {t('禁用全部')}
@@ -819,11 +835,42 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                               <Button
                                 size='small'
                                 type='warning'
+                                theme='light'
                                 loading={operationLoading.delete_disabled}
                               >
                                 {t('删除自动禁用密钥')}
                               </Button>
                             </Popconfirm>
+                          )}
+                          {manualDisabledCount + autoDisabledCount > 0 && (
+                            <Popconfirm
+                              title={t('确定要启用所有密钥吗？')}
+                              onConfirm={handleEnableAll}
+                              position={'topRight'}
+                            >
+                              <Button
+                                size='small'
+                                type='primary'
+                                loading={operationLoading.enable_all}
+                              >
+                                {t('启用全部')}
+                              </Button>
+                            </Popconfirm>
+                          )}
+                          {isMultiKey && (
+                            <Button
+                              size='small'
+                              type='primary'
+                              onClick={() => {
+                                setAddMultiKeyMode(
+                                  channel?.channel_info?.multi_key_mode || 'random',
+                                );
+                                setAddKeysValue('');
+                                setAddKeysVisible(true);
+                              }}
+                            >
+                              {t('添加密钥')}
+                            </Button>
                           )}
                         </Space>
                       </Col>

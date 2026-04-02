@@ -22,7 +22,6 @@ import CardPro from '../../common/ui/CardPro';
 import UsersTable from './UsersTable';
 import UsersActions from './UsersActions';
 import UsersFilters from './UsersFilters';
-import UsersDescription from './UsersDescription';
 import AddUserModal from './modals/AddUserModal';
 import EditUserModal from './modals/EditUserModal';
 import { useUsersData } from '../../../hooks/users/useUsersData';
@@ -56,7 +55,6 @@ const UsersPage = () => {
 
     // Description state
     compactMode,
-    setCompactMode,
 
     // Translation
     t,
@@ -79,13 +77,6 @@ const UsersPage = () => {
 
       <CardPro
         type='type1'
-        descriptionArea={
-          <UsersDescription
-            compactMode={compactMode}
-            setCompactMode={setCompactMode}
-            t={t}
-          />
-        }
         actionsArea={
           <div className='flex items-center gap-2 w-full flex-wrap'>
             <UsersActions setShowAddUser={setShowAddUser} t={t} />

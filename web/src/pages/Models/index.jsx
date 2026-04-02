@@ -136,10 +136,10 @@ const Models = () => {
   };
 
   const getPriceInfo = (model) => {
-    const gr = getUsedGroupRatio(model);
+    const gr = model.user_multiplier != null ? model.user_multiplier : getUsedGroupRatio(model);
     if (model.quota_type === 1) {
       const priceUSD = parseFloat(model.model_price) * gr;
-      return { type: 'fixed', price: displayPrice(priceUSD), groupRatio: gr };
+      return { type: 'fixed', price: displayPrice(priceUSD), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };
     }
     const inputPriceUSD = model.model_ratio * 2 * gr;
     const outputPriceUSD = inputPriceUSD * model.completion_ratio;
@@ -150,6 +150,7 @@ const Models = () => {
       outputPrice: displayPrice(outputPriceUSD),
       cachePrice: cachePriceUSD != null ? displayPrice(cachePriceUSD) : null,
       groupRatio: gr,
+      hasUserMultiplier: model.user_multiplier != null,
     };
   };
 

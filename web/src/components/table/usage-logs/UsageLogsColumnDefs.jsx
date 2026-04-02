@@ -36,6 +36,7 @@ import {
 } from '../../../helpers';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
 import { Route, Sparkles } from 'lucide-react';
+import { StatusPill } from '../../common/ui/StatusPill';
 
 const colors = [
   'amber',
@@ -137,81 +138,38 @@ function renderType(type, t) {
 
 function renderIsStream(bool, t) {
   if (bool) {
-    return (
-      <Tag color='blue' shape='circle'>
-        {t('流')}
-      </Tag>
-    );
-  } else {
-    return (
-      <Tag color='purple' shape='circle'>
-        {t('非流')}
-      </Tag>
-    );
+    return <StatusPill variant='info'>{t('流')}</StatusPill>;
   }
+  return <StatusPill variant='purple'>{t('非流')}</StatusPill>;
 }
 
 function renderUseTime(type, t) {
   const time = parseInt(type);
   if (time < 101) {
-    return (
-      <Tag color='green' shape='circle'>
-        {' '}
-        {time} s{' '}
-      </Tag>
-    );
-  } else if (time < 300) {
-    return (
-      <Tag color='orange' shape='circle'>
-        {' '}
-        {time} s{' '}
-      </Tag>
-    );
-  } else {
-    return (
-      <Tag color='red' shape='circle'>
-        {' '}
-        {time} s{' '}
-      </Tag>
-    );
+    return <StatusPill variant='success'>{` ${time} s `}</StatusPill>;
   }
+  if (time < 300) {
+    return <StatusPill variant='warning'>{` ${time} s `}</StatusPill>;
+  }
+  return <StatusPill variant='danger'>{` ${time} s `}</StatusPill>;
 }
 
 function renderFirstUseTime(type, t) {
   let time = parseFloat(type) / 1000.0;
   time = time.toFixed(1);
   if (time < 3) {
-    return (
-      <Tag color='green' shape='circle'>
-        {' '}
-        {time} s{' '}
-      </Tag>
-    );
-  } else if (time < 10) {
-    return (
-      <Tag color='orange' shape='circle'>
-        {' '}
-        {time} s{' '}
-      </Tag>
-    );
-  } else {
-    return (
-      <Tag color='red' shape='circle'>
-        {' '}
-        {time} s{' '}
-      </Tag>
-    );
+    return <StatusPill variant='success'>{` ${time} s `}</StatusPill>;
   }
+  if (time < 10) {
+    return <StatusPill variant='warning'>{` ${time} s `}</StatusPill>;
+  }
+  return <StatusPill variant='danger'>{` ${time} s `}</StatusPill>;
 }
 
 function renderBillingTag(record, t) {
   const other = getLogOther(record.other);
   if (other?.billing_source === 'subscription') {
-    return (
-      <Tag color='green' shape='circle'>
-        {t('订阅抵扣')}
-      </Tag>
-    );
+    return <StatusPill variant='success'>{t('订阅抵扣')}</StatusPill>;
   }
   return null;
 }
@@ -331,7 +289,7 @@ function getUsageLogGroupSummary(groupRatio, userGroupRatio, t) {
   if (ratio === undefined || ratio === null || ratio === '') {
     return '';
   }
-  return `${useUserGroupRatio ? t('专属倍率') : t('分组')} ${formatRatio(ratio)}x`;
+  return `${useUserGroupRatio ? t('专属倍率') : t('倍率')} ${formatRatio(ratio)}x`;
 }
 
 function renderCompactDetailSummary(summarySegments) {

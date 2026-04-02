@@ -496,6 +496,21 @@ func GetUserModels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+
+	userSetting := user.GetSetting()
+	if len(userSetting.ModelOverrides) > 0 {
+		models := make([]string, 0, len(userSetting.ModelOverrides))
+		for m := range userSetting.ModelOverrides {
+			models = append(models, m)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+			"data":    models,
+		})
+		return
+	}
+
 	groups := service.GetUserUsableGroups(user.Group)
 	var models []string
 	for group := range groups {
@@ -510,7 +525,6 @@ func GetUserModels(c *gin.Context) {
 		"message": "",
 		"data":    models,
 	})
-	return
 }
 
 func UpdateUser(c *gin.Context) {
@@ -1123,6 +1137,7 @@ func UpdateUserSetting(c *gin.Context) {
 		UpstreamModelUpdateNotifyEnabled: upstreamModelUpdateNotifyEnabled,
 		AcceptUnsetRatioModel:            req.AcceptUnsetModelRatioModel,
 		RecordIpLog:                      req.RecordIpLog,
+		ModelOverrides:                   existingSettings.ModelOverrides,
 	}
 
 	// 如果是webhook类型,添加webhook相关设置
@@ -1163,4 +1178,100 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	common.ApiSuccessI18n(c, i18n.MsgSettingSaved, nil)
+}
+
+type UpdateModelOverridesRequest struct {
+	ModelOverrides map[string]dto.UserModelOverride `json:"model_overrides"`
+}
+
+func GetUserModelOverrides(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	user, err := model.GetUserById(id, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	settings := user.GetSetting()
+	type GlobalModelInfo struct {
+		Model       string  `json:"model"`
+		BillingType string  `json:"billing_type"`
+		Value       float64 `json:"value"`
+	}
+	pricingList := model.GetPricing()
+	globalModels := make([]GlobalModelInfo, 0, len(pricingList))
+	for _, p := range pricingList {
+		g := GlobalModelInfo{Model: p.ModelName}
+		if p.QuotaType == 1 {
+			g.BillingType = "price"
+			g.Value = p.ModelPrice
+		} else {
+			g.BillingType = "ratio"
+			g.Value = p.ModelRatio
+		}
+		globalModels = append(globalModels, g)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"model_overrides": settings.ModelOverrides,
+			"global_models":   globalModels,
+		},
+	})
+}
+
+func AdminUpdateUserModelOverrides(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	var req UpdateModelOverridesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	for name, o := range req.ModelOverrides {
+		if o.Value < 0 {
+			common.ApiError(c, fmt.Errorf("model %s value must be >= 0", name))
+			return
+		}
+		if o.BillingType != "ratio" && o.BillingType != "price" {
+			common.ApiError(c, fmt.Errorf("model %s billing_type must be 'ratio' or 'price'", name))
+			return
+		}
+	}
+
+	user, err := model.GetUserById(id, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	myRole := c.GetInt("role")
+	if myRole <= user.Role && myRole != common.RoleRootUser {
+		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionHigherLevel)
+		return
+	}
+
+	settings := user.GetSetting()
+	settings.ModelOverrides = req.ModelOverrides
+	user.SetSetting(settings)
+	if err := user.Update(false); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
 }

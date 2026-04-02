@@ -34,17 +34,19 @@ const LogsFilters = ({
   t,
 }) => {
   return (
-    <Form
-      initValues={formInitValues}
-      getFormApi={(api) => setFormApi(api)}
-      onSubmit={refresh}
-      allowEmpty={true}
-      autoComplete='off'
-      layout='vertical'
-      trigger='change'
-      stopValidateWithError={false}
-    >
-      <div className='flex items-center gap-2 flex-wrap'>
+    <div className='usage-logs-filters'>
+      <Form
+        initValues={formInitValues}
+        getFormApi={(api) => setFormApi(api)}
+        onSubmit={refresh}
+        allowEmpty={true}
+        autoComplete='off'
+        layout='vertical'
+        trigger='change'
+        stopValidateWithError={false}
+        className='!bg-transparent'
+      >
+        <div className='flex items-center gap-2 flex-wrap'>
         <div className='w-full md:w-auto md:min-w-[280px]'>
           <Form.DatePicker
             field='dateRange'
@@ -137,8 +139,9 @@ const LogsFilters = ({
         >
           {t('重置')}
         </Button>
-      </div>
-    </Form>
+        </div>
+      </Form>
+    </div>
   );
 };
 

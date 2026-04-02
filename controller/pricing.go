@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -17,6 +18,7 @@ func GetPricing(c *gin.Context) {
 		groupRatio[s] = f
 	}
 	var group string
+	var userOverrides map[string]dto.UserModelOverride
 	if exists {
 		user, err := model.GetUserCache(userId.(int))
 		if err == nil {
@@ -27,15 +29,56 @@ func GetPricing(c *gin.Context) {
 					groupRatio[g] = ratio
 				}
 			}
+			userSetting := user.GetSetting()
+			if len(userSetting.ModelOverrides) > 0 {
+				userOverrides = userSetting.ModelOverrides
+			}
 		}
 	}
 
 	usableGroup = service.GetUserUsableGroups(group)
-	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {
 		if _, ok := usableGroup[group]; !ok {
 			delete(groupRatio, group)
 		}
+	}
+
+	// apply user-level model overrides: filter to whitelist, attach user_multiplier
+	if userOverrides != nil {
+		filtered := make([]model.Pricing, 0, len(userOverrides))
+		for i := range pricing {
+			p := pricing[i]
+			if override, ok := userOverrides[p.ModelName]; ok {
+				if override.BillingType == "price" {
+					p.QuotaType = 1
+					p.ModelPrice = override.Value
+					p.ModelRatio = 0
+				} else {
+					v := override.Value
+					p.UserMultiplier = &v
+				}
+				filtered = append(filtered, p)
+			}
+		}
+		existingModels := make(map[string]bool, len(filtered))
+		for _, p := range filtered {
+			existingModels[p.ModelName] = true
+		}
+		for modelName, override := range userOverrides {
+			if existingModels[modelName] {
+				continue
+			}
+			p := model.Pricing{ModelName: modelName}
+			if override.BillingType == "price" {
+				p.QuotaType = 1
+				p.ModelPrice = override.Value
+			} else {
+				v := override.Value
+				p.UserMultiplier = &v
+			}
+			filtered = append(filtered, p)
+		}
+		pricing = filtered
 	}
 
 	c.JSON(200, gin.H{

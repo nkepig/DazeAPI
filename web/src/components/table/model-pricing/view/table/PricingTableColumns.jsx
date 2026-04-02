@@ -221,7 +221,7 @@ export const getPricingTableColumns = ({
             {record.quota_type === 0 ? completionRatio : t('无')}
           </div>
           <div className='text-gray-700'>
-            {t('分组倍率')}：{priceData?.usedGroupRatio ?? '-'}
+            {t('倍率')}：{priceData?.usedGroupRatio ?? '-'}
           </div>
         </div>
       );

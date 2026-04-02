@@ -163,7 +163,6 @@ const EditChannelModal = (props) => {
   const [inputs, setInputs] = useState(originInputs);
   const [originModelOptions, setOriginModelOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
-  const [groupOptions, setGroupOptions] = useState([]);
   const [basicModels, setBasicModels] = useState([]);
   const [fullModels, setFullModels] = useState([]);
   const [modelGroups, setModelGroups] = useState([]);
@@ -617,23 +616,6 @@ const EditChannelModal = (props) => {
     }
   };
 
-  const fetchGroups = async () => {
-    try {
-      let res = await API.get(`/api/group/`);
-      if (res === undefined) {
-        return;
-      }
-      setGroupOptions(
-        res.data.data.map((group) => ({
-          label: group,
-          value: group,
-        })),
-      );
-    } catch (error) {
-      showError(error.message);
-    }
-  };
-
   const fetchModelGroups = async () => {
     try {
       const res = await API.get('/api/prefill_group?type=model');
@@ -720,7 +702,6 @@ const EditChannelModal = (props) => {
 
   useEffect(() => {
     fetchModels().then();
-    fetchGroups().then();
     if (!isEdit) {
       initialBaseUrlRef.current = '';
       setInputs(originInputs);
@@ -888,9 +869,8 @@ const EditChannelModal = (props) => {
       showInfo(t('请填写渠道名称！'));
       return;
     }
-    if (!Array.isArray(localInputs.models) || localInputs.models.length === 0) {
-      showInfo(t('请至少选择一个模型！'));
-      return;
+    if (!Array.isArray(localInputs.models)) {
+      localInputs.models = [];
     }
     if (
       localInputs.type === 45 &&
@@ -1003,7 +983,11 @@ const EditChannelModal = (props) => {
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
     localInputs.models = localInputs.models.join(',');
-    localInputs.group = (localInputs.groups || []).join(',');
+    const groupsForSubmit = Array.isArray(localInputs.groups) && localInputs.groups.length > 0
+      ? localInputs.groups
+      : (Array.isArray(inputs.groups) && inputs.groups.length > 0 ? inputs.groups : ['default']);
+    localInputs.groups = groupsForSubmit;
+    localInputs.group = groupsForSubmit.join(',');
 
     if (isEdit) {
       res = await API.put(`/api/channel/`, {
@@ -1685,7 +1669,7 @@ const EditChannelModal = (props) => {
                       field='models'
                       label={t('模型')}
                       placeholder={t('请选择该渠道所支持的模型')}
-                      rules={[{ required: true, message: t('请选择模型') }]}
+                      rules={[]}
                       multiple
                       filter={selectFilter}
                       allowCreate
@@ -1731,15 +1715,6 @@ const EditChannelModal = (props) => {
                       }}
                       extraText={
                         <Space>
-                          <Button
-                            size='small'
-                            type='primary'
-                            onClick={() =>
-                              handleInputChange('models', basicModels)
-                            }
-                          >
-                            {t('填入相关模型')}
-                          </Button>
                           {MODEL_FETCHABLE_CHANNEL_TYPES.has(inputs.type) && (
                             <Button
                               size='small'
@@ -1749,44 +1724,23 @@ const EditChannelModal = (props) => {
                               {t('获取模型列表')}
                             </Button>
                           )}
-                          <Dropdown
-                            trigger='click'
-                            position='bottomRight'
-                            menu={[
-                              { node: 'item', name: t('填入所有模型'), onClick: () => handleInputChange('models', fullModels) },
-                              ...(inputs.type === 4 && isEdit ? [{ node: 'item', name: t('Ollama 模型管理'), onClick: () => setOllamaModalVisible(true) }] : []),
-                              { node: 'divider' },
-                              { node: 'item', name: t('复制所有模型'), onClick: () => {
-                                if (inputs.models.length === 0) { showInfo(t('没有模型可以复制')); return; }
-                                try { copy(inputs.models.join(',')); showSuccess(t('模型列表已复制到剪贴板')); } catch (error) { showError(t('复制失败')); }
-                              }},
-                              { node: 'item', name: t('清除所有模型'), type: 'danger', onClick: () => handleInputChange('models', []) },
-                              ...((modelGroups && modelGroups.length > 0) ? [
-                                { node: 'divider' },
-                                ...modelGroups.map((group) => ({
-                                  node: 'item',
-                                  name: group.name,
-                                  onClick: () => {
-                                    let items = [];
-                                    try {
-                                      if (Array.isArray(group.items)) { items = group.items; }
-                                      else if (typeof group.items === 'string') {
-                                        const parsed = JSON.parse(group.items || '[]');
-                                        if (Array.isArray(parsed)) items = parsed;
-                                      }
-                                    } catch {}
-                                    const current = formApiRef.current?.getValue('models') || inputs.models || [];
-                                    const merged = Array.from(new Set([...current, ...items].map((m) => (m || '').trim()).filter(Boolean)));
-                                    handleInputChange('models', merged);
-                                  },
-                                })),
-                              ] : []),
-                            ]}
+                          <Button
+                            size='small'
+                            type='tertiary'
+                            onClick={() => {
+                              if (!inputs.models || inputs.models.length === 0) { showInfo(t('没有模型可以复制')); return; }
+                              try { copy(inputs.models.join(',')); showSuccess(t('模型列表已复制到剪贴板')); } catch (error) { showError(t('复制失败')); }
+                            }}
                           >
-                            <Button size='small' type='tertiary'>
-                              {t('更多')} <IconChevronDown size={12} />
-                            </Button>
-                          </Dropdown>
+                            {t('复制所有模型')}
+                          </Button>
+                          <Button
+                            size='small'
+                            type='danger'
+                            onClick={() => handleInputChange('models', [])}
+                          >
+                            {t('清除所有模型')}
+                          </Button>
                         </Space>
                       }
                     />
@@ -1807,20 +1761,6 @@ const EditChannelModal = (props) => {
                         {t('填入')}
                       </Button>
                     }
-                  />
-
-                  {/* Groups - Core Config */}
-                  <Form.Select
-                    field='groups'
-                    label={t('分组')}
-                    placeholder={t('请选择可以使用该渠道的分组')}
-                    multiple
-                    allowAdditions
-                    additionLabel={t('新增分组：')}
-                    optionList={groupOptions}
-                    style={{ width: '100%' }}
-                    position='top'
-                    onChange={(value) => handleInputChange('groups', value)}
                   />
 
                   {/* Model Mapping - Core Config */}

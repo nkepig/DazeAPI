@@ -37,6 +37,7 @@ import { API, showError, showSuccess } from '../../../../helpers';
 import { convertUSDToCurrency } from '../../../../helpers/render';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import CardTable from '../../../common/ui/CardTable';
+import { StatusPill } from '../../../common/ui/StatusPill';
 
 const { Text } = Typography;
 
@@ -53,24 +54,12 @@ function renderStatusTag(sub, t) {
   const isExpiredByTime = end > 0 && end < now;
   const isActive = status === 'active' && !isExpiredByTime;
   if (isActive) {
-    return (
-      <Tag color='green' shape='circle' size='small'>
-        {t('生效')}
-      </Tag>
-    );
+    return <StatusPill variant='success'>{t('生效')}</StatusPill>;
   }
   if (status === 'cancelled') {
-    return (
-      <Tag color='grey' shape='circle' size='small'>
-        {t('已作废')}
-      </Tag>
-    );
+    return <StatusPill variant='neutral'>{t('已作废')}</StatusPill>;
   }
-  return (
-    <Tag color='grey' shape='circle' size='small'>
-      {t('已过期')}
-    </Tag>
-  );
+  return <StatusPill variant='neutral'>{t('已过期')}</StatusPill>;
 }
 
 const UserSubscriptionsModal = ({ visible, onCancel, user, t, onSuccess }) => {

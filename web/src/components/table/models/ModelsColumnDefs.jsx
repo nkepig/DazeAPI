@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { StatusPill } from '../../common/ui/StatusPill';
 import {
   Button,
   Space,
@@ -307,9 +308,9 @@ export const getModelsColumns = ({
       title: t('参与官方同步'),
       dataIndex: 'sync_official',
       render: (val) => (
-        <Tag size='small' shape='circle' color={val === 1 ? 'green' : 'orange'}>
+        <StatusPill variant={val === 1 ? 'success' : 'warning'}>
           {val === 1 ? t('是') : t('否')}
-        </Tag>
+        </StatusPill>
       ),
     },
     {

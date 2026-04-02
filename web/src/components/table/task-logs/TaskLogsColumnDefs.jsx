@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Progress, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
+import { StatusPill } from '../../common/ui/StatusPill';
 import {
   Music,
   FileText,
@@ -156,11 +157,7 @@ const renderPlatform = (platform, t) => {
   }
   switch (platform) {
     case 'suno':
-      return (
-        <Tag color='green' shape='circle'>
-          Suno
-        </Tag>
-      );
+      return <StatusPill variant='success'>Suno</StatusPill>;
     default:
       return (
         <Tag color='white' shape='circle'>
@@ -170,66 +167,35 @@ const renderPlatform = (platform, t) => {
   }
 };
 
+const statusPill = (variant, icon, label) => (
+  <StatusPill variant={variant}>
+    <span className='inline-flex items-center gap-1'>
+      {icon}
+      {label}
+    </span>
+  </StatusPill>
+);
+
 const renderStatus = (type, t) => {
   switch (type) {
     case 'SUCCESS':
-      return (
-        <Tag
-          color='green'
-          shape='circle'
-          prefixIcon={<CheckCircle size={14} />}
-        >
-          {t('成功')}
-        </Tag>
-      );
+      return statusPill('success', <CheckCircle size={14} />, t('成功'));
     case 'NOT_START':
-      return (
-        <Tag color='grey' shape='circle' prefixIcon={<Pause size={14} />}>
-          {t('未启动')}
-        </Tag>
-      );
+      return statusPill('neutral', <Pause size={14} />, t('未启动'));
     case 'SUBMITTED':
-      return (
-        <Tag color='yellow' shape='circle' prefixIcon={<Clock size={14} />}>
-          {t('队列中')}
-        </Tag>
-      );
+      return statusPill('warning', <Clock size={14} />, t('队列中'));
     case 'IN_PROGRESS':
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Play size={14} />}>
-          {t('执行中')}
-        </Tag>
-      );
+      return statusPill('info', <Play size={14} />, t('执行中'));
     case 'FAILURE':
-      return (
-        <Tag color='red' shape='circle' prefixIcon={<XCircle size={14} />}>
-          {t('失败')}
-        </Tag>
-      );
+      return statusPill('danger', <XCircle size={14} />, t('失败'));
     case 'QUEUED':
-      return (
-        <Tag color='orange' shape='circle' prefixIcon={<List size={14} />}>
-          {t('排队中')}
-        </Tag>
-      );
+      return statusPill('warning', <List size={14} />, t('排队中'));
     case 'UNKNOWN':
-      return (
-        <Tag color='white' shape='circle' prefixIcon={<HelpCircle size={14} />}>
-          {t('未知')}
-        </Tag>
-      );
+      return statusPill('neutral', <HelpCircle size={14} />, t('未知'));
     case '':
-      return (
-        <Tag color='grey' shape='circle' prefixIcon={<Loader size={14} />}>
-          {t('正在提交')}
-        </Tag>
-      );
+      return statusPill('neutral', <Loader size={14} />, t('正在提交'));
     default:
-      return (
-        <Tag color='white' shape='circle' prefixIcon={<HelpCircle size={14} />}>
-          {t('未知')}
-        </Tag>
-      );
+      return statusPill('neutral', <HelpCircle size={14} />, t('未知'));
   }
 };
 

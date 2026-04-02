@@ -35,6 +35,7 @@ import {
   renderQuota,
 } from '../../../helpers';
 import { IconCopy } from '@douyinfe/semi-icons';
+import { StatusPill } from '../../common/ui/StatusPill';
 
 // progress color helper
 const getProgressColor = (pct) => {
@@ -51,29 +52,22 @@ function renderTimestamp(timestamp) {
 
 // Render status column only (no usage)
 const renderStatus = (text, record, t) => {
-  const enabled = text === 1;
-
-  let tagColor = 'black';
+  let variant = 0;
   let tagText = t('未知状态');
-  if (enabled) {
-    tagColor = 'green';
+  if (text === 1) {
+    variant = 1;
     tagText = t('已启用');
   } else if (text === 2) {
-    tagColor = 'red';
+    variant = 2;
     tagText = t('已禁用');
   } else if (text === 3) {
-    tagColor = 'yellow';
+    variant = 3;
     tagText = t('已过期');
   } else if (text === 4) {
-    tagColor = 'grey';
+    variant = 0;
     tagText = t('已耗尽');
   }
-
-  return (
-    <Tag color={tagColor} shape='circle' size='small'>
-      {tagText}
-    </Tag>
-  );
+  return <StatusPill variant={variant}>{tagText}</StatusPill>;
 };
 
 // Render group column
@@ -201,7 +195,6 @@ const renderOperations = (
       {record.status === 1 ? (
         <Button
           type='danger'
-          size='small'
           onClick={async () => {
             await manageToken(record.id, 'disable', record);
             await refresh();
@@ -211,7 +204,6 @@ const renderOperations = (
         </Button>
       ) : (
         <Button
-          size='small'
           onClick={async () => {
             await manageToken(record.id, 'enable', record);
             await refresh();
@@ -223,7 +215,6 @@ const renderOperations = (
 
       <Button
         type='tertiary'
-        size='small'
         onClick={() => {
           setEditingToken(record);
           setShowEdit(true);
@@ -234,7 +225,6 @@ const renderOperations = (
 
       <Button
         type='danger'
-        size='small'
         onClick={() => {
           Modal.confirm({
             title: t('确定是否要删除此令牌？'),
@@ -267,6 +257,18 @@ export const getTokensColumns = ({
     {
       title: t('名称'),
       dataIndex: 'name',
+      render: (text, record) => {
+        const disabled = record.status === 2;
+        return (
+          <span
+            className={
+              disabled ? 'text-red-600 font-semibold' : undefined
+            }
+          >
+            {text}
+          </span>
+        );
+      },
     },
     {
       title: t('状态'),

@@ -21,11 +21,9 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
-import { useTableCompactMode } from '../common/useTableCompactMode';
-
 export const useUsersData = () => {
   const { t } = useTranslation();
-  const [compactMode, setCompactMode] = useTableCompactMode('users');
+  const compactMode = false;
 
   // State management
   const [users, setUsers] = useState([]);
@@ -299,7 +297,6 @@ export const useUsersData = () => {
 
     // UI state
     compactMode,
-    setCompactMode,
 
     // Actions
     loadUsers,

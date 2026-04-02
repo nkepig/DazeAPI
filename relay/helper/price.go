@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -15,6 +16,38 @@ import (
 
 // https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
 const claudeCacheCreation1hMultiplier = 6 / 3.75
+
+// getUserModelOverride 查找用户级的模型覆盖。先用 formatted name 匹配，再用原始名匹配。
+func getUserModelOverride(info *relaycommon.RelayInfo, modelName string) (dto.UserModelOverride, bool) {
+	overrides := info.UserSetting.ModelOverrides
+	if len(overrides) == 0 {
+		return dto.UserModelOverride{}, false
+	}
+	if o, ok := overrides[modelName]; ok {
+		return o, true
+	}
+	if o, ok := overrides[info.OriginModelName]; ok {
+		return o, true
+	}
+	return dto.UserModelOverride{}, false
+}
+
+// applyUserOverride applies user model override to pricing params.
+// ratio override: replaces group_ratio (acts as multiplier on global model price)
+// price override: sets absolute model price, group_ratio becomes 1
+func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPrice *float64, usePrice *bool, groupRatioInfo *types.GroupRatioInfo) {
+	o, ok := getUserModelOverride(info, modelName)
+	if !ok {
+		return
+	}
+	if o.BillingType == "price" {
+		*modelPrice = o.Value
+		*usePrice = true
+		groupRatioInfo.GroupRatio = 1
+	} else {
+		groupRatioInfo.GroupRatio = o.Value
+	}
+}
 
 // HandleGroupRatio checks for "auto_group" in the context and updates the group ratio and relayInfo.UsingGroup if present
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupRatioInfo {
@@ -46,9 +79,12 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {
+	modelName := ratio_setting.FormatMatchingModelName(info.OriginModelName)
 	modelPrice, usePrice := ratio_setting.GetModelPrice(info.OriginModelName, false)
 
 	groupRatioInfo := HandleGroupRatio(c, info)
+
+	applyUserOverride(info, modelName, &modelPrice, &usePrice, &groupRatioInfo)
 
 	var preConsumedQuota int
 	var modelRatio float64
@@ -142,17 +178,18 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 // ModelPriceHelperPerCall 按次计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
 	groupRatioInfo := HandleGroupRatio(c, info)
+	modelName := ratio_setting.FormatMatchingModelName(info.OriginModelName)
 
-	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
-	// 如果没有配置价格，检查模型倍率配置
-	if !success {
+	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, false)
 
-		// 没有配置费用，也要使用默认费用,否则按费率计费模型无法使用
+	usePrice := success
+	applyUserOverride(info, modelName, &modelPrice, &usePrice, &groupRatioInfo)
+
+	if !usePrice && !success {
 		defaultPrice, ok := ratio_setting.GetDefaultModelPriceMap()[info.OriginModelName]
 		if ok {
 			modelPrice = defaultPrice
 		} else {
-			// 没有配置倍率也不接受没配置,那就返回错误
 			_, ratioSuccess, matchName := ratio_setting.GetModelRatio(info.OriginModelName)
 			acceptUnsetRatio := false
 			if info.UserSetting.AcceptUnsetRatioModel {
@@ -161,10 +198,8 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 			if !ratioSuccess && !acceptUnsetRatio {
 				return types.PriceData{}, fmt.Errorf("模型 %s 倍率或价格未配置，请联系管理员设置或开始自用模式；Model %s ratio or price not set, please set or start self-use mode", matchName, matchName)
 			}
-			// 未配置价格但配置了倍率，使用默认预扣价格
 			modelPrice = float64(common.PreConsumedQuota) / common.QuotaPerUnit
 		}
-
 	}
 	quota := int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
 

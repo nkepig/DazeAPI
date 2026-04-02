@@ -34,6 +34,7 @@ const routerMap = {
   log: '/console/log',
   topup: '/console/topup',
   channel: '/console/channel',
+  user: '/console/user',
   setting: '/console/setting',
 };
 
@@ -58,6 +59,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
       {
         text: t('渠道管理'),
         itemKey: 'channel',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('用户管理'),
+        itemKey: 'user',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

@@ -40,6 +40,7 @@ import {
   Col,
   Row,
 } from '@douyinfe/semi-ui';
+import { StatusPill } from '../../../common/ui/StatusPill';
 import {
   IconCreditCard,
   IconSave,
@@ -237,13 +238,9 @@ const EditTokenModal = (props) => {
       title={
         <Space>
           {isEdit ? (
-            <Tag color='blue' shape='circle'>
-              {t('更新')}
-            </Tag>
+            <StatusPill variant='info'>{t('更新')}</StatusPill>
           ) : (
-            <Tag color='green' shape='circle'>
-              {t('新建')}
-            </Tag>
+            <StatusPill variant='success'>{t('新建')}</StatusPill>
           )}
           <Title heading={4} className='m-0'>
             {isEdit ? t('更新令牌信息') : t('创建新的令牌')}

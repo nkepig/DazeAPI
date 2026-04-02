@@ -112,9 +112,9 @@ func init() {
 func ListModels(c *gin.Context, modelType int) {
 	userOpenAiModels := make([]dto.OpenAIModels, 0)
 
+	userId := c.GetInt("id")
 	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
 	if !acceptUnsetRatioModel {
-		userId := c.GetInt("id")
 		if userId > 0 {
 			userSettings, _ := model.GetUserSetting(userId, false)
 			if userSettings.AcceptUnsetRatioModel {
@@ -123,70 +123,17 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
-	modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
-	if modelLimitEnable {
-		s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
-		var tokenModelLimit map[string]bool
-		if ok {
-			tokenModelLimit = s.(map[string]bool)
-		} else {
-			tokenModelLimit = map[string]bool{}
+	// check user-level model overrides — if set, only those models are visible
+	var userModelOverrides map[string]dto.UserModelOverride
+	if userId > 0 {
+		userSettings, _ := model.GetUserSetting(userId, false)
+		if len(userSettings.ModelOverrides) > 0 {
+			userModelOverrides = userSettings.ModelOverrides
 		}
-		for allowModel, _ := range tokenModelLimit {
-			if !acceptUnsetRatioModel {
-				_, _, exist := ratio_setting.GetModelRatioOrPrice(allowModel)
-				if !exist {
-					continue
-				}
-			}
-			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
-				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
-				userOpenAiModels = append(userOpenAiModels, oaiModel)
-			} else {
-				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
-					Id:                     allowModel,
-					Object:                 "model",
-					Created:                1626777600,
-					OwnedBy:                "custom",
-					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(allowModel),
-				})
-			}
-		}
-	} else {
-		userId := c.GetInt("id")
-		userGroup, err := model.GetUserGroup(userId, false)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "get user group failed",
-			})
-			return
-		}
-		group := userGroup
-		tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
-		if tokenGroup != "" {
-			group = tokenGroup
-		}
-		var models []string
-		if tokenGroup == "auto" {
-			for _, autoGroup := range service.GetUserAutoGroup(userGroup) {
-				groupModels := model.GetGroupEnabledModels(autoGroup)
-				for _, g := range groupModels {
-					if !common.StringsContains(models, g) {
-						models = append(models, g)
-					}
-				}
-			}
-		} else {
-			models = model.GetGroupEnabledModels(group)
-		}
-		for _, modelName := range models {
-			if !acceptUnsetRatioModel {
-				_, _, exist := ratio_setting.GetModelRatioOrPrice(modelName)
-				if !exist {
-					continue
-				}
-			}
+	}
+
+	if userModelOverrides != nil {
+		for modelName := range userModelOverrides {
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
 				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
@@ -198,6 +145,84 @@ func ListModels(c *gin.Context, modelType int) {
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
 				})
+			}
+		}
+	} else {
+		modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
+		if modelLimitEnable {
+			s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
+			var tokenModelLimit map[string]bool
+			if ok {
+				tokenModelLimit = s.(map[string]bool)
+			} else {
+				tokenModelLimit = map[string]bool{}
+			}
+			for allowModel := range tokenModelLimit {
+				if !acceptUnsetRatioModel {
+					_, _, exist := ratio_setting.GetModelRatioOrPrice(allowModel)
+					if !exist {
+						continue
+					}
+				}
+				if oaiModel, ok := openAIModelsMap[allowModel]; ok {
+					oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
+					userOpenAiModels = append(userOpenAiModels, oaiModel)
+				} else {
+					userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+						Id:                     allowModel,
+						Object:                 "model",
+						Created:                1626777600,
+						OwnedBy:                "custom",
+						SupportedEndpointTypes: model.GetModelSupportEndpointTypes(allowModel),
+					})
+				}
+			}
+		} else {
+			userGroup, err := model.GetUserGroup(userId, false)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": "get user group failed",
+				})
+				return
+			}
+			group := userGroup
+			tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
+			if tokenGroup != "" {
+				group = tokenGroup
+			}
+			var models []string
+			if tokenGroup == "auto" {
+				for _, autoGroup := range service.GetUserAutoGroup(userGroup) {
+					groupModels := model.GetGroupEnabledModels(autoGroup)
+					for _, g := range groupModels {
+						if !common.StringsContains(models, g) {
+							models = append(models, g)
+						}
+					}
+				}
+			} else {
+				models = model.GetGroupEnabledModels(group)
+			}
+			for _, modelName := range models {
+				if !acceptUnsetRatioModel {
+					_, _, exist := ratio_setting.GetModelRatioOrPrice(modelName)
+					if !exist {
+						continue
+					}
+				}
+				if oaiModel, ok := openAIModelsMap[modelName]; ok {
+					oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+					userOpenAiModels = append(userOpenAiModels, oaiModel)
+				} else {
+					userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+						Id:                     modelName,
+						Object:                 "model",
+						Created:                1626777600,
+						OwnedBy:                "custom",
+						SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+					})
+				}
 			}
 		}
 	}

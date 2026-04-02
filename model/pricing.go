@@ -33,6 +33,7 @@ type Pricing struct {
 	EnableGroup            []string                `json:"enable_groups"`
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
+	UserMultiplier         *float64                `json:"user_multiplier,omitempty"`
 }
 
 type PricingVendor struct {

@@ -29,6 +29,7 @@ import {
   Collapse,
 } from '@douyinfe/semi-ui';
 import { API, showError } from '../../../../helpers';
+import { StatusPill } from '../../../common/ui/StatusPill';
 
 const { Text } = Typography;
 
@@ -175,12 +176,12 @@ const getAccountTypeTagColor = (value) => {
 const resolveUsageStatusTag = (t, rateLimit) => {
   const tt = typeof t === 'function' ? t : (v) => v;
   if (!rateLimit || Object.keys(rateLimit).length === 0) {
-    return <Tag color='grey'>{tt('待确认')}</Tag>;
+    return <StatusPill variant='neutral'>{tt('待确认')}</StatusPill>;
   }
   if (rateLimit?.allowed && !rateLimit?.limit_reached) {
-    return <Tag color='green'>{tt('可用')}</Tag>;
+    return <StatusPill variant='success'>{tt('可用')}</StatusPill>;
   }
-  return <Tag color='red'>{tt('受限')}</Tag>;
+  return <StatusPill variant='danger'>{tt('受限')}</StatusPill>;
 };
 
 const AccountInfoValue = ({ t, value, onCopy, monospace = false }) => {
