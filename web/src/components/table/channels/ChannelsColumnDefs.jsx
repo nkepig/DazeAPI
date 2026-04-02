@@ -814,40 +814,7 @@ export const getChannelsColumns = ({
                 </Button>
               )}
 
-              {record.channel_info?.is_multi_key ? (
-                <SplitButtonGroup aria-label={t('多密钥渠道操作项目组')}>
-                  <Button
-                    type='tertiary'
-                    size='small'
-                    onClick={() => {
-                      setEditingChannel(record);
-                      setShowEdit(true);
-                    }}
-                  >
-                    {t('编辑')}
-                  </Button>
-                  <Dropdown
-                    trigger='click'
-                    position='bottomRight'
-                    menu={[
-                      {
-                        node: 'item',
-                        name: t('多密钥管理'),
-                        onClick: () => {
-                          setCurrentMultiKeyChannel(record);
-                          setShowMultiKeyManageModal(true);
-                        },
-                      },
-                    ]}
-                  >
-                    <Button
-                      type='tertiary'
-                      size='small'
-                      icon={<IconTreeTriangleDown />}
-                    />
-                  </Dropdown>
-                </SplitButtonGroup>
-              ) : (
+              <SplitButtonGroup aria-label={t('渠道操作项目组')}>
                 <Button
                   type='tertiary'
                   size='small'
@@ -858,7 +825,27 @@ export const getChannelsColumns = ({
                 >
                   {t('编辑')}
                 </Button>
-              )}
+                <Dropdown
+                  trigger='click'
+                  position='bottomRight'
+                  menu={[
+                    {
+                      node: 'item',
+                      name: t('密钥管理'),
+                      onClick: () => {
+                        setCurrentMultiKeyChannel(record);
+                        setShowMultiKeyManageModal(true);
+                      },
+                    },
+                  ]}
+                >
+                  <Button
+                    type='tertiary'
+                    size='small'
+                    icon={<IconTreeTriangleDown />}
+                  />
+                </Dropdown>
+              </SplitButtonGroup>
 
               <Dropdown
                 trigger='click'

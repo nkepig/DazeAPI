@@ -36,6 +36,8 @@ import {
   Badge,
   Progress,
   Card,
+  TextArea,
+  Input,
 } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
@@ -46,6 +48,7 @@ import {
   showError,
   showSuccess,
   timestamp2string,
+  isRoot,
 } from '../../../../helpers';
 
 const { Text } = Typography;
@@ -67,33 +70,46 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
   const [manualDisabledCount, setManualDisabledCount] = useState(0);
   const [autoDisabledCount, setAutoDisabledCount] = useState(0);
 
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState(null); // null=all, 1=enabled, 2=manual_disabled, 3=auto_disabled
+  // Filter state
+  const [statusFilter, setStatusFilter] = useState(null);
 
-  // Load key status data
+  // View key modal
+  const [viewKeyVisible, setViewKeyVisible] = useState(false);
+  const [viewKeyValue, setViewKeyValue] = useState('');
+  const [viewKeyIndex, setViewKeyIndex] = useState(null);
+
+  // Edit key modal
+  const [editKeyVisible, setEditKeyVisible] = useState(false);
+  const [editKeyIndex, setEditKeyIndex] = useState(null);
+  const [editKeyValue, setEditKeyValue] = useState('');
+  const [editKeyLoading, setEditKeyLoading] = useState(false);
+
+  // Add keys modal
+  const [addKeysVisible, setAddKeysVisible] = useState(false);
+  const [addKeysValue, setAddKeysValue] = useState('');
+  const [addKeysLoading, setAddKeysLoading] = useState(false);
+  const [addMultiKeyMode, setAddMultiKeyMode] = useState('random');
+
+  const isMultiKey = channel?.channel_info?.is_multi_key;
+
   const loadKeyStatus = async (
     page = currentPage,
     size = pageSize,
     status = statusFilter,
   ) => {
     if (!channel?.id) return;
-
     setLoading(true);
     try {
       const requestData = {
         channel_id: channel.id,
         action: 'get_key_status',
-        page: page,
+        page,
         page_size: size,
       };
-
-      // Add status filter if specified
       if (status !== null) {
         requestData.status = status;
       }
-
       const res = await API.post('/api/channel/multi_key/manage', requestData);
-
       if (res.data.success) {
         const data = res.data.data;
         setKeyStatusList(data.keys || []);
@@ -101,8 +117,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         setCurrentPage(data.page || 1);
         setPageSize(data.page_size || 10);
         setTotalPages(data.total_pages || 0);
-
-        // Update statistics (these are always the overall statistics)
         setEnabledCount(data.enabled_count || 0);
         setManualDisabledCount(data.manual_disabled_count || 0);
         setAutoDisabledCount(data.auto_disabled_count || 0);
@@ -117,22 +131,19 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Disable a specific key
   const handleDisableKey = async (keyIndex) => {
     const operationId = `disable_${keyIndex}`;
     setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
-
     try {
       const res = await API.post('/api/channel/multi_key/manage', {
         channel_id: channel.id,
         action: 'disable_key',
         key_index: keyIndex,
       });
-
       if (res.data.success) {
         showSuccess(t('密钥已禁用'));
-        await loadKeyStatus(currentPage, pageSize); // Reload current page
-        onRefresh && onRefresh(); // Refresh parent component
+        await loadKeyStatus(currentPage, pageSize);
+        onRefresh && onRefresh();
       } else {
         showError(res.data.message);
       }
@@ -143,22 +154,19 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Enable a specific key
   const handleEnableKey = async (keyIndex) => {
     const operationId = `enable_${keyIndex}`;
     setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
-
     try {
       const res = await API.post('/api/channel/multi_key/manage', {
         channel_id: channel.id,
         action: 'enable_key',
         key_index: keyIndex,
       });
-
       if (res.data.success) {
         showSuccess(t('密钥已启用'));
-        await loadKeyStatus(currentPage, pageSize); // Reload current page
-        onRefresh && onRefresh(); // Refresh parent component
+        await loadKeyStatus(currentPage, pageSize);
+        onRefresh && onRefresh();
       } else {
         showError(res.data.message);
       }
@@ -169,22 +177,18 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Enable all disabled keys
   const handleEnableAll = async () => {
     setOperationLoading((prev) => ({ ...prev, enable_all: true }));
-
     try {
       const res = await API.post('/api/channel/multi_key/manage', {
         channel_id: channel.id,
         action: 'enable_all_keys',
       });
-
       if (res.data.success) {
         showSuccess(res.data.message || t('已启用所有密钥'));
-        // Reset to first page after bulk operation
         setCurrentPage(1);
         await loadKeyStatus(1, pageSize);
-        onRefresh && onRefresh(); // Refresh parent component
+        onRefresh && onRefresh();
       } else {
         showError(res.data.message);
       }
@@ -195,22 +199,18 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Disable all enabled keys
   const handleDisableAll = async () => {
     setOperationLoading((prev) => ({ ...prev, disable_all: true }));
-
     try {
       const res = await API.post('/api/channel/multi_key/manage', {
         channel_id: channel.id,
         action: 'disable_all_keys',
       });
-
       if (res.data.success) {
         showSuccess(res.data.message || t('已禁用所有密钥'));
-        // Reset to first page after bulk operation
         setCurrentPage(1);
         await loadKeyStatus(1, pageSize);
-        onRefresh && onRefresh(); // Refresh parent component
+        onRefresh && onRefresh();
       } else {
         showError(res.data.message);
       }
@@ -221,22 +221,18 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Delete all disabled keys
   const handleDeleteDisabledKeys = async () => {
     setOperationLoading((prev) => ({ ...prev, delete_disabled: true }));
-
     try {
       const res = await API.post('/api/channel/multi_key/manage', {
         channel_id: channel.id,
         action: 'delete_disabled_keys',
       });
-
       if (res.data.success) {
         showSuccess(res.data.message);
-        // Reset to first page after deletion as data structure might change
         setCurrentPage(1);
         await loadKeyStatus(1, pageSize);
-        onRefresh && onRefresh(); // Refresh parent component
+        onRefresh && onRefresh();
       } else {
         showError(res.data.message);
       }
@@ -247,22 +243,40 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Delete a specific key
+  const handleTestKey = async (keyIndex) => {
+    const operationId = `test_${keyIndex}`;
+    setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
+    try {
+      const res = await API.post('/api/channel/multi_key/manage', {
+        channel_id: channel.id,
+        action: 'test_key',
+        key_index: keyIndex,
+      });
+      if (res.data.success) {
+        showSuccess(res.data.message || t('密钥测试成功'));
+      } else {
+        showError(res.data.message || t('密钥测试失败'));
+      }
+    } catch (error) {
+      showError(t('密钥测试失败'));
+    } finally {
+      setOperationLoading((prev) => ({ ...prev, [operationId]: false }));
+    }
+  };
+
   const handleDeleteKey = async (keyIndex) => {
     const operationId = `delete_${keyIndex}`;
     setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
-
     try {
       const res = await API.post('/api/channel/multi_key/manage', {
         channel_id: channel.id,
         action: 'delete_key',
         key_index: keyIndex,
       });
-
       if (res.data.success) {
         showSuccess(t('密钥已删除'));
-        await loadKeyStatus(currentPage, pageSize); // Reload current page
-        onRefresh && onRefresh(); // Refresh parent component
+        await loadKeyStatus(currentPage, pageSize);
+        onRefresh && onRefresh();
       } else {
         showError(res.data.message);
       }
@@ -273,35 +287,118 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Handle page change
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    loadKeyStatus(page, pageSize);
+  // View key (root only)
+  const handleViewKey = async (keyIndex) => {
+    const operationId = `view_${keyIndex}`;
+    setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
+    try {
+      const res = await API.post('/api/channel/multi_key/manage', {
+        channel_id: channel.id,
+        action: 'view_key',
+        key_index: keyIndex,
+      });
+      if (res.data.success) {
+        setViewKeyIndex(keyIndex);
+        setViewKeyValue(res.data.data?.key || '');
+        setViewKeyVisible(true);
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('获取密钥失败'));
+    } finally {
+      setOperationLoading((prev) => ({ ...prev, [operationId]: false }));
+    }
   };
 
-  // Handle page size change
+  // Edit key (root only)
+  const handleOpenEditKey = (keyIndex, currentPreview) => {
+    setEditKeyIndex(keyIndex);
+    setEditKeyValue('');
+    setEditKeyVisible(true);
+  };
+
+  const handleSaveEditKey = async () => {
+    const trimmed = editKeyValue.trim();
+    if (!trimmed) {
+      showError(t('密钥不能为空'));
+      return;
+    }
+    setEditKeyLoading(true);
+    try {
+      const res = await API.post('/api/channel/multi_key/manage', {
+        channel_id: channel.id,
+        action: 'update_key',
+        key_index: editKeyIndex,
+        new_key_value: trimmed,
+      });
+      if (res.data.success) {
+        showSuccess(t('密钥已更新'));
+        setEditKeyVisible(false);
+        setEditKeyValue('');
+        await loadKeyStatus(currentPage, pageSize);
+        onRefresh && onRefresh();
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('更新密钥失败'));
+    } finally {
+      setEditKeyLoading(false);
+    }
+  };
+
+  // Add keys
+  const handleAddKeys = async () => {
+    const trimmed = addKeysValue.trim();
+    if (!trimmed) {
+      showError(t('请输入要添加的密钥'));
+      return;
+    }
+    setAddKeysLoading(true);
+    try {
+      const res = await API.post('/api/channel/multi_key/manage', {
+        channel_id: channel.id,
+        action: 'add_keys',
+        new_key_value: trimmed,
+        multi_key_mode: addMultiKeyMode,
+      });
+      if (res.data.success) {
+        showSuccess(res.data.message || t('密钥已添加'));
+        setAddKeysVisible(false);
+        setAddKeysValue('');
+        setCurrentPage(1);
+        await loadKeyStatus(1, pageSize);
+        onRefresh && onRefresh();
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('添加密钥失败'));
+    } finally {
+      setAddKeysLoading(false);
+    }
+  };
+
   const handlePageSizeChange = (size) => {
     setPageSize(size);
-    setCurrentPage(1); // Reset to first page
+    setCurrentPage(1);
     loadKeyStatus(1, size);
   };
 
-  // Handle status filter change
   const handleStatusFilterChange = (status) => {
     setStatusFilter(status);
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
     loadKeyStatus(1, pageSize, status);
   };
 
-  // Effect to load data when modal opens
   useEffect(() => {
     if (visible && channel?.id) {
-      setCurrentPage(1); // Reset to first page when opening
+      setCurrentPage(1);
       loadKeyStatus(1, pageSize);
     }
   }, [visible, channel?.id]);
 
-  // Reset pagination when modal closes
   useEffect(() => {
     if (!visible) {
       setCurrentPage(1);
@@ -311,11 +408,10 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       setEnabledCount(0);
       setManualDisabledCount(0);
       setAutoDisabledCount(0);
-      setStatusFilter(null); // Reset filter
+      setStatusFilter(null);
     }
   }, [visible]);
 
-  // Percentages for progress display
   const enabledPercent =
     total > 0 ? Math.round((enabledCount / total) * 100) : 0;
   const manualDisabledPercent =
@@ -323,9 +419,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
   const autoDisabledPercent =
     total > 0 ? Math.round((autoDisabledCount / total) * 100) : 0;
 
-  // 取消饼图：不再需要图表数据与配置
-
-  // Get status tag component
   const renderStatusTag = (status) => {
     switch (status) {
       case 1:
@@ -355,22 +448,32 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
-  // Table columns definition
+  // Index number color based on status
+  const getIndexColor = (status) => {
+    switch (status) {
+      case 2:
+        return '#ef4444';
+      case 3:
+        return '#f59e0b';
+      default:
+        return undefined;
+    }
+  };
+
   const columns = [
     {
       title: t('索引'),
       dataIndex: 'index',
-      render: (text) => `#${text}`,
+      width: 70,
+      render: (text, record) => {
+        const color = getIndexColor(record.status);
+        return (
+          <span style={color ? { color, fontWeight: 600 } : { fontWeight: 500 }}>
+            #{text}
+          </span>
+        );
+      },
     },
-    // {
-    //   title: t('密钥预览'),
-    //   dataIndex: 'key_preview',
-    //   render: (text) => (
-    //     <Text code style={{ fontSize: '12px' }}>
-    //       {text}
-    //     </Text>
-    //   ),
-    // },
     {
       title: t('状态'),
       dataIndex: 'status',
@@ -410,9 +513,44 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       title: t('操作'),
       key: 'action',
       fixed: 'right',
-      width: 150,
+      width: isRoot() ? 300 : 200,
       render: (_, record) => (
         <Space>
+          {isRoot() && (
+            <Tooltip content={t('查看该密钥的完整内容')}>
+              <Button
+                size='small'
+                type='tertiary'
+                loading={operationLoading[`view_${record.index}`]}
+                onClick={() => handleViewKey(record.index)}
+              >
+                {t('查看')}
+              </Button>
+            </Tooltip>
+          )}
+          {isRoot() && (
+            <Tooltip content={t('编辑该密钥')}>
+              <Button
+                size='small'
+                type='tertiary'
+                onClick={() => handleOpenEditKey(record.index, record.key_preview)}
+              >
+                {t('编辑')}
+              </Button>
+            </Tooltip>
+          )}
+          {isRoot() && (
+            <Tooltip content={t('测试该密钥')}>
+              <Button
+                size='small'
+                type='tertiary'
+                loading={operationLoading[`test_${record.index}`]}
+                onClick={() => handleTestKey(record.index)}
+              >
+                {t('测试')}
+              </Button>
+            </Tooltip>
+          )}
           {record.status === 1 ? (
             <Button
               type='danger'
@@ -432,310 +570,408 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
               {t('启用')}
             </Button>
           )}
-          <Popconfirm
-            title={t('确定要删除此密钥吗？')}
-            content={t('此操作不可撤销，将永久删除该密钥')}
-            onConfirm={() => handleDeleteKey(record.index)}
-            okType={'danger'}
-            position={'topRight'}
-          >
-            <Button
-              type='danger'
-              size='small'
-              loading={operationLoading[`delete_${record.index}`]}
+          {isMultiKey && (
+            <Popconfirm
+              title={t('确定要删除此密钥吗？')}
+              content={t('此操作不可撤销，将永久删除该密钥')}
+              onConfirm={() => handleDeleteKey(record.index)}
+              okType={'danger'}
+              position={'topRight'}
             >
-              {t('删除')}
-            </Button>
-          </Popconfirm>
+              <Button
+                type='danger'
+                size='small'
+                loading={operationLoading[`delete_${record.index}`]}
+              >
+                {t('删除')}
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
   ];
 
   return (
-    <Modal
-      title={
-        <Space>
-          <Text>{t('多密钥管理')}</Text>
-          {channel?.name && (
+    <>
+      <Modal
+        title={
+          <Space>
+            <Text>{t('密钥管理')}</Text>
+            {channel?.name && (
+              <Tag size='small' shape='circle' color='white'>
+                {channel.name}
+              </Tag>
+            )}
             <Tag size='small' shape='circle' color='white'>
-              {channel.name}
+              {t('总密钥数')}: {total}
             </Tag>
+            {isMultiKey && channel?.channel_info?.multi_key_mode && (
+              <Tag size='small' shape='circle' color='white'>
+                {channel.channel_info.multi_key_mode === 'random'
+                  ? t('随机模式')
+                  : t('轮询模式')}
+              </Tag>
+            )}
+          </Space>
+        }
+        visible={visible}
+        onCancel={onCancel}
+        width={950}
+        footer={null}
+      >
+        <div className='flex flex-col mb-5'>
+          {/* Stats */}
+          {isMultiKey && (
+            <div
+              className='rounded-xl p-4 mb-3'
+              style={{
+                background: 'var(--semi-color-bg-1)',
+                border: '1px solid var(--semi-color-border)',
+              }}
+            >
+              <Row gutter={16} align='middle'>
+                <Col span={8}>
+                  <div
+                    style={{
+                      background: 'var(--semi-color-bg-0)',
+                      border: '1px solid var(--semi-color-border)',
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <div className='flex items-center gap-2 mb-2'>
+                      <Badge dot type='success' />
+                      <Text type='tertiary'>{t('已启用')}</Text>
+                    </div>
+                    <div className='flex items-end gap-2 mb-2'>
+                      <Text style={{ fontSize: 18, fontWeight: 700, color: '#22c55e' }}>
+                        {enabledCount}
+                      </Text>
+                      <Text style={{ fontSize: 18, color: 'var(--semi-color-text-2)' }}>
+                        / {total}
+                      </Text>
+                    </div>
+                    <Progress
+                      percent={enabledPercent}
+                      showInfo={false}
+                      size='small'
+                      stroke='#22c55e'
+                      style={{ height: 6, borderRadius: 999 }}
+                    />
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div
+                    style={{
+                      background: 'var(--semi-color-bg-0)',
+                      border: '1px solid var(--semi-color-border)',
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <div className='flex items-center gap-2 mb-2'>
+                      <Badge dot type='danger' />
+                      <Text type='tertiary'>{t('手动禁用')}</Text>
+                    </div>
+                    <div className='flex items-end gap-2 mb-2'>
+                      <Text style={{ fontSize: 18, fontWeight: 700, color: '#ef4444' }}>
+                        {manualDisabledCount}
+                      </Text>
+                      <Text style={{ fontSize: 18, color: 'var(--semi-color-text-2)' }}>
+                        / {total}
+                      </Text>
+                    </div>
+                    <Progress
+                      percent={manualDisabledPercent}
+                      showInfo={false}
+                      size='small'
+                      stroke='#ef4444'
+                      style={{ height: 6, borderRadius: 999 }}
+                    />
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div
+                    style={{
+                      background: 'var(--semi-color-bg-0)',
+                      border: '1px solid var(--semi-color-border)',
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <div className='flex items-center gap-2 mb-2'>
+                      <Badge dot type='warning' />
+                      <Text type='tertiary'>{t('自动禁用')}</Text>
+                    </div>
+                    <div className='flex items-end gap-2 mb-2'>
+                      <Text style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}>
+                        {autoDisabledCount}
+                      </Text>
+                      <Text style={{ fontSize: 18, color: 'var(--semi-color-text-2)' }}>
+                        / {total}
+                      </Text>
+                    </div>
+                    <Progress
+                      percent={autoDisabledPercent}
+                      showInfo={false}
+                      size='small'
+                      stroke='#f59e0b'
+                      style={{ height: 6, borderRadius: 999 }}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
           )}
-          <Tag size='small' shape='circle' color='white'>
-            {t('总密钥数')}: {total}
-          </Tag>
-          {channel?.channel_info?.multi_key_mode && (
-            <Tag size='small' shape='circle' color='white'>
-              {channel.channel_info.multi_key_mode === 'random'
-                ? t('随机模式')
-                : t('轮询模式')}
-            </Tag>
-          )}
-        </Space>
-      }
-      visible={visible}
-      onCancel={onCancel}
-      width={900}
-      footer={null}
-    >
-      <div className='flex flex-col mb-5'>
-        {/* Stats & Mode */}
-        <div
-          className='rounded-xl p-4 mb-3'
-          style={{
-            background: 'var(--semi-color-bg-1)',
-            border: '1px solid var(--semi-color-border)',
-          }}
-        >
-          <Row gutter={16} align='middle'>
-            <Col span={8}>
-              <div
-                style={{
-                  background: 'var(--semi-color-bg-0)',
-                  border: '1px solid var(--semi-color-border)',
-                  borderRadius: 12,
-                  padding: 12,
-                }}
-              >
-                <div className='flex items-center gap-2 mb-2'>
-                  <Badge dot type='success' />
-                  <Text type='tertiary'>{t('已启用')}</Text>
-                </div>
-                <div className='flex items-end gap-2 mb-2'>
-                  <Text
-                    style={{ fontSize: 18, fontWeight: 700, color: '#22c55e' }}
-                  >
-                    {enabledCount}
-                  </Text>
-                  <Text
-                    style={{ fontSize: 18, color: 'var(--semi-color-text-2)' }}
-                  >
-                    / {total}
-                  </Text>
-                </div>
-                <Progress
-                  percent={enabledPercent}
-                  showInfo={false}
-                  size='small'
-                  stroke='#22c55e'
-                  style={{ height: 6, borderRadius: 999 }}
-                />
-              </div>
-            </Col>
-            <Col span={8}>
-              <div
-                style={{
-                  background: 'var(--semi-color-bg-0)',
-                  border: '1px solid var(--semi-color-border)',
-                  borderRadius: 12,
-                  padding: 12,
-                }}
-              >
-                <div className='flex items-center gap-2 mb-2'>
-                  <Badge dot type='danger' />
-                  <Text type='tertiary'>{t('手动禁用')}</Text>
-                </div>
-                <div className='flex items-end gap-2 mb-2'>
-                  <Text
-                    style={{ fontSize: 18, fontWeight: 700, color: '#ef4444' }}
-                  >
-                    {manualDisabledCount}
-                  </Text>
-                  <Text
-                    style={{ fontSize: 18, color: 'var(--semi-color-text-2)' }}
-                  >
-                    / {total}
-                  </Text>
-                </div>
-                <Progress
-                  percent={manualDisabledPercent}
-                  showInfo={false}
-                  size='small'
-                  stroke='#ef4444'
-                  style={{ height: 6, borderRadius: 999 }}
-                />
-              </div>
-            </Col>
-            <Col span={8}>
-              <div
-                style={{
-                  background: 'var(--semi-color-bg-0)',
-                  border: '1px solid var(--semi-color-border)',
-                  borderRadius: 12,
-                  padding: 12,
-                }}
-              >
-                <div className='flex items-center gap-2 mb-2'>
-                  <Badge dot type='warning' />
-                  <Text type='tertiary'>{t('自动禁用')}</Text>
-                </div>
-                <div className='flex items-end gap-2 mb-2'>
-                  <Text
-                    style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}
-                  >
-                    {autoDisabledCount}
-                  </Text>
-                  <Text
-                    style={{ fontSize: 18, color: 'var(--semi-color-text-2)' }}
-                  >
-                    / {total}
-                  </Text>
-                </div>
-                <Progress
-                  percent={autoDisabledPercent}
-                  showInfo={false}
-                  size='small'
-                  stroke='#f59e0b'
-                  style={{ height: 6, borderRadius: 999 }}
-                />
-              </div>
-            </Col>
-          </Row>
-        </div>
 
-        {/* Table */}
-        <div className='flex-1 flex flex-col min-h-0'>
-          <Spin spinning={loading}>
-            <Card className='!rounded-xl'>
-              <Table
-                title={() => (
-                  <Row gutter={12} style={{ width: '100%' }}>
-                    <Col span={14}>
-                      <Row gutter={12} style={{ alignItems: 'center' }}>
-                        <Col>
-                          <Select
-                            value={statusFilter}
-                            onChange={handleStatusFilterChange}
-                            size='small'
-                            placeholder={t('全部状态')}
-                          >
-                            <Select.Option value={null}>
-                              {t('全部状态')}
-                            </Select.Option>
-                            <Select.Option value={1}>
-                              {t('已启用')}
-                            </Select.Option>
-                            <Select.Option value={2}>
-                              {t('手动禁用')}
-                            </Select.Option>
-                            <Select.Option value={3}>
-                              {t('自动禁用')}
-                            </Select.Option>
-                          </Select>
-                        </Col>
-                      </Row>
-                    </Col>
-                    <Col
-                      span={10}
-                      style={{ display: 'flex', justifyContent: 'flex-end' }}
-                    >
-                      <Space>
-                        <Button
-                          size='small'
-                          type='tertiary'
-                          onClick={() => loadKeyStatus(currentPage, pageSize)}
-                          loading={loading}
-                        >
-                          {t('刷新')}
-                        </Button>
-                        {manualDisabledCount + autoDisabledCount > 0 && (
-                          <Popconfirm
-                            title={t('确定要启用所有密钥吗？')}
-                            onConfirm={handleEnableAll}
-                            position={'topRight'}
-                          >
-                            <Button
-                              size='small'
-                              type='primary'
-                              loading={operationLoading.enable_all}
-                            >
-                              {t('启用全部')}
-                            </Button>
-                          </Popconfirm>
-                        )}
-                        {enabledCount > 0 && (
-                          <Popconfirm
-                            title={t('确定要禁用所有的密钥吗？')}
-                            onConfirm={handleDisableAll}
-                            okType={'danger'}
-                            position={'topRight'}
-                          >
-                            <Button
-                              size='small'
-                              type='danger'
-                              loading={operationLoading.disable_all}
-                            >
-                              {t('禁用全部')}
-                            </Button>
-                          </Popconfirm>
-                        )}
-                        <Popconfirm
-                          title={t('确定要删除所有已自动禁用的密钥吗？')}
-                          content={t(
-                            '此操作不可撤销，将永久删除已自动禁用的密钥',
+          {/* Table */}
+          <div className='flex-1 flex flex-col min-h-0'>
+            <Spin spinning={loading}>
+              <Card className='!rounded-xl'>
+                <Table
+                  title={() => (
+                    <Row gutter={12} style={{ width: '100%' }}>
+                      <Col span={14}>
+                        <Row gutter={12} style={{ alignItems: 'center' }}>
+                          {isMultiKey && (
+                            <Col>
+                              <Select
+                                value={statusFilter}
+                                onChange={handleStatusFilterChange}
+                                size='small'
+                                placeholder={t('全部状态')}
+                              >
+                                <Select.Option value={null}>{t('全部状态')}</Select.Option>
+                                <Select.Option value={1}>{t('已启用')}</Select.Option>
+                                <Select.Option value={2}>{t('手动禁用')}</Select.Option>
+                                <Select.Option value={3}>{t('自动禁用')}</Select.Option>
+                              </Select>
+                            </Col>
                           )}
-                          onConfirm={handleDeleteDisabledKeys}
-                          okType={'danger'}
-                          position={'topRight'}
-                        >
+                        </Row>
+                      </Col>
+                      <Col
+                        span={10}
+                        style={{ display: 'flex', justifyContent: 'flex-end' }}
+                      >
+                        <Space>
                           <Button
                             size='small'
-                            type='warning'
-                            loading={operationLoading.delete_disabled}
+                            type='tertiary'
+                            onClick={() => loadKeyStatus(currentPage, pageSize)}
+                            loading={loading}
                           >
-                            {t('删除自动禁用密钥')}
+                            {t('刷新')}
                           </Button>
-                        </Popconfirm>
-                      </Space>
-                    </Col>
-                  </Row>
-                )}
-                columns={columns}
-                dataSource={keyStatusList}
-                pagination={{
-                  currentPage: currentPage,
-                  pageSize: pageSize,
-                  total: total,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  pageSizeOpts: [10, 20, 50, 100],
-                  onChange: (page, size) => {
-                    setCurrentPage(page);
-                    loadKeyStatus(page, size);
-                  },
-                  onShowSizeChange: (current, size) => {
-                    setCurrentPage(1);
-                    handlePageSizeChange(size);
-                  },
-                }}
-                size='small'
-                bordered={false}
-                rowKey='index'
-                scroll={{ x: 'max-content' }}
-                empty={
-                  <Empty
-                    image={
-                      <IllustrationNoResult
-                        style={{ width: 140, height: 140 }}
-                      />
-                    }
-                    darkModeImage={
-                      <IllustrationNoResultDark
-                        style={{ width: 140, height: 140 }}
-                      />
-                    }
-                    title={t('暂无密钥数据')}
-                    description={t('请检查渠道配置或刷新重试')}
-                    style={{ padding: 30 }}
-                  />
-                }
-              />
-            </Card>
-          </Spin>
+                          <Button
+                            size='small'
+                            type='primary'
+                            onClick={() => {
+                              setAddMultiKeyMode(
+                                channel?.channel_info?.multi_key_mode || 'random',
+                              );
+                              setAddKeysValue('');
+                              setAddKeysVisible(true);
+                            }}
+                          >
+                            {t('添加密钥')}
+                          </Button>
+                          {isMultiKey && manualDisabledCount + autoDisabledCount > 0 && (
+                            <Popconfirm
+                              title={t('确定要启用所有密钥吗？')}
+                              onConfirm={handleEnableAll}
+                              position={'topRight'}
+                            >
+                              <Button
+                                size='small'
+                                type='primary'
+                                loading={operationLoading.enable_all}
+                              >
+                                {t('启用全部')}
+                              </Button>
+                            </Popconfirm>
+                          )}
+                          {isMultiKey && enabledCount > 0 && (
+                            <Popconfirm
+                              title={t('确定要禁用所有的密钥吗？')}
+                              onConfirm={handleDisableAll}
+                              okType={'danger'}
+                              position={'topRight'}
+                            >
+                              <Button
+                                size='small'
+                                type='danger'
+                                loading={operationLoading.disable_all}
+                              >
+                                {t('禁用全部')}
+                              </Button>
+                            </Popconfirm>
+                          )}
+                          {isMultiKey && (
+                            <Popconfirm
+                              title={t('确定要删除所有已自动禁用的密钥吗？')}
+                              content={t('此操作不可撤销，将永久删除已自动禁用的密钥')}
+                              onConfirm={handleDeleteDisabledKeys}
+                              okType={'danger'}
+                              position={'topRight'}
+                            >
+                              <Button
+                                size='small'
+                                type='warning'
+                                loading={operationLoading.delete_disabled}
+                              >
+                                {t('删除自动禁用密钥')}
+                              </Button>
+                            </Popconfirm>
+                          )}
+                        </Space>
+                      </Col>
+                    </Row>
+                  )}
+                  columns={columns}
+                  dataSource={keyStatusList}
+                  pagination={
+                    isMultiKey
+                      ? {
+                          currentPage,
+                          pageSize,
+                          total,
+                          showSizeChanger: true,
+                          showQuickJumper: true,
+                          pageSizeOpts: [10, 20, 50, 100],
+                          onChange: (page, size) => {
+                            setCurrentPage(page);
+                            loadKeyStatus(page, size);
+                          },
+                          onShowSizeChange: (current, size) => {
+                            setCurrentPage(1);
+                            handlePageSizeChange(size);
+                          },
+                        }
+                      : false
+                  }
+                  size='small'
+                  bordered={false}
+                  rowKey='index'
+                  scroll={{ x: 'max-content' }}
+                  empty={
+                    <Empty
+                      image={
+                        <IllustrationNoResult style={{ width: 140, height: 140 }} />
+                      }
+                      darkModeImage={
+                        <IllustrationNoResultDark style={{ width: 140, height: 140 }} />
+                      }
+                      title={t('暂无密钥数据')}
+                      description={t('请点击"添加密钥"来配置密钥')}
+                      style={{ padding: 30 }}
+                    />
+                  }
+                />
+              </Card>
+            </Spin>
+          </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
+
+      {/* View Key Modal */}
+      <Modal
+        title={t('查看密钥 #{{index}}', { index: viewKeyIndex })}
+        visible={viewKeyVisible}
+        onCancel={() => {
+          setViewKeyVisible(false);
+          setViewKeyValue('');
+        }}
+        footer={
+          <Button
+            onClick={() => {
+              navigator.clipboard.writeText(viewKeyValue).then(
+                () => showSuccess(t('复制成功')),
+                () => showError(t('复制失败')),
+              );
+            }}
+          >
+            {t('复制')}
+          </Button>
+        }
+        width={600}
+      >
+        <TextArea
+          value={viewKeyValue}
+          readOnly
+          autosize={{ minRows: 3, maxRows: 8 }}
+          style={{ fontFamily: 'monospace', fontSize: 13 }}
+        />
+      </Modal>
+
+      {/* Edit Key Modal */}
+      <Modal
+        title={t('编辑密钥 #{{index}}', { index: editKeyIndex })}
+        visible={editKeyVisible}
+        onCancel={() => {
+          setEditKeyVisible(false);
+          setEditKeyValue('');
+        }}
+        onOk={handleSaveEditKey}
+        okButtonProps={{ loading: editKeyLoading }}
+        width={600}
+      >
+        <div className='mb-2'>
+          <Text type='tertiary' size='small'>
+            {t('输入新的密钥值（将覆盖当前密钥）')}
+          </Text>
+        </div>
+        <TextArea
+          value={editKeyValue}
+          onChange={setEditKeyValue}
+          placeholder={t('请输入新密钥')}
+          autosize={{ minRows: 3, maxRows: 8 }}
+          style={{ fontFamily: 'monospace', fontSize: 13 }}
+          autoComplete='new-password'
+        />
+      </Modal>
+
+      {/* Add Keys Modal */}
+      <Modal
+        title={t('添加密钥')}
+        visible={addKeysVisible}
+        onCancel={() => {
+          setAddKeysVisible(false);
+          setAddKeysValue('');
+        }}
+        onOk={handleAddKeys}
+        okButtonProps={{ loading: addKeysLoading }}
+        width={600}
+      >
+        <Space vertical align='start' style={{ width: '100%' }} spacing={12}>
+          <div style={{ width: '100%' }}>
+            <Text className='mb-1 block'>{t('密钥内容（每行一个）')}</Text>
+            <TextArea
+              value={addKeysValue}
+              onChange={setAddKeysValue}
+              placeholder={t('请输入密钥，每行一个')}
+              autosize={{ minRows: 4, maxRows: 10 }}
+              style={{ fontFamily: 'monospace', fontSize: 13 }}
+              autoComplete='new-password'
+            />
+          </div>
+          {!isMultiKey && (
+            <div style={{ width: '100%' }}>
+              <Text className='mb-1 block'>{t('多密钥模式（添加多个密钥时生效）')}</Text>
+              <Select
+                value={addMultiKeyMode}
+                onChange={setAddMultiKeyMode}
+                style={{ width: '100%' }}
+              >
+                <Select.Option value='random'>{t('随机模式')}</Select.Option>
+                <Select.Option value='roundrobin'>{t('轮询模式')}</Select.Option>
+              </Select>
+            </div>
+          )}
+        </Space>
+      </Modal>
+    </>
   );
 };
 

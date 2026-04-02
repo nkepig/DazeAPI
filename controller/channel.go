@@ -439,9 +439,9 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		return fmt.Errorf("渠道额外设置[channel setting] 格式错误：%s", err.Error())
 	}
 
-	// 如果是添加操作，检查 channel 和 key 是否为空
+	// 如果是添加操作，检查 channel 是否为空并校验模型名称长度
 	if isAdd {
-		if channel == nil || channel.Key == "" {
+		if channel == nil {
 			return fmt.Errorf("channel cannot be empty")
 		}
 
@@ -635,20 +635,27 @@ func AddChannel(c *gin.Context) {
 	}
 
 	channels := make([]model.Channel, 0, len(keys))
-	for _, key := range keys {
-		if key == "" {
-			continue
-		}
+	// Allow single empty key (channel created without key, key set later via key management)
+	if len(keys) == 1 && keys[0] == "" {
 		localChannel := addChannelRequest.Channel
-		localChannel.Key = key
-		if addChannelRequest.BatchAddSetKeyPrefix2Name && len(keys) > 1 {
-			keyPrefix := localChannel.Key
-			if len(localChannel.Key) > 8 {
-				keyPrefix = localChannel.Key[:8]
-			}
-			localChannel.Name = fmt.Sprintf("%s %s", localChannel.Name, keyPrefix)
-		}
+		localChannel.Key = ""
 		channels = append(channels, *localChannel)
+	} else {
+		for _, key := range keys {
+			if key == "" {
+				continue
+			}
+			localChannel := addChannelRequest.Channel
+			localChannel.Key = key
+			if addChannelRequest.BatchAddSetKeyPrefix2Name && len(keys) > 1 {
+				keyPrefix := localChannel.Key
+				if len(localChannel.Key) > 8 {
+					keyPrefix = localChannel.Key[:8]
+				}
+				localChannel.Name = fmt.Sprintf("%s %s", localChannel.Name, keyPrefix)
+			}
+			channels = append(channels, *localChannel)
+		}
 	}
 	err = model.BatchInsertChannels(channels)
 	if err != nil {
@@ -1209,12 +1216,14 @@ func CopyChannel(c *gin.Context) {
 
 // MultiKeyManageRequest represents the request for multi-key management operations
 type MultiKeyManageRequest struct {
-	ChannelId int    `json:"channel_id"`
-	Action    string `json:"action"`              // "disable_key", "enable_key", "delete_key", "delete_disabled_keys", "get_key_status"
-	KeyIndex  *int   `json:"key_index,omitempty"` // for disable_key, enable_key, and delete_key actions
-	Page      int    `json:"page,omitempty"`      // for get_key_status pagination
-	PageSize  int    `json:"page_size,omitempty"` // for get_key_status pagination
-	Status    *int   `json:"status,omitempty"`    // for get_key_status filtering: 1=enabled, 2=manual_disabled, 3=auto_disabled, nil=all
+	ChannelId    int    `json:"channel_id"`
+	Action       string `json:"action"`                   // "disable_key", "enable_key", "delete_key", "delete_disabled_keys", "get_key_status", "view_key", "update_key", "add_keys"
+	KeyIndex     *int   `json:"key_index,omitempty"`      // for per-key operations
+	Page         int    `json:"page,omitempty"`           // for get_key_status pagination
+	PageSize     int    `json:"page_size,omitempty"`      // for get_key_status pagination
+	Status       *int   `json:"status,omitempty"`         // for get_key_status filtering: 1=enabled, 2=manual_disabled, 3=auto_disabled, nil=all
+	NewKeyValue  string `json:"new_key_value,omitempty"`  // for update_key and add_keys
+	MultiKeyMode string `json:"multi_key_mode,omitempty"` // for add_keys: "random" or "roundrobin"
 }
 
 // MultiKeyStatusResponse represents the response for key status query
@@ -1256,20 +1265,177 @@ func ManageMultiKeys(c *gin.Context) {
 		return
 	}
 
-	if !channel.ChannelInfo.IsMultiKey {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "该渠道不是多密钥模式",
-		})
-		return
-	}
+	isSingleKey := !channel.ChannelInfo.IsMultiKey
 
 	lock := model.GetChannelPollingLock(channel.Id)
 	lock.Lock()
 	defer lock.Unlock()
 
 	switch request.Action {
+	case "view_key":
+		role, _ := c.Get("role")
+		if roleInt, ok := role.(int); !ok || roleInt < common.RoleRootUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "仅超级管理员可以查看密钥"})
+			return
+		}
+		if request.KeyIndex == nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "未指定密钥索引"})
+			return
+		}
+		keyIndex := *request.KeyIndex
+		if isSingleKey {
+			if keyIndex != 0 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"key": channel.Key}})
+		} else {
+			keys := channel.GetKeys()
+			if keyIndex < 0 || keyIndex >= len(keys) {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"key": keys[keyIndex]}})
+		}
+		return
+
+	case "update_key":
+		role, _ := c.Get("role")
+		if roleInt, ok := role.(int); !ok || roleInt < common.RoleRootUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "仅超级管理员可以编辑密钥"})
+			return
+		}
+		if request.KeyIndex == nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "未指定密钥索引"})
+			return
+		}
+		newVal := strings.TrimSpace(request.NewKeyValue)
+		if newVal == "" {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "新密钥值不能为空"})
+			return
+		}
+		keyIndex := *request.KeyIndex
+		if isSingleKey {
+			if keyIndex != 0 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			channel.Key = newVal
+		} else {
+			keys := channel.GetKeys()
+			if keyIndex < 0 || keyIndex >= len(keys) {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			keys[keyIndex] = newVal
+			channel.Key = strings.Join(keys, "\n")
+		}
+		err = channel.Update()
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		model.InitChannelCache()
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "密钥已更新"})
+		return
+
+	case "add_keys":
+		newKeyLines := strings.Split(strings.TrimSpace(request.NewKeyValue), "\n")
+		var newKeys []string
+		for _, k := range newKeyLines {
+			k = strings.TrimSpace(k)
+			if k != "" {
+				newKeys = append(newKeys, k)
+			}
+		}
+		if len(newKeys) == 0 {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "新密钥不能为空"})
+			return
+		}
+		var existingKeys []string
+		if channel.Key != "" {
+			existingKeys = channel.GetKeys()
+		}
+		allKeys := append(existingKeys, newKeys...)
+		if len(allKeys) == 1 {
+			channel.Key = allKeys[0]
+			channel.ChannelInfo.IsMultiKey = false
+		} else {
+			channel.Key = strings.Join(allKeys, "\n")
+			channel.ChannelInfo.IsMultiKey = true
+			mode := strings.TrimSpace(request.MultiKeyMode)
+			if mode == "" {
+				mode = "random"
+				if channel.ChannelInfo.MultiKeyMode != "" {
+					mode = string(channel.ChannelInfo.MultiKeyMode)
+				}
+			}
+			channel.ChannelInfo.MultiKeyMode = constant.MultiKeyMode(mode)
+			channel.ChannelInfo.MultiKeySize = len(allKeys)
+		}
+		err = channel.Update()
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		model.InitChannelCache()
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": fmt.Sprintf("已添加 %d 个密钥", len(newKeys))})
+		return
+
 	case "get_key_status":
+		// single-key channel: synthesize status from channel.Status
+		if isSingleKey {
+			status := channel.Status
+			var reason string
+			var disabledTime int64
+			if status != common.ChannelStatusEnabled {
+				otherInfo := channel.GetOtherInfo()
+				if v, ok := otherInfo["status_reason"]; ok {
+					reason = fmt.Sprintf("%v", v)
+				}
+				if v, ok := otherInfo["status_time"]; ok {
+					switch t := v.(type) {
+					case float64:
+						disabledTime = int64(t)
+					case int64:
+						disabledTime = t
+					}
+				}
+			}
+			keyPreview := channel.Key
+			if len(keyPreview) > 10 {
+				keyPreview = keyPreview[:10] + "..."
+			}
+			enabledCount, manualDisabledCount, autoDisabledCount := 0, 0, 0
+			switch status {
+			case 1:
+				enabledCount = 1
+			case 2:
+				manualDisabledCount = 1
+			case 3:
+				autoDisabledCount = 1
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"data": MultiKeyStatusResponse{
+					Keys: []KeyStatus{{
+						Index:        0,
+						Status:       status,
+						DisabledTime: disabledTime,
+						Reason:       reason,
+						KeyPreview:   keyPreview,
+					}},
+					Total:               1,
+					Page:                1,
+					PageSize:            10,
+					TotalPages:          1,
+					EnabledCount:        enabledCount,
+					ManualDisabledCount: manualDisabledCount,
+					AutoDisabledCount:   autoDisabledCount,
+				},
+			})
+			return
+		}
 		keys := channel.GetKeys()
 
 		// Default pagination parameters
@@ -1385,14 +1551,36 @@ func ManageMultiKeys(c *gin.Context) {
 
 	case "disable_key":
 		if request.KeyIndex == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "未指定要禁用的密钥索引",
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "未指定要禁用的密钥索引"})
 			return
 		}
-
 		keyIndex := *request.KeyIndex
+		if isSingleKey {
+			if keyIndex != 0 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			if channel.Status == 2 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥已经是禁用状态"})
+				return
+			}
+			info := channel.GetOtherInfo()
+			info["status_reason"] = "手动禁用"
+			info["status_time"] = common.GetTimestamp()
+			channel.SetOtherInfo(info)
+			channel.Status = 2
+			err = channel.SaveWithoutKey()
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if err2 := model.UpdateAbilityStatus(channel.Id, false); err2 != nil {
+				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
+			}
+			model.InitChannelCache()
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "密钥已禁用"})
+			return
+		}
 		if keyIndex < 0 || keyIndex >= channel.ChannelInfo.MultiKeySize {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1428,14 +1616,32 @@ func ManageMultiKeys(c *gin.Context) {
 
 	case "enable_key":
 		if request.KeyIndex == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "未指定要启用的密钥索引",
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "未指定要启用的密钥索引"})
 			return
 		}
-
 		keyIndex := *request.KeyIndex
+		if isSingleKey {
+			if keyIndex != 0 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			if channel.Status == 1 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥已经是启用状态"})
+				return
+			}
+			channel.Status = 1
+			err = channel.SaveWithoutKey()
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if err2 := model.UpdateAbilityStatus(channel.Id, true); err2 != nil {
+				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
+			}
+			model.InitChannelCache()
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "密钥已启用"})
+			return
+		}
 		if keyIndex < 0 || keyIndex >= channel.ChannelInfo.MultiKeySize {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1469,6 +1675,24 @@ func ManageMultiKeys(c *gin.Context) {
 		return
 
 	case "enable_all_keys":
+		if isSingleKey {
+			if channel.Status == 1 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥已经是启用状态"})
+				return
+			}
+			channel.Status = 1
+			err = channel.SaveWithoutKey()
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if err2 := model.UpdateAbilityStatus(channel.Id, true); err2 != nil {
+				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
+			}
+			model.InitChannelCache()
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "已启用 1 个密钥"})
+			return
+		}
 		// 清空所有禁用状态，使所有密钥回到默认启用状态
 		var enabledCount int
 		if channel.ChannelInfo.MultiKeyStatusList != nil {
@@ -1493,6 +1717,28 @@ func ManageMultiKeys(c *gin.Context) {
 		return
 
 	case "disable_all_keys":
+		if isSingleKey {
+			if channel.Status == 2 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥已经是禁用状态"})
+				return
+			}
+			info := channel.GetOtherInfo()
+			info["status_reason"] = "手动禁用"
+			info["status_time"] = common.GetTimestamp()
+			channel.SetOtherInfo(info)
+			channel.Status = 2
+			err = channel.SaveWithoutKey()
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if err2 := model.UpdateAbilityStatus(channel.Id, false); err2 != nil {
+				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channel.Id, err2))
+			}
+			model.InitChannelCache()
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "已禁用 1 个密钥"})
+			return
+		}
 		// 禁用所有启用的密钥
 		if channel.ChannelInfo.MultiKeyStatusList == nil {
 			channel.ChannelInfo.MultiKeyStatusList = make(map[int]int)
@@ -1541,14 +1787,14 @@ func ManageMultiKeys(c *gin.Context) {
 
 	case "delete_key":
 		if request.KeyIndex == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "未指定要删除的密钥索引",
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "未指定要删除的密钥索引"})
 			return
 		}
-
 		keyIndex := *request.KeyIndex
+		if isSingleKey {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "不能删除最后一个密钥"})
+			return
+		}
 		if keyIndex < 0 || keyIndex >= channel.ChannelInfo.MultiKeySize {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1620,6 +1866,10 @@ func ManageMultiKeys(c *gin.Context) {
 		return
 
 	case "delete_disabled_keys":
+		if isSingleKey {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "没有需要删除的自动禁用密钥"})
+			return
+		}
 		keys := channel.GetKeys()
 		var remainingKeys []string
 		var deletedCount int
@@ -1685,6 +1935,52 @@ func ManageMultiKeys(c *gin.Context) {
 			"success": true,
 			"message": fmt.Sprintf("已删除 %d 个自动禁用的密钥", deletedCount),
 			"data":    deletedCount,
+		})
+		return
+
+	case "test_key":
+		role, _ := c.Get("role")
+		if roleInt, ok := role.(int); !ok || roleInt < common.RoleRootUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "仅超级管理员可以测试单个密钥"})
+			return
+		}
+		if request.KeyIndex == nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "未指定要测试的密钥索引"})
+			return
+		}
+		keyIndex := *request.KeyIndex
+		var testKeyValue string
+		if isSingleKey {
+			if keyIndex != 0 {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			testKeyValue = channel.Key
+		} else {
+			keys := channel.GetKeys()
+			if keyIndex < 0 || keyIndex >= len(keys) {
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "密钥索引超出范围"})
+				return
+			}
+			testKeyValue = keys[keyIndex]
+		}
+
+		// Build a temporary single-key channel clone for testing
+		testCh := *channel
+		testCh.Key = testKeyValue
+		testCh.ChannelInfo.IsMultiKey = false
+
+		result := testChannel(&testCh, "", "", false)
+		if result.localErr != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("密钥 #%d 测试失败: %s", keyIndex, result.localErr.Error()),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": fmt.Sprintf("密钥 #%d 测试成功", keyIndex),
 		})
 		return
 
