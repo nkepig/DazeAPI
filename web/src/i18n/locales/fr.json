@@ -2952,6 +2952,7 @@
     "选择部署位置（可多选）": "Select deployment location(s) (multiple selections allowed)",
     "选择预设模板（可选）": "Sélectionner un modèle prédéfini (optionnel)",
     "透传请求体": "Corps de transmission",
+    "开启后请求体将直接透传给上游，参数覆写、模型重定向、渠道适配等内置功能将失效，请谨慎开启": "Lorsque activé, le corps de la requête sera transmis directement en amont. Les fonctionnalités intégrées telles que les remplacements de paramètres, la redirection de modèles et l'adaptation de canaux seront désactivées. Activez avec précaution.",
     "递归": "Récursif",
     "递归策略": "Stratégie récursive",
     "通义千问": "Qwen",

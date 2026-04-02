@@ -159,6 +159,8 @@ const EditChannelModal = (props) => {
     key: '',
     // 企业账户设置
     is_enterprise_account: false,
+    // 渠道 setting 字段（ChannelSettings）
+    pass_through_body_enabled: false,
   };
   const [autoBan, setAutoBan] = useState(true);
   const [inputs, setInputs] = useState(originInputs);
@@ -450,6 +452,20 @@ const EditChannelModal = (props) => {
         data.is_enterprise_account = false;
       }
 
+      // 读取 setting 字段（ChannelSettings）
+      if (data.setting) {
+        try {
+          const parsedSetting = JSON.parse(data.setting);
+          data.pass_through_body_enabled =
+            parsedSetting.pass_through_body_enabled === true;
+        } catch (error) {
+          console.error('解析渠道设置失败:', error);
+          data.pass_through_body_enabled = false;
+        }
+      } else {
+        data.pass_through_body_enabled = false;
+      }
+
       if (
         data.type === 45 &&
         (!data.base_url ||
@@ -506,7 +522,8 @@ const EditChannelModal = (props) => {
         (data.tag && data.tag.trim()) ||
         (data.remark && data.remark.trim()) ||
         (data.priority && data.priority !== 0) ||
-        (data.weight && data.weight !== 0);
+        (data.weight && data.weight !== 0) ||
+        data.pass_through_body_enabled === true;
       if (hasAdvancedValues) {
         setAdvancedSettingsOpen(true);
       }
@@ -982,8 +999,22 @@ const EditChannelModal = (props) => {
 
     localInputs.settings = JSON.stringify(settings);
 
+    // 处理 setting 字段（ChannelSettings，包含透传请求体等）
+    let channelSetting = {};
+    if (localInputs.setting) {
+      try {
+        channelSetting = JSON.parse(localInputs.setting);
+      } catch (error) {
+        console.error('解析渠道设置失败:', error);
+      }
+    }
+    channelSetting.pass_through_body_enabled =
+      localInputs.pass_through_body_enabled === true;
+    localInputs.setting = JSON.stringify(channelSetting);
+
     // 清理不需要发送到后端的字段
     delete localInputs.is_enterprise_account;
+    delete localInputs.pass_through_body_enabled;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -1219,6 +1250,32 @@ const EditChannelModal = (props) => {
                   <Text className='text-sm font-medium text-gray-500 mb-3 block'>
                     {t('请求配置')}
                   </Text>
+
+                  <div className='flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl mb-2'
+                    style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
+                    <div className='flex-1 min-w-0'>
+                      <div className='text-sm font-medium leading-5'>{t('透传请求体')}</div>
+                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>
+                        {t('开启后请求体将直接透传给上游，参数覆写、模型重定向、渠道适配等内置功能将失效，请谨慎开启')}
+                      </div>
+                    </div>
+                    <Form.Switch
+                      field='pass_through_body_enabled'
+                      noLabel
+                      style={{ marginBottom: 0 }}
+                      onChange={(value) => handleInputChange('pass_through_body_enabled', value)}
+                      initValue={inputs.pass_through_body_enabled}
+                    />
+                  </div>
+
+                  {inputs.pass_through_body_enabled && (
+                    <Banner
+                      type='warning'
+                      closeIcon={null}
+                      className='!rounded-lg mb-2'
+                      description={t('该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。')}
+                    />
+                  )}
 
                   <Form.TextArea
                     field='param_override'
