@@ -295,55 +295,226 @@ body {
 .semi-spin-dot .semi-spin-dot-item {
   background: var(--color-secondary) !important;
 }
-/* Switch: clear on/off (especially in 设置) */
+/* ========== Switch：全局现代胶囊开关（覆盖 Semi 默认过小/扁平轨道） ========== */
 .semi-switch {
-  min-width: 44px !important;
-  height: 24px !important;
-  background-color: #e8e8e8 !important;
-  border: 1px solid #c4c4c4 !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06) !important;
-}
-.semi-switch-checked {
-  background-color: #16a34a !important;
-  border-color: #15803d !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12) !important;
-}
-.semi-switch-knob {
-  background: #fff !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18) !important;
-}
-.semi-switch:active:not(.semi-switch-disabled) .semi-switch-knob {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22) !important;
-}
-.semi-switch-disabled {
-  opacity: 0.45 !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 28px !important;
+  background: var(--semi-color-fill-1) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--semi-color-border),
+    inset 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+  transition:
+    background 0.22s ease,
+    box-shadow 0.22s ease !important;
 }
 
-/* Modal / SideSheet 内开关：与页面区分，深色开启态 + 略高轨道 */
-.semi-modal-body .semi-switch,
-.semi-sidesheet-body .semi-switch {
-  min-width: 48px !important;
-  height: 26px !important;
-  background-color: #ececec !important;
-  border: 1px solid #bdbdbd !important;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+.semi-switch:hover:not(.semi-switch-disabled) {
+  background: var(--semi-color-fill-2) !important;
 }
-.semi-modal-body .semi-switch-checked,
-.semi-sidesheet-body .semi-switch-checked {
-  background-color: #1a1a1a !important;
-  border-color: #1a1a1a !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+
+.semi-switch:active:not(.semi-switch-disabled) {
+  border: none !important;
 }
-.semi-modal-body .semi-switch-knob,
-.semi-sidesheet-body .semi-switch-knob {
+
+.semi-switch-checked {
+  background: linear-gradient(
+    165deg,
+    #4ade80 0%,
+    #22c55e 45%,
+    #16a34a 100%
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(22, 163, 74, 0.22) !important;
+}
+
+.semi-switch-checked:hover:not(.semi-switch-disabled) {
+  background: linear-gradient(
+    165deg,
+    #6ee896 0%,
+    #4ade80 45%,
+    #22c55e 100%
+  ) !important;
+}
+
+.semi-switch-knob {
   width: 22px !important;
   height: 22px !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+  top: 3px !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  transform: translateX(3px) !important;
+  transition:
+    transform 0.24s cubic-bezier(0.34, 1.34, 0.64, 1),
+    box-shadow 0.2s ease !important;
 }
-.semi-modal-body .semi-switch-disabled,
-.semi-sidesheet-body .semi-switch-disabled {
-  opacity: 0.5 !important;
-  filter: grayscale(0.25);
+
+.semi-switch-checked .semi-switch-knob {
+  transform: translateX(23px) !important;
+}
+
+/* 去掉 Semi 按下时拉宽滑块的「橡皮筋」感 */
+.semi-switch:active:not(.semi-switch-disabled) .semi-switch-knob {
+  width: 22px !important;
+}
+
+.semi-switch-checked:active:not(.semi-switch-disabled) .semi-switch-knob {
+  transform: translateX(23px) !important;
+}
+
+/* small：仍保持可点区域，比官方 26×16 更易用 */
+.semi-switch.semi-switch-small {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 24px !important;
+}
+
+.semi-switch-small .semi-switch-knob {
+  width: 18px !important;
+  height: 18px !important;
+  top: 3px !important;
+  transform: translateX(3px) !important;
+}
+
+.semi-switch-small.semi-switch-checked .semi-switch-knob {
+  transform: translateX(19px) !important;
+}
+
+.semi-switch-small:active:not(.semi-switch-disabled) .semi-switch-knob {
+  width: 18px !important;
+}
+
+.semi-switch-small.semi-switch-checked:active:not(.semi-switch-disabled) .semi-switch-knob {
+  transform: translateX(19px) !important;
+}
+
+/* large */
+.semi-switch.semi-switch-large {
+  width: 56px !important;
+  min-width: 56px !important;
+  height: 32px !important;
+}
+
+.semi-switch-large .semi-switch-knob {
+  width: 26px !important;
+  height: 26px !important;
+  top: 3px !important;
+  transform: translateX(3px) !important;
+}
+
+.semi-switch-large.semi-switch-checked .semi-switch-knob {
+  transform: translateX(27px) !important;
+}
+
+.semi-switch-large:active:not(.semi-switch-disabled) .semi-switch-knob {
+  width: 26px !important;
+}
+
+.semi-switch-large.semi-switch-checked:active:not(.semi-switch-disabled) .semi-switch-knob {
+  transform: translateX(27px) !important;
+}
+
+/* 键盘焦点：外圈高亮，替代默认 outline */
+.semi-switch.semi-switch-focus {
+  outline: none !important;
+}
+
+.semi-switch.semi-switch-focus:not(.semi-switch-checked) {
+  box-shadow:
+    inset 0 0 0 1px var(--semi-color-border),
+    inset 0 2px 4px rgba(0, 0, 0, 0.04),
+    0 0 0 3px rgba(22, 163, 74, 0.22) !important;
+}
+
+.semi-switch.semi-switch-focus.semi-switch-checked {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(22, 163, 74, 0.22),
+    0 0 0 3px rgba(22, 163, 74, 0.28) !important;
+}
+
+/* 禁用 */
+.semi-switch-disabled {
+  cursor: not-allowed !important;
+  opacity: 0.55 !important;
+  filter: grayscale(0.08);
+}
+
+.semi-switch-disabled:not(.semi-switch-checked) {
+  background: var(--semi-color-fill-0) !important;
+  box-shadow: inset 0 0 0 1px var(--semi-color-border) !important;
+}
+
+.semi-switch-disabled .semi-switch-knob {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 1px 4px rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.semi-switch-disabled.semi-switch-checked {
+  background: linear-gradient(
+    165deg,
+    rgba(74, 222, 128, 0.55) 0%,
+    rgba(34, 197, 94, 0.65) 100%
+  ) !important;
+  box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.2) !important;
+}
+
+.semi-switch-disabled.semi-switch-checked .semi-switch-knob {
+  transform: translateX(23px) !important;
+}
+
+.semi-switch-disabled.semi-switch-small.semi-switch-checked .semi-switch-knob {
+  transform: translateX(19px) !important;
+}
+
+.semi-switch-disabled.semi-switch-large.semi-switch-checked .semi-switch-knob {
+  transform: translateX(27px) !important;
+}
+
+/* loading 时无 knob，用 Spin 对齐新轨道宽度 */
+.semi-switch-loading.semi-switch-checked {
+  background: linear-gradient(
+    165deg,
+    #4ade80 0%,
+    #22c55e 45%,
+    #16a34a 100%
+  ) !important;
+}
+
+.semi-switch-loading .semi-switch-loading-spin {
+  transform: translateX(3px) !important;
+}
+
+.semi-switch-loading.semi-switch-checked .semi-switch-loading-spin {
+  transform: translateX(27px) !important;
+}
+
+.semi-switch-loading.semi-switch-small .semi-switch-loading-spin {
+  transform: translateX(3px) !important;
+}
+
+.semi-switch-loading.semi-switch-small.semi-switch-checked .semi-switch-loading-spin {
+  transform: translateX(27px) !important;
+}
+
+.semi-switch-loading.semi-switch-large .semi-switch-loading-spin {
+  transform: translateX(3px) !important;
+}
+
+.semi-switch-loading.semi-switch-large.semi-switch-checked .semi-switch-loading-spin {
+  transform: translateX(25px) !important;
 }
 
 .semi-pagination-item-active {
@@ -489,10 +660,6 @@ body {
   background-color: #f0f0f0 !important;
   color: #a8a8a8 !important;
   border-color: #e5e5e5 !important;
-}
-.semi-switch-disabled {
-  opacity: 0.55 !important;
-  filter: grayscale(0.2);
 }
 .semi-datepicker-inactive,
 .semi-datepicker-disabled .semi-datepicker-range-input {

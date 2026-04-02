@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Search, Layers } from 'lucide-react';
-import { API, showError } from '../../helpers';
+import { API, showError, getLobeHubIcon } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 
 const CARD_COLORS = [
@@ -30,11 +30,9 @@ const Models = () => {
   const [models, setModels] = useState([]);
   const [vendorsMap, setVendorsMap] = useState({});
   const [groupRatio, setGroupRatio] = useState({});
-  const [usableGroup, setUsableGroup] = useState({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [filterVendor, setFilterVendor] = useState('all');
-  const [filterGroup, setFilterGroup] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 24;
 
@@ -57,10 +55,9 @@ const Models = () => {
       setLoading(true);
       try {
         const res = await API.get('/api/pricing');
-        const { success, message, data, vendors, group_ratio, usable_group } = res.data;
+        const { success, message, data, vendors, group_ratio } = res.data;
         if (success) {
           setGroupRatio(group_ratio || {});
-          setUsableGroup(usable_group || {});
           const vMap = {};
           if (Array.isArray(vendors)) {
             vendors.forEach((v) => { vMap[v.id] = v; });
@@ -84,14 +81,20 @@ const Models = () => {
   }, []);
 
   const vendorOptions = useMemo(() => {
-    const names = new Set();
-    models.forEach((m) => { if (m.vendor_name) names.add(m.vendor_name); });
-    return [...names].sort();
-  }, [models]);
-
-  const groupOptions = useMemo(() => {
-    return Object.keys(usableGroup).sort();
-  }, [usableGroup]);
+    const byName = new Map();
+    models.forEach((m) => {
+      if (!m.vendor_name) return;
+      if (!byName.has(m.vendor_name)) {
+        const v = m.vendor_id ? vendorsMap[m.vendor_id] : null;
+        byName.set(m.vendor_name, {
+          value: m.vendor_name,
+          label: m.vendor_name,
+          icon: v?.icon || 'Layers',
+        });
+      }
+    });
+    return [...byName.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [models, vendorsMap]);
 
   const filteredModels = useMemo(() => {
     let result = models;
@@ -102,9 +105,6 @@ const Models = () => {
         result = result.filter((m) => m.vendor_name === filterVendor);
       }
     }
-    if (filterGroup !== 'all') {
-      result = result.filter((m) => m.enable_groups && m.enable_groups.includes(filterGroup));
-    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((m) =>
@@ -113,23 +113,22 @@ const Models = () => {
       );
     }
     return result;
-  }, [models, filterVendor, filterGroup, search]);
+  }, [models, filterVendor, search]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterVendor, filterGroup, search]);
+  }, [filterVendor, search]);
 
   const totalPages = Math.ceil(filteredModels.length / pageSize);
   const paginatedModels = filteredModels.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const getUsedGroupRatio = (model) => {
-    if (filterGroup !== 'all' && groupRatio[filterGroup] !== undefined) {
-      return groupRatio[filterGroup];
-    }
     let minRatio = Infinity;
     if (Array.isArray(model.enable_groups)) {
       model.enable_groups.forEach((g) => {
-        if (groupRatio[g] !== undefined && groupRatio[g] < minRatio) minRatio = groupRatio[g];
+        if (groupRatio[g] !== undefined && groupRatio[g] < minRatio) {
+          minRatio = groupRatio[g];
+        }
       });
     }
     return minRatio === Infinity ? 1 : minRatio;
@@ -173,14 +172,19 @@ const Models = () => {
 
       {/* Vendor pills */}
       {vendorOptions.length > 0 && (
-        <div className='mb-3'>
+        <div className='mb-5'>
           <p className='text-[11px] text-[#bbb] font-medium uppercase tracking-wider mb-2'>{t('供应商')}</p>
           <div className='flex gap-1.5 flex-wrap'>
-            {[{ value: 'all', label: t('全部') }, ...vendorOptions.map((v) => ({ value: v, label: v })), { value: 'unknown', label: t('未知') }].map((opt) => (
+            {[
+              { value: 'all', label: t('全部'), icon: 'Layers' },
+              ...vendorOptions,
+              { value: 'unknown', label: t('未知'), icon: 'Layers' },
+            ].map((opt) => (
               <button
                 key={opt.value}
+                type='button'
                 onClick={() => setFilterVendor(opt.value)}
-                className='transition-all duration-150 cursor-pointer border-0 outline-none'
+                className='transition-all duration-150 cursor-pointer border-0 outline-none inline-flex items-center gap-1.5'
                 style={{
                   padding: '4px 12px',
                   borderRadius: '9999px',
@@ -190,32 +194,9 @@ const Models = () => {
                   color: filterVendor === opt.value ? '#fff' : '#666',
                 }}
               >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Group pills */}
-      {groupOptions.length > 0 && (
-        <div className='mb-5'>
-          <p className='text-[11px] text-[#bbb] font-medium uppercase tracking-wider mb-2'>{t('分组')}</p>
-          <div className='flex gap-1.5 flex-wrap'>
-            {[{ value: 'all', label: t('全部') }, ...groupOptions.map((g) => ({ value: g, label: g }))].map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setFilterGroup(opt.value)}
-                className='transition-all duration-150 cursor-pointer border-0 outline-none'
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '9999px',
-                  fontSize: '12px',
-                  fontWeight: filterGroup === opt.value ? 600 : 400,
-                  background: filterGroup === opt.value ? '#1A1A1A' : '#f5f5f5',
-                  color: filterGroup === opt.value ? '#fff' : '#666',
-                }}
-              >
+                <span className='flex shrink-0 items-center justify-center [&_img]:rounded-sm opacity-90'>
+                  {getLobeHubIcon(opt.icon || 'Layers', 14)}
+                </span>
                 {opt.label}
               </button>
             ))}
@@ -266,7 +247,17 @@ const Models = () => {
                         <h3 className='text-[14px] font-semibold text-[#1A1A1A] font-mono truncate'>{model.model_name}</h3>
                         <div className='flex items-center gap-2 mt-1.5'>
                           {model.vendor_name && (
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${color.tag}`}>{model.vendor_name}</span>
+                            <span
+                              className={`text-[11px] px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1 max-w-full ${color.tag}`}
+                            >
+                              <span className='flex shrink-0 items-center [&_img]:rounded-sm'>
+                                {getLobeHubIcon(
+                                  vendorsMap[model.vendor_id]?.icon || 'Layers',
+                                  14,
+                                )}
+                              </span>
+                              <span className='truncate'>{model.vendor_name}</span>
+                            </span>
                           )}
                           <span className='text-[11px] text-[#999]'>
                             {model.quota_type === 0 ? t('按量计费') : t('按次计费')}
