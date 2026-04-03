@@ -161,6 +161,7 @@ const EditChannelModal = (props) => {
     is_enterprise_account: false,
     // 渠道 setting 字段（ChannelSettings）
     pass_through_body_enabled: false,
+    proxy: '',
   };
   const [autoBan, setAutoBan] = useState(true);
   const [inputs, setInputs] = useState(originInputs);
@@ -458,12 +459,15 @@ const EditChannelModal = (props) => {
           const parsedSetting = JSON.parse(data.setting);
           data.pass_through_body_enabled =
             parsedSetting.pass_through_body_enabled === true;
+          data.proxy = parsedSetting.proxy || '';
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.pass_through_body_enabled = false;
+          data.proxy = '';
         }
       } else {
         data.pass_through_body_enabled = false;
+        data.proxy = '';
       }
 
       if (
@@ -523,7 +527,8 @@ const EditChannelModal = (props) => {
         (data.remark && data.remark.trim()) ||
         (data.priority && data.priority !== 0) ||
         (data.weight && data.weight !== 0) ||
-        data.pass_through_body_enabled === true;
+        data.pass_through_body_enabled === true ||
+        (data.proxy && data.proxy.trim());
       if (hasAdvancedValues) {
         setAdvancedSettingsOpen(true);
       }
@@ -1010,11 +1015,17 @@ const EditChannelModal = (props) => {
     }
     channelSetting.pass_through_body_enabled =
       localInputs.pass_through_body_enabled === true;
+    if (localInputs.proxy && localInputs.proxy.trim()) {
+      channelSetting.proxy = localInputs.proxy.trim();
+    } else {
+      delete channelSetting.proxy;
+    }
     localInputs.setting = JSON.stringify(channelSetting);
 
     // 清理不需要发送到后端的字段
     delete localInputs.is_enterprise_account;
     delete localInputs.pass_through_body_enabled;
+    delete localInputs.proxy;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -1340,6 +1351,15 @@ const EditChannelModal = (props) => {
                     formApi={formApiRef.current}
                     extraText={t('键为原状态码，值为要复写的状态码，仅影响本地判断')}
                   />
+
+                  <Form.Input
+                    field='proxy'
+                    label={t('代理地址')}
+                    placeholder={t('例如: socks5://user:pass@host:port')}
+                    showClear
+                    onChange={(value) => handleInputChange('proxy', value)}
+                    extraText={t('用于配置网络代理，支持 socks5 协议')}
+                  />
                 </div>
 
                 {/* Channel Behavior Section */}
@@ -1347,22 +1367,6 @@ const EditChannelModal = (props) => {
                   <Text className='text-sm font-medium text-gray-500 mb-3 block'>
                     {t('渠道行为')}
                   </Text>
-
-                  <Form.Input
-                    field='tag'
-                    label={t('渠道标签')}
-                    placeholder={t('渠道标签')}
-                    showClear
-                    onChange={(value) => handleInputChange('tag', value)}
-                  />
-                  <Form.TextArea
-                    field='remark'
-                    label={t('备注')}
-                    placeholder={t('请输入备注（仅管理员可见）')}
-                    maxLength={255}
-                    showClear
-                    onChange={(value) => handleInputChange('remark', value)}
-                  />
 
                   <Row gutter={12}>
                     <Col span={12}>
