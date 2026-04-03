@@ -116,12 +116,10 @@ const EditUserModal = (props) => {
           setModelOverrides(model_overrides);
           setOverridesHasChanges(false);
         } else {
-          const defaults = {};
-          gm.forEach((m) => {
-            defaults[m.model] = { billing_type: 'ratio', value: 1 };
-          });
-          setModelOverrides(defaults);
-          setOverridesHasChanges(true);
+          // 与后端一致：空 overrides 表示不限制，实际可用模型由分组+渠道 abilities 决定；
+          // 不要用全局倍率表全选预填，否则会误显「已勾选」已下线的模型。
+          setModelOverrides({});
+          setOverridesHasChanges(false);
         }
       }
     } catch (e) {
@@ -423,20 +421,32 @@ const EditUserModal = (props) => {
                       <div className='flex-1'>
                         <Text className='text-lg font-medium'>{t('模型与计费')}</Text>
                         <div className='text-xs text-gray-600'>
-                          {t('勾选用户可用模型并配置计费方式，未勾选的模型无法调用')}
+                          {enabledCount > 0
+                            ? t(
+                                '已保存白名单：仅列表中勾选的模型可调用；未勾选不可调用，可单独设置倍率或固定价。',
+                              )
+                            : t(
+                                '默认不限制（等同原先「全部勾选」的含义）：用户可在其分组对应的已启用渠道范围内使用模型，计费按全局倍率表。下方列表未勾选仅表示尚未写入白名单，不是禁用。',
+                              )}
                         </div>
                       </div>
-                      {enabledCount > 0 && (
+                      {enabledCount > 0 ? (
                         <Tag color='orange' size='small' className='ml-2'>
                           {enabledCount} {t('个已选')}
+                        </Tag>
+                      ) : (
+                        <Tag color='grey' size='small' className='ml-2'>
+                          {t('默认不限制')}
                         </Tag>
                       )}
                     </div>
 
                     {enabledCount === 0 && (
                       <Banner
-                        type='warning'
-                        description={t('未勾选任何模型，用户将无法调用 API')}
+                        type='info'
+                        description={t(
+                          '说明：列表来自倍率表，与渠道是否仍提供某模型可能不一致。需要限制可用范围或覆盖计费时，请勾选模型后点「保存模型配置」；也可用「全选」再保存，效果接近以前的默认全部勾选（仍受渠道能力约束）。',
+                        )}
                         className='mb-3 !rounded-lg'
                         closeIcon={null}
                       />

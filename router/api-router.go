@@ -132,6 +132,7 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.DELETE("/:id/reset_passkey", controller.AdminResetPasskey)
 				adminRoute.GET("/:id/model-overrides", controller.GetUserModelOverrides)
 				adminRoute.PUT("/:id/model-overrides", controller.AdminUpdateUserModelOverrides)
+				adminRoute.POST("/sync-models", controller.AdminSyncUserModels)
 
 				// Admin 2FA routes
 				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)

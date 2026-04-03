@@ -266,6 +266,14 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 	return users, total, nil
 }
 
+// GetUsersWithModelOverrides returns all non-deleted users that have a non-empty Setting field,
+// so callers can filter and update ModelOverrides in-process.
+func GetUsersWithModelOverrides() ([]*User, error) {
+	var users []*User
+	err := DB.Where("setting != '' AND setting IS NOT NULL AND setting != '{}'").Find(&users).Error
+	return users, err
+}
+
 func GetUserById(id int, selectAll bool) (*User, error) {
 	if id == 0 {
 		return nil, errors.New("id 为空！")

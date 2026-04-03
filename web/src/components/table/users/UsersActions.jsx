@@ -17,19 +17,38 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@douyinfe/semi-ui';
 
-const UsersActions = ({ setShowAddUser, t }) => {
-  // Add new user
+const UsersActions = ({ setShowAddUser, syncModels, t }) => {
+  const [syncing, setSyncing] = useState(false);
+
   const handleAddUser = () => {
     setShowAddUser(true);
   };
 
+  const handleSyncModels = async () => {
+    setSyncing(true);
+    await syncModels();
+    setSyncing(false);
+  };
+
   return (
-    <Button onClick={handleAddUser} size='small' className='shrink-0'>
-      {t('添加用户')}
-    </Button>
+    <div className='flex items-center gap-2'>
+      <Button onClick={handleAddUser} size='small' className='shrink-0'>
+        {t('添加用户')}
+      </Button>
+      <Button
+        onClick={handleSyncModels}
+        size='small'
+        className='shrink-0'
+        loading={syncing}
+        theme='light'
+        type='tertiary'
+      >
+        {t('同步模型')}
+      </Button>
+    </div>
   );
 };
 

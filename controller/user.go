@@ -1275,3 +1275,56 @@ func AdminUpdateUserModelOverrides(c *gin.Context) {
 		"message": "",
 	})
 }
+
+// AdminSyncUserModels removes model_overrides entries for models that no longer
+// exist in any enabled channel, across all users.
+func AdminSyncUserModels(c *gin.Context) {
+	// Build a set of all currently enabled models across all channels.
+	enabledModels := model.GetEnabledModels()
+	enabledSet := make(map[string]struct{}, len(enabledModels))
+	for _, m := range enabledModels {
+		enabledSet[m] = struct{}{}
+	}
+
+	users, err := model.GetUsersWithModelOverrides()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	updatedUsers := 0
+	removedTotal := 0
+
+	for _, u := range users {
+		settings := u.GetSetting()
+		if len(settings.ModelOverrides) == 0 {
+			continue
+		}
+		removedCount := 0
+		for modelName := range settings.ModelOverrides {
+			if _, ok := enabledSet[modelName]; !ok {
+				delete(settings.ModelOverrides, modelName)
+				removedCount++
+			}
+		}
+		if removedCount == 0 {
+			continue
+		}
+		u.SetSetting(settings)
+		if err := u.Update(false); err != nil {
+			common.SysError("sync user models: failed to update user " + strconv.Itoa(u.Id) + ": " + err.Error())
+			continue
+		}
+		updatedUsers++
+		removedTotal += removedCount
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"updated_users":  updatedUsers,
+			"removed_models": removedTotal,
+		},
+	})
+}
