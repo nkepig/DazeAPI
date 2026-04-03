@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -16,6 +15,8 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/types"
 )
+
+const maxRelayErrorBodyBytes = 64 << 10
 
 func MidjourneyErrorWrapper(code int, desc string) *dto.MidjourneyResponse {
 	return &dto.MidjourneyResponse{
@@ -86,17 +87,21 @@ func ClaudeErrorWrapperLocal(err error, code string, statusCode int) *dto.Claude
 func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFail bool) (newApiErr *types.NewAPIError) {
 	newApiErr = types.InitOpenAIError(types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
 
-	responseBody, err := io.ReadAll(resp.Body)
+	responseBody, truncated, err := common.ReadLimitedBytes(resp.Body, maxRelayErrorBodyBytes)
 	if err != nil {
 		return
 	}
 	CloseResponseBodyGracefully(resp)
 	var errResponse dto.GeneralErrorResponse
+	bodyText := string(responseBody)
+	if truncated {
+		bodyText += "...(truncated)"
+	}
 	buildErrWithBody := func(message string) error {
 		if message == "" {
-			return fmt.Errorf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody))
+			return fmt.Errorf("bad response status code %d, body: %s", resp.StatusCode, bodyText)
 		}
-		return fmt.Errorf("bad response status code %d, message: %s, body: %s", resp.StatusCode, message, string(responseBody))
+		return fmt.Errorf("bad response status code %d, message: %s, body: %s", resp.StatusCode, message, bodyText)
 	}
 
 	err = common.Unmarshal(responseBody, &errResponse)
@@ -104,7 +109,7 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 		if showBodyWhenFail {
 			newApiErr.Err = buildErrWithBody("")
 		} else {
-			logger.LogError(ctx, fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody)))
+			logger.LogError(ctx, fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, bodyText))
 			newApiErr.Err = fmt.Errorf("bad response status code %d", resp.StatusCode)
 		}
 		return

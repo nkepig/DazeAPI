@@ -148,19 +148,22 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, errors.Wrap(err, "get_request_body_failed")
 	}
-	cachedBody, err := storage.Bytes()
-	if err != nil {
-		return nil, errors.Wrap(err, "read_body_bytes_failed")
-	}
 	contentType := c.GetHeader("Content-Type")
 
 	if strings.HasPrefix(contentType, "application/json") {
 		var bodyMap map[string]interface{}
-		if err := common.Unmarshal(cachedBody, &bodyMap); err == nil {
+		if _, err = storage.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.Wrap(err, "seek_request_body_failed")
+		}
+		if err := common.DecodeJson(storage, &bodyMap); err == nil {
 			bodyMap["model"] = info.UpstreamModelName
 			if newBody, err := common.Marshal(bodyMap); err == nil {
 				return bytes.NewReader(newBody), nil
 			}
+		}
+		cachedBody, err := storage.Bytes()
+		if err != nil {
+			return nil, errors.Wrap(err, "read_body_bytes_failed")
 		}
 		return bytes.NewReader(cachedBody), nil
 	}
@@ -168,6 +171,10 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if strings.Contains(contentType, "multipart/form-data") {
 		formData, err := common.ParseMultipartFormReusable(c)
 		if err != nil {
+			cachedBody, readErr := storage.Bytes()
+			if readErr != nil {
+				return nil, errors.Wrap(readErr, "read_body_bytes_failed")
+			}
 			return bytes.NewReader(cachedBody), nil
 		}
 		var buf bytes.Buffer

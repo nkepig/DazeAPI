@@ -313,3 +313,38 @@ func CleanupOldCacheFiles() {
 	// 使用统一的缓存管理
 	CleanupOldDiskCacheFiles(5 * time.Minute)
 }
+
+func ReadLimitedBytes(reader io.Reader, maxBytes int64) ([]byte, bool, error) {
+	if maxBytes <= 0 {
+		maxBytes = 1
+	}
+	data, err := io.ReadAll(io.LimitReader(reader, maxBytes+1))
+	if err != nil {
+		return nil, false, err
+	}
+	if int64(len(data)) <= maxBytes {
+		return data, false, nil
+	}
+	return data[:maxBytes], true, nil
+}
+
+func ReadBodyStoragePreview(storage BodyStorage, maxBytes int64) ([]byte, bool, error) {
+	if storage == nil {
+		return nil, false, nil
+	}
+	currentPos, err := storage.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, false, err
+	}
+	if _, err = storage.Seek(0, io.SeekStart); err != nil {
+		return nil, false, err
+	}
+	preview, truncated, err := ReadLimitedBytes(storage, maxBytes)
+	if _, seekErr := storage.Seek(currentPos, io.SeekStart); seekErr != nil {
+		return nil, false, seekErr
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return preview, truncated, nil
+}

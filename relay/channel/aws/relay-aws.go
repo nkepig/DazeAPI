@@ -177,12 +177,11 @@ func buildAwsRequestBody(c *gin.Context, info *relaycommon.RelayInfo, awsClaudeR
 		if err != nil {
 			return nil, errors.Wrap(err, "get request body for pass-through fail")
 		}
-		body, err := storage.Bytes()
-		if err != nil {
-			return nil, errors.Wrap(err, "get request body bytes fail")
+		if _, err = storage.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.Wrap(err, "seek request body fail")
 		}
 		var data map[string]interface{}
-		if err := common.Unmarshal(body, &data); err != nil {
+		if err := common.DecodeJson(storage, &data); err != nil {
 			return nil, errors.Wrap(err, "pass-through unmarshal request body fail")
 		}
 		delete(data, "model")
