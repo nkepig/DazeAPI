@@ -1,7 +1,6 @@
 package common_handler
 
 import (
-	"io"
 	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
@@ -16,18 +15,12 @@ import (
 )
 
 func RerankHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
-	}
-	service.CloseResponseBodyGracefully(resp)
-	if common.DebugEnabled {
-		println("reranker response body: ", string(responseBody))
-	}
+	defer service.CloseResponseBodyGracefully(resp)
+
 	var jinaResp dto.RerankResponse
 	if info.ChannelType == constant.ChannelTypeXinference {
 		var xinRerankResponse xinference.XinRerankResponse
-		err = common.Unmarshal(responseBody, &xinRerankResponse)
+		err := common.DecodeJson(resp.Body, &xinRerankResponse)
 		if err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
@@ -62,7 +55,7 @@ func RerankHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			},
 		}
 	} else {
-		err = common.Unmarshal(responseBody, &jinaResp)
+		err := common.DecodeJson(resp.Body, &jinaResp)
 		if err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
