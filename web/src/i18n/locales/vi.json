@@ -3436,6 +3436,7 @@
     "选择部署位置（可多选）": "Select deployment location(s) (multiple selections allowed)",
     "选择预设模板（可选）": "Chọn mẫu đặt trước (tùy chọn)",
     "选项": "Tùy chọn",
+    "透传": "Truyền qua",
     "透传请求体": "Truyền qua thân yêu cầu",
     "开启后请求体将直接透传给上游，参数覆写、模型重定向、渠道适配等内置功能将失效，请谨慎开启": "Khi bật, nội dung yêu cầu sẽ được truyền trực tiếp đến thượng nguồn. Các tính năng tích hợp như ghi đè tham số, chuyển hướng mô hình và thích nghi kênh sẽ bị vô hiệu hóa. Hãy bật cẩn thận.",
     "递归": "Đệ quy",

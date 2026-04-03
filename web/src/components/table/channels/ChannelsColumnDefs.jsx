@@ -43,11 +43,7 @@ import {
   MODEL_FETCHABLE_CHANNEL_TYPES,
 } from '../../../constants';
 import { parseUpstreamUpdateMeta } from '../../../hooks/channels/upstreamUpdateUtils';
-import {
-  IconTreeTriangleDown,
-  IconMore,
-  IconAlertTriangle,
-} from '@douyinfe/semi-icons';
+import { IconTreeTriangleDown, IconMore } from '@douyinfe/semi-icons';
 import { FaRandom } from 'react-icons/fa';
 import { StatusPill } from '../../common/ui/StatusPill';
 
@@ -371,10 +367,8 @@ export const getChannelsColumns = ({
                 trigger='hover'
                 position='topLeft'
               >
-                <span className='inline-flex items-center'>
-                  <IconAlertTriangle
-                    style={{ color: 'var(--semi-color-warning)' }}
-                  />
+                <span className='inline-flex items-center cursor-default'>
+                  <StatusPill variant='info'>{t('透传')}</StatusPill>
                 </span>
               </Tooltip>
             )}
