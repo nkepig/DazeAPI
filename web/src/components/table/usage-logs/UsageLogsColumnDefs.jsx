@@ -27,7 +27,6 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import {
-  renderGroup,
   renderQuota,
   stringToColor,
   getLogOther,
@@ -80,7 +79,6 @@ function buildChannelAffinityTooltip(affinity, t) {
   const lines = [
     t('渠道亲和性'),
     `${t('规则')}：${affinity.rule_name || '-'}`,
-    `${t('分组')}：${affinity.selected_group || '-'}`,
     `${t('Key')}：${keyText}`,
     ...(keyHint ? [`${t('Key 摘要')}：${keyHint}`] : []),
   ];
@@ -569,43 +567,6 @@ export const getLogsColumns = ({
         ) : (
           <></>
         );
-      },
-    },
-    {
-      key: COLUMN_KEYS.GROUP,
-      title: t('分组'),
-      dataIndex: 'group',
-      render: (text, record, index) => {
-        if (
-          record.type === 0 ||
-          record.type === 2 ||
-          record.type === 5 ||
-          record.type === 6
-        ) {
-          if (record.group) {
-            return <>{renderGroup(record.group)}</>;
-          } else {
-            let other = null;
-            try {
-              other = JSON.parse(record.other);
-            } catch (e) {
-              console.error(
-                `Failed to parse record.other: "${record.other}".`,
-                e,
-              );
-            }
-            if (other === null) {
-              return <></>;
-            }
-            if (other.group !== undefined) {
-              return <>{renderGroup(other.group)}</>;
-            } else {
-              return <></>;
-            }
-          }
-        } else {
-          return <></>;
-        }
       },
     },
     {

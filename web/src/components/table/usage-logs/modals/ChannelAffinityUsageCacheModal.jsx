@@ -141,15 +141,11 @@ const ChannelAffinityUsageCacheModal = ({
 
     const data = [];
     const ruleName = String(s.rule_name || params.rule_name || '').trim();
-    const usingGroup = String(s.using_group || params.using_group || '').trim();
     const keyHint = String(params.key_hint || '').trim();
     const keyFp = String(s.key_fp || params.key_fp || '').trim();
 
     if (hasTextValue(ruleName)) {
       data.push({ key: t('规则'), value: ruleName });
-    }
-    if (hasTextValue(usingGroup)) {
-      data.push({ key: t('分组'), value: usingGroup });
     }
     if (hasTextValue(keyHint)) {
       data.push({ key: t('Key 摘要'), value: keyHint });

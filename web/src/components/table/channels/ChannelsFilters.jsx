@@ -30,7 +30,6 @@ const ChannelsFilters = ({
   searchChannels,
   enableTagMode,
   formApi,
-  groupOptions,
   loading,
   searching,
   setShowColumnSelector,
@@ -78,25 +77,6 @@ const ChannelsFilters = ({
             placeholder={t('模型关键字')}
             showClear
             pure
-          />
-        </div>
-        <div className='w-24'>
-          <Form.Select
-            size='small'
-            field='searchGroup'
-            placeholder={t('分组')}
-            optionList={[
-              { label: t('全部分组'), value: null },
-              ...groupOptions,
-            ]}
-            className='w-full'
-            showClear
-            pure
-            onChange={() => {
-              setTimeout(() => {
-                searchChannels(enableTagMode);
-              }, 0);
-            }}
           />
         </div>
         <Button

@@ -26,7 +26,6 @@ const ChannelsActions = ({
   statusFilter,
   setStatusFilter,
   loadChannels,
-  idSort,
   pageSize,
   setActivePage,
   t,
@@ -44,7 +43,7 @@ const ChannelsActions = ({
             localStorage.setItem('enable-tag-mode', v + '');
             setEnableTagMode(v);
             setActivePage(1);
-            loadChannels(1, pageSize, idSort, v);
+            loadChannels(1, pageSize, v);
           }}
         />
       </div>
@@ -60,7 +59,7 @@ const ChannelsActions = ({
             localStorage.setItem('channel-status-filter', v);
             setStatusFilter(v);
             setActivePage(1);
-            loadChannels(1, pageSize, idSort, enableTagMode, undefined, v);
+            loadChannels(1, pageSize, enableTagMode, undefined, v);
           }}
           style={{ minWidth: 72 }}
         >
