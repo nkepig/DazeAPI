@@ -2990,6 +2990,6 @@
   "控制台充值跳转地址": "控制台儲值跳轉網址",
     "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "例如 https://example.com/topup 或 /console/topup，留空則使用營運設定中的儲值連結",
     "全局透传": "全渠透傳",
-    "全局透传已开启": "全渠透傳已開啟",
+    "全局透传已开启": "Global pass-through enabled",
     "开启后，所有请求将直接透传给上游渠道，NewAPI 内置功能将失效": "開啟後，所有請求將直接透傳給上游渠道，NewAPI 內置功能將失效"
   }

@@ -95,35 +95,14 @@ func SetApiRouter(router *gin.Engine) {
 				// selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
 				// selfRoute.POST("/waffo/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPay)
 				// selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
-				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+			selfRoute.PUT("/setting", controller.UpdateUserSetting)
+		}
 
-				// 2FA routes
-				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
-				selfRoute.POST("/2fa/setup", controller.Setup2FA)
-				selfRoute.POST("/2fa/enable", controller.Enable2FA)
-				selfRoute.POST("/2fa/disable", controller.Disable2FA)
-				selfRoute.POST("/2fa/backup_codes", controller.RegenerateBackupCodes)
-
-				// Check-in routes
-				selfRoute.GET("/checkin", controller.GetCheckinStatus)
-				selfRoute.POST("/checkin", middleware.TurnstileCheck(), controller.DoCheckin)
-
-				// Custom OAuth bindings
-				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
-				selfRoute.DELETE("/oauth/bindings/:provider_id", controller.UnbindCustomOAuth)
-			}
-
-			adminRoute := userRoute.Group("/")
-			adminRoute.Use(middleware.AdminAuth())
-			{
-				adminRoute.GET("/", controller.GetAllUsers)
-				// Admin topup routes removed
-				// adminRoute.GET("/topup", controller.GetAllTopUps)
-				// adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
-				adminRoute.GET("/search", controller.SearchUsers)
-				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
-				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)
-				adminRoute.DELETE("/:id/bindings/:binding_type", controller.AdminClearUserBinding)
+		adminRoute := userRoute.Group("/")
+		adminRoute.Use(middleware.AdminAuth())
+		{
+			adminRoute.GET("/", controller.GetAllUsers)
+			adminRoute.GET("/search", controller.SearchUsers)
 				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
@@ -134,9 +113,8 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.PUT("/:id/model-overrides", controller.AdminUpdateUserModelOverrides)
 				adminRoute.POST("/sync-models", controller.AdminSyncUserModels)
 
-				// Admin 2FA routes
-				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)
-				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
+			// Admin 2FA routes
+			adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
 			}
 		}
 
@@ -148,9 +126,8 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)
-			optionRoute.POST("/rest_model_ratio", controller.ResetModelRatio)
-			optionRoute.POST("/migrate_console_setting", controller.MigrateConsoleSetting) // 用于迁移检测的旧键，下个版本会删除
-		}
+		optionRoute.POST("/rest_model_ratio", controller.ResetModelRatio)
+	}
 
 		// Custom OAuth provider management (root only)
 		customOAuthRoute := apiRouter.Group("/custom-oauth-provider")
@@ -214,7 +191,6 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.DELETE("/ollama/delete", controller.OllamaDeleteModel)
 			channelRoute.GET("/ollama/version/:id", controller.OllamaVersion)
 			channelRoute.POST("/batch/tag", controller.BatchSetChannelTag)
-			channelRoute.GET("/tag/models", controller.GetTagModels)
 			channelRoute.POST("/copy/:id", controller.CopyChannel)
 			channelRoute.POST("/multi_key/manage", controller.ManageMultiKeys)
 			channelRoute.POST("/upstream_updates/apply", controller.ApplyChannelUpstreamModelUpdates)

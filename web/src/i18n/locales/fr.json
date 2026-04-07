@@ -3325,6 +3325,6 @@
   "控制台充值跳转地址": "URL de redirection recharge (console)",
   "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "ex. https://example.com/topup ou /console/topup ; vide = lien de recharge des paramètres d’exploitation.",
   "全局透传": "Transmission intégrale tous canaux",
-  "全局透传已开启": "La transmission intégrale tous canaux est activée",
+  "全局透传已开启": "Global pass-through enabled",
   "开启后，所有请求将直接透传给上游渠道，NewAPI 内置功能将失效": "Une fois activé, toutes les requêtes seront transmises directement aux canaux amont ; les fonctions intégrées de NewAPI seront désactivées"
   }

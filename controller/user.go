@@ -176,7 +176,8 @@ func Register(c *gin.Context) {
 		InviterId:   inviterId,
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
 	}
-	if common.EmailVerificationEnabled {
+	// 总是保存用户提供的 email（如果有）
+	if user.Email != "" {
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
@@ -571,44 +572,6 @@ func UpdateUser(c *gin.Context) {
 		"message": "",
 	})
 	return
-}
-
-func AdminClearUserBinding(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
-		return
-	}
-
-	bindingType := strings.ToLower(strings.TrimSpace(c.Param("binding_type")))
-	if bindingType == "" {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
-		return
-	}
-
-	user, err := model.GetUserById(id, false)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	myRole := c.GetInt("role")
-	if myRole <= user.Role && myRole != common.RoleRootUser {
-		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
-		return
-	}
-
-	if err := user.ClearBinding(bindingType); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	model.RecordLog(user.Id, model.LogTypeManage, fmt.Sprintf("admin cleared %s binding for user %s", bindingType, user.Username))
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "success",
-	})
 }
 
 func UpdateSelf(c *gin.Context) {

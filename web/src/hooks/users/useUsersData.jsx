@@ -31,7 +31,6 @@ export const useUsersData = () => {
   const [activePage, setActivePage] = useState(1);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
   const [searching, setSearching] = useState(false);
-  const [groupOptions, setGroupOptions] = useState([]);
   const [userCount, setUserCount] = useState(0);
 
   // Modal states
@@ -44,7 +43,6 @@ export const useUsersData = () => {
   // Form initial values
   const formInitValues = {
     searchKeyword: '',
-    searchGroup: '',
   };
 
   // Form API reference
@@ -55,7 +53,6 @@ export const useUsersData = () => {
     const formValues = formApi ? formApi.getValues() : {};
     return {
       searchKeyword: formValues.searchKeyword || '',
-      searchGroup: formValues.searchGroup || '',
     };
   };
 
@@ -83,28 +80,26 @@ export const useUsersData = () => {
     setLoading(false);
   };
 
-  // Search users with keyword and group
+  // Search users with keyword
   const searchUsers = async (
     startIdx,
     pageSize,
     searchKeyword = null,
-    searchGroup = null,
   ) => {
     // If no parameters passed, get values from form
-    if (searchKeyword === null || searchGroup === null) {
+    if (searchKeyword === null) {
       const formValues = getFormValues();
       searchKeyword = formValues.searchKeyword;
-      searchGroup = formValues.searchGroup;
     }
 
-    if (searchKeyword === '' && searchGroup === '') {
-      // If keyword is blank, load files instead
+    if (searchKeyword === '') {
+      // If keyword is blank, load users instead
       await loadUsers(startIdx, pageSize);
       return;
     }
     setSearching(true);
     const res = await API.get(
-      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&p=${startIdx}&page_size=${pageSize}`,
+      `/api/user/search?keyword=${searchKeyword}&p=${startIdx}&page_size=${pageSize}`,
     );
     const { success, message, data } = res.data;
     if (success) {
@@ -208,11 +203,11 @@ export const useUsersData = () => {
   // Handle page change
   const handlePageChange = (page) => {
     setActivePage(page);
-    const { searchKeyword, searchGroup } = getFormValues();
-    if (searchKeyword === '' && searchGroup === '') {
+    const { searchKeyword } = getFormValues();
+    if (searchKeyword === '') {
       loadUsers(page, pageSize).then();
     } else {
-      searchUsers(page, pageSize, searchKeyword, searchGroup).then();
+      searchUsers(page, pageSize, searchKeyword).then();
     }
   };
 
@@ -243,29 +238,11 @@ export const useUsersData = () => {
 
   // Refresh data
   const refresh = async (page = activePage) => {
-    const { searchKeyword, searchGroup } = getFormValues();
-    if (searchKeyword === '' && searchGroup === '') {
+    const { searchKeyword } = getFormValues();
+    if (searchKeyword === '') {
       await loadUsers(page, pageSize);
     } else {
-      await searchUsers(page, pageSize, searchKeyword, searchGroup);
-    }
-  };
-
-  // Fetch groups data
-  const fetchGroups = async () => {
-    try {
-      let res = await API.get(`/api/group/`);
-      if (res === undefined) {
-        return;
-      }
-      setGroupOptions(
-        res.data.data.map((group) => ({
-          label: group,
-          value: group,
-        })),
-      );
-    } catch (error) {
-      showError(error.message);
+      await searchUsers(page, pageSize, searchKeyword);
     }
   };
 
@@ -288,7 +265,6 @@ export const useUsersData = () => {
       .catch((reason) => {
         showError(reason);
       });
-    fetchGroups().then();
   }, []);
 
   return {
@@ -299,7 +275,6 @@ export const useUsersData = () => {
     pageSize,
     userCount,
     searching,
-    groupOptions,
 
     // Modal state
     showAddUser,

@@ -54,6 +54,14 @@ const OperationSetting = () => {
       '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
 
     'token_setting.max_user_tokens': 1000,
+
+    // SMTP Settings
+    SMTPServer: '',
+    SMTPPort: '',
+    SMTPAccount: '',
+    SMTPFrom: '',
+    SMTPToken: '',
+    SMTPSSLEnabled: false,
   });
 
   let [loading, setLoading] = useState(false);

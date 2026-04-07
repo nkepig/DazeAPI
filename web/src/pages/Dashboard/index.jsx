@@ -65,7 +65,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userState] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
-  const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, vendors: 0 });
+  const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, models: 0 });
   const [rawData, setRawData] = useState([]);
   const [chartRange, setChartRange] = useState(1);
   const [metric, setMetric] = useState('quota');
@@ -103,17 +103,17 @@ const Dashboard = () => {
           }
         });
 
-        let vendorCount = 0;
+        let modelCount = 0;
         if (pricingRes.data.success) {
-          const vendors = pricingRes.data.vendors || [];
-          vendorCount = vendors.filter((v) => v.name && v.name !== '').length;
+          const models = pricingRes.data.models || [];
+          modelCount = models.length;
         }
 
         setStats({
           quota: todayQuota,
           requests: todayCount,
           balance: userState?.user?.quota || 0,
-          vendors: vendorCount,
+          models: modelCount,
         });
       }
     } catch (e) {
@@ -196,7 +196,7 @@ const Dashboard = () => {
     { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v) },
     { icon: Activity, label: t('今日请求次数'), value: stats.requests },
     { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v) },
-    { icon: Building2, label: t('支持供应商'), value: stats.vendors },
+    { icon: Building2, label: t('支持模型'), value: stats.models },
   ];
 
   const dataKey = metric;

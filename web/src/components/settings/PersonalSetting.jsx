@@ -31,7 +31,7 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { Modal, Form, Button } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
-import { Wallet, Users, KeyRound, LogOut } from 'lucide-react';
+import { Wallet, Users, KeyRound, LogOut, Mail } from 'lucide-react';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
@@ -141,6 +141,7 @@ const PersonalSetting = () => {
             }
           />
           <InfoRow icon={Wallet} label={t('已用额度')} value={renderQuota(user?.used_quota)} />
+          <InfoRow icon={Mail} label={t('邮箱')} value={user?.email || t('未绑定')} />
           <InfoRow icon={Users} label={t('用户分组')} value={user?.group || t('默认')} />
           <InfoRow icon={KeyRound} label={t('请求次数')} value={String(user?.request_count || 0)} />
         </div>

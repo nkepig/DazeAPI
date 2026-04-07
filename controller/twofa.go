@@ -486,21 +486,6 @@ func Verify2FALogin(c *gin.Context) {
 	setupLogin(user, c)
 }
 
-// Admin2FAStats 管理员获取2FA统计信息
-func Admin2FAStats(c *gin.Context) {
-	stats, err := model.GetTwoFAStats()
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    stats,
-	})
-}
-
 // AdminDisable2FA 管理员强制禁用用户2FA
 func AdminDisable2FA(c *gin.Context) {
 	userIdStr := c.Param("id")

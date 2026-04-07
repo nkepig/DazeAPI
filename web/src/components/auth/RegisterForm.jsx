@@ -37,6 +37,43 @@ import { StatusContext } from '../../context/Status';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 
+const ALLOWED_EMAIL_DOMAINS = [
+  'gmail.com',
+  'qq.com',
+  '163.com',
+  '126.com',
+  'outlook.com',
+  'hotmail.com',
+  'yahoo.com',
+  'foxmail.com',
+  'icloud.com',
+  'me.com',
+  'live.com',
+  'msn.com',
+  'yeah.net',
+  'aliyun.com',
+  'sina.com',
+  'sohu.com',
+];
+
+const validateEmail = (email) => {
+  if (!email || typeof email !== 'string') {
+    return { valid: false, message: '请输入邮箱' };
+  }
+  
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, message: '邮箱格式不正确' };
+  }
+  
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!ALLOWED_EMAIL_DOMAINS.includes(domain)) {
+    return { valid: false, message: '邮箱域名不在白名单中' };
+  }
+  
+  return { valid: true, message: '' };
+};
+
 const RegisterForm = () => {
   let navigate = useNavigate();
   const { t } = useTranslation();
@@ -82,10 +119,8 @@ const RegisterForm = () => {
 
   const hasCustomOAuthProviders = (status.custom_oauth_providers || []).length > 0;
   const hasOAuthOptions = Boolean(status.github_oauth || status.discord_oauth || status.oidc_enabled || status.wechat_login || status.linuxdo_oauth || status.telegram_oauth || hasCustomOAuthProviders);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
 
   useEffect(() => {
-    setShowEmailVerification(!!status?.email_verification);
     if (status?.turnstile_check) { setTurnstileEnabled(true); setTurnstileSiteKey(status.turnstile_site_key); }
     setHasUserAgreement(status?.user_agreement_enabled || false);
     setHasPrivacyPolicy(status?.privacy_policy_enabled || false);
@@ -129,6 +164,9 @@ const RegisterForm = () => {
     if (!username || !password) { showError(t('用户名和密码不能为空')); return; }
     if (password.length < 8) { showError(t('密码长度不得小于 8 位！')); return; }
     if (password !== password2) { showError(t('两次输入的密码不一致')); return; }
+    const emailValidation = validateEmail(inputs.email);
+    if (!emailValidation.valid) { showError(t(emailValidation.message)); return; }
+    if (!inputs.verification_code) { showError(t('请输入邮箱验证码')); return; }
     if (turnstileEnabled && !turnstileToken) { showInfo('请稍后几秒重试'); return; }
     setRegisterLoading(true);
     try {
@@ -140,7 +178,8 @@ const RegisterForm = () => {
   }
 
   const sendVerificationCode = async () => {
-    if (!inputs.email) { showError(t('请输入邮箱！')); return; }
+    const emailValidation = validateEmail(inputs.email);
+    if (!emailValidation.valid) { showError(t(emailValidation.message)); return; }
     setDisableButton(true);
     if (turnstileEnabled && !turnstileToken) { showInfo(t('请稍后几秒重试')); return; }
     setVerificationCodeLoading(true);
@@ -205,13 +244,9 @@ const RegisterForm = () => {
                 <Form.Input field='username' label={t('用户名')} placeholder={t('请输入用户名')} onChange={(v) => handleChange('username', v)} prefix={<IconUser />} />
                 <Form.Input field='password' label={t('密码')} placeholder={t('最短 8 位')} mode='password' onChange={(v) => handleChange('password', v)} prefix={<IconLock />} />
                 <Form.Input field='password2' label={t('确认密码')} placeholder={t('确认密码')} mode='password' onChange={(v) => handleChange('password2', v)} prefix={<IconLock />} />
-                {showEmailVerification && (
-                  <>
-                    <Form.Input field='email' label={t('邮箱')} placeholder={t('输入邮箱')} type='email' onChange={(v) => handleChange('email', v)} prefix={<IconMail />}
-                      suffix={<Button onClick={sendVerificationCode} loading={verificationCodeLoading} disabled={disableButton}>{disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}</Button>} />
-                    <Form.Input field='verification_code' label={t('验证码')} placeholder={t('输入验证码')} onChange={(v) => handleChange('verification_code', v)} prefix={<IconKey />} />
-                  </>
-                )}
+                <Form.Input field='email' label={t('邮箱')} placeholder={t('输入邮箱，支持： Gmail、QQ、163等主流邮箱')} type='email' onChange={(v) => handleChange('email', v)} prefix={<IconMail />}
+                  suffix={<Button onClick={sendVerificationCode} loading={verificationCodeLoading} disabled={disableButton}>{disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}</Button>} />
+                <Form.Input field='verification_code' label={t('验证码')} placeholder={t('输入验证码')} onChange={(v) => handleChange('verification_code', v)} prefix={<IconKey />} />
               </Form>
 
               {(hasUserAgreement || hasPrivacyPolicy) && (
