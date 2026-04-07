@@ -3193,7 +3193,6 @@
     "额度": "Quota",
     "额度充值": "Quota Top-up",
     "额度必须大于0": "Quota must be greater than 0",
-    "额度提醒阈值": "Quota reminder threshold",
     "额度查询接口返回令牌额度而非用户额度": "Displays token quota instead of user quota",
     "额度设置": "Quota Settings",
     "额度重置": "Quota Reset",
@@ -3372,5 +3371,8 @@
   "请先保存渠道；若未在表单中填写密钥，请在保存后于密钥管理中配置再获取模型列表": "Save the channel first. If you did not enter a key in the form, configure it in key management after saving, then fetch models.",
   "请点击「添加密钥」来配置密钥": "Click “Add keys” to configure keys.",
   "控制台充值跳转地址": "Console recharge redirect URL",
-  "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "e.g. https://example.com/topup or /console/topup; leave empty to use the Top Up Link in operation settings."
-}
+    "例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接": "e.g. https://example.com/topup or /console/topup; leave empty to use the Top Up Link in operation settings.",
+    "全局透传": "All-Channel Pass-Through",
+    "全局透传已开启": "All-Channel Pass-Through is enabled",
+    "开启后，所有请求将直接透传给上游渠道，NewAPI 内置功能将失效": "When enabled, all requests will be passed directly to upstream channels; built-in NewAPI features will be disabled"
+  }

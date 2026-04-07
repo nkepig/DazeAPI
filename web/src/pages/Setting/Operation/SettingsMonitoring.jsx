@@ -34,7 +34,6 @@ export default function SettingsMonitoring(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState({
-    QuotaRemindThreshold: '',
     AutomaticDisableChannelEnabled: false,
     AutomaticDisableKeywords: '',
     AutomaticDisableStatusCodes: '401',
@@ -127,23 +126,6 @@ export default function SettingsMonitoring(props) {
         >
           <Form.Section text={t('监控设置')}>
             <Row gutter={16}>
-              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
-                <Form.InputNumber
-                  label={t('额度提醒阈值')}
-                  step={1}
-                  min={0}
-                  suffix={'Token'}
-                  extraText={t('低于此额度时将发送邮件提醒用户')}
-                  placeholder={''}
-                  field={'QuotaRemindThreshold'}
-                  onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      QuotaRemindThreshold: String(value),
-                    })
-                  }
-                />
-              </Col>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.Switch
                   field={'AutomaticDisableChannelEnabled'}

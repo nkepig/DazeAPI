@@ -42,6 +42,7 @@ const OperationSetting = () => {
     DefaultCollapseSidebar: false,
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
+    'global.pass_through_request_enabled': false,
 
     LogConsumeEnabled: false,
 

@@ -35,6 +35,7 @@ export default function GeneralSettings(props) {
     RetryTimes: '',
     SelfUseModeEnabled: false,
     'general_setting.recharge_redirect_url': '',
+    'global.pass_through_request_enabled': false,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -75,6 +76,7 @@ export default function GeneralSettings(props) {
     'RetryTimes',
     'SelfUseModeEnabled',
     'general_setting.recharge_redirect_url',
+    'global.pass_through_request_enabled',
   ];
 
   useEffect(() => {
@@ -84,7 +86,9 @@ export default function GeneralSettings(props) {
         currentInputs[key] = props.options[key];
       } else {
         currentInputs[key] =
-          key === 'SelfUseModeEnabled' ? false : '';
+          key === 'SelfUseModeEnabled' || key === 'global.pass_through_request_enabled'
+            ? false
+            : '';
       }
     }
     setInputs(currentInputs);
@@ -120,6 +124,17 @@ export default function GeneralSettings(props) {
                 checkedText='｜'
                 uncheckedText='〇'
                 onChange={handleFieldChange('SelfUseModeEnabled')}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Form.Switch
+                field={'global.pass_through_request_enabled'}
+                label={t('全局透传')}
+                extraText={t('开启后，所有请求将直接透传给上游渠道，NewAPI 内置功能将失效')}
+                size='default'
+                checkedText='｜'
+                uncheckedText='〇'
+                onChange={handleFieldChange('global.pass_through_request_enabled')}
               />
             </Col>
             <Col xs={24} sm={24} md={16} lg={16} xl={16}>

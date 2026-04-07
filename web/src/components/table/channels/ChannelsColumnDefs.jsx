@@ -289,6 +289,7 @@ export const getChannelsColumns = ({
   setCurrentMultiKeyChannel,
   openUpstreamUpdateModal,
   detectChannelUpstreamUpdates,
+  globalPassThroughEnabled,
 }) => {
   return [
     {
@@ -352,14 +353,14 @@ export const getChannelsColumns = ({
             <span style={nameStyle}>{text}</span>
           );
 
-        if (!passThroughEnabled && !showUpstreamUpdateTag) {
+        if ((!passThroughEnabled || globalPassThroughEnabled) && !showUpstreamUpdateTag) {
           return nameNode;
         }
 
         return (
           <Space spacing={6} align='center'>
             {nameNode}
-            {passThroughEnabled && (
+            {passThroughEnabled && !globalPassThroughEnabled && (
               <Tooltip
                 content={t(
                   '该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
