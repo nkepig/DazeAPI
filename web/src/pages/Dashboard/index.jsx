@@ -105,7 +105,7 @@ const Dashboard = () => {
 
         let modelCount = 0;
         if (pricingRes.data.success) {
-          const models = pricingRes.data.models || [];
+          const models = pricingRes.data.data || [];
           modelCount = models.length;
         }
 
