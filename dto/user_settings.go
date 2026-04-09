@@ -24,7 +24,6 @@ type UserSetting struct {
 	Language                         string  `json:"language,omitempty"`
 	// ModelOverrides 管理员为该用户指定的可用模型及其计费覆盖。
 	// 非空时：用户只能使用 map 中的模型，模型列表也只显示这些模型。
-	// 为空时：用户可使用所有模型，使用全局倍率/价格（向后兼容）。
 	ModelOverrides map[string]UserModelOverride `json:"model_overrides,omitempty"`
 }
 

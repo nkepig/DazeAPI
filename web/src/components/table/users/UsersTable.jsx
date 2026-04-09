@@ -45,6 +45,7 @@ const UsersTable = (usersData) => {
     setEditingUser,
     setShowEditUser,
     manageUser,
+    deleteUser,
     refresh,
     resetUserPasskey,
     resetUserTwoFA,
@@ -57,6 +58,7 @@ const UsersTable = (usersData) => {
   const [showEnableDisableModal, setShowEnableDisableModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [modalUser, setModalUser] = useState(null);
+  const [deletePermanently, setDeletePermanently] = useState(false);
   const [enableDisableAction, setEnableDisableAction] = useState('');
   const [showResetPasskeyModal, setShowResetPasskeyModal] = useState(false);
   const [showResetTwoFAModal, setShowResetTwoFAModal] = useState(false);
@@ -77,8 +79,9 @@ const UsersTable = (usersData) => {
     setShowEnableDisableModal(true);
   };
 
-  const showDeleteUserModal = (user) => {
+  const showDeleteUserModal = (user, permanently = false) => {
     setModalUser(user);
+    setDeletePermanently(permanently);
     setShowDeleteModal(true);
   };
 
@@ -216,12 +219,17 @@ const UsersTable = (usersData) => {
 
       <DeleteUserModal
         visible={showDeleteModal}
-        onCancel={() => setShowDeleteModal(false)}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setDeletePermanently(false);
+        }}
         user={modalUser}
         users={users}
         activePage={activePage}
         refresh={refresh}
         manageUser={manageUser}
+        deleteUser={deleteUser}
+        permanently={deletePermanently}
         t={t}
       />
 

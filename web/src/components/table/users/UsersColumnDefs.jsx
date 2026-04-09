@@ -29,7 +29,7 @@ import {
   Dropdown,
 } from '@douyinfe/semi-ui';
 import { IconMore } from '@douyinfe/semi-icons';
-import { renderNumber, renderQuota } from '../../../helpers';
+import { isRoot, renderNumber, renderQuota } from '../../../helpers';
 import { StatusPill } from '../../common/ui/StatusPill';
 
 /**
@@ -210,7 +210,16 @@ const renderOperations = (
   },
 ) => {
   if (record.DeletedAt !== null) {
-    return <></>;
+    if (!isRoot()) {
+      return <></>;
+    }
+    return (
+      <Space>
+        <Button type='danger' onClick={() => showDeleteModal(record, true)}>
+          {t('彻底移除')}
+        </Button>
+      </Space>
+    );
   }
 
   const moreMenu = [
@@ -231,7 +240,7 @@ const renderOperations = (
       node: 'item',
       name: t('注销'),
       type: 'danger',
-      onClick: () => showDeleteModal(record),
+      onClick: () => showDeleteModal(record, false),
     },
   ];
 
@@ -281,7 +290,7 @@ export const getUsersColumns = ({
   showPromoteModal,
   showDemoteModal,
   showEnableDisableModal,
-  showDeleteModal,
+    showDeleteModal,
   showResetPasskeyModal,
   showResetTwoFAModal,
 }) => {
@@ -323,8 +332,8 @@ export const getUsersColumns = ({
       dataIndex: 'operate',
       fixed: 'right',
       width: 200,
-      render: (text, record, index) =>
-        renderOperations(text, record, {
+       render: (text, record, index) =>
+         renderOperations(text, record, {
           setEditingUser,
           setShowEditUser,
           showPromoteModal,

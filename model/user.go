@@ -135,6 +135,29 @@ func generateDefaultSidebarConfigForRole(userRole int) string {
 	return string(configBytes)
 }
 
+func buildDefaultModelOverrides() map[string]dto.UserModelOverride {
+	pricingList := GetPricing()
+	if len(pricingList) == 0 {
+		return map[string]dto.UserModelOverride{}
+	}
+	overrides := make(map[string]dto.UserModelOverride, len(pricingList))
+	for _, pricing := range pricingList {
+		override := dto.UserModelOverride{BillingType: "ratio", Value: pricing.ModelRatio}
+		if pricing.QuotaType == 1 {
+			override.BillingType = "price"
+			override.Value = pricing.ModelPrice
+		}
+		overrides[pricing.ModelName] = override
+	}
+	return overrides
+}
+
+func applyDefaultUserSettings(user *User) {
+	currentSetting := user.GetSetting()
+	currentSetting.ModelOverrides = buildDefaultModelOverrides()
+	user.SetSetting(currentSetting)
+}
+
 // CheckUserExistOrDeleted check if user exist or deleted, if not exist, return false, nil, if deleted or exist, return true, nil
 func CheckUserExistOrDeleted(username string, email string) (bool, error) {
 	var user User
@@ -275,15 +298,27 @@ func GetUsersWithModelOverrides() ([]*User, error) {
 }
 
 func GetUserById(id int, selectAll bool) (*User, error) {
+	return getUserById(id, selectAll, false)
+}
+
+func GetUserByIdUnscoped(id int, selectAll bool) (*User, error) {
+	return getUserById(id, selectAll, true)
+}
+
+func getUserById(id int, selectAll bool, unscoped bool) (*User, error) {
 	if id == 0 {
 		return nil, errors.New("id 为空！")
 	}
 	user := User{Id: id}
-	var err error = nil
+	var err error
+	query := DB
+	if unscoped {
+		query = query.Unscoped()
+	}
 	if selectAll {
-		err = DB.First(&user, "id = ?", id).Error
+		err = query.First(&user, "id = ?", id).Error
 	} else {
-		err = DB.Omit("password").First(&user, "id = ?", id).Error
+		err = query.Omit("password").First(&user, "id = ?", id).Error
 	}
 	return &user, err
 }
@@ -379,6 +414,7 @@ func (user *User) Insert(inviterId int) error {
 		// 这里暂时不设置SidebarModules，因为需要在用户创建后根据角色设置
 		user.SetSetting(defaultSetting)
 	}
+	applyDefaultUserSettings(user)
 
 	result := DB.Create(user)
 	if result.Error != nil {
@@ -436,6 +472,7 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		defaultSetting := dto.UserSetting{}
 		user.SetSetting(defaultSetting)
 	}
+	applyDefaultUserSettings(user)
 
 	result := tx.Create(user)
 	if result.Error != nil {
@@ -485,8 +522,13 @@ func (user *User) Update(updatePassword bool) error {
 		}
 	}
 	newUser := *user
-	DB.First(&user, user.Id)
+	if err = DB.First(&user, user.Id).Error; err != nil {
+		return err
+	}
 	if err = DB.Model(user).Updates(newUser).Error; err != nil {
+		return err
+	}
+	if err = DB.First(user, user.Id).Error; err != nil {
 		return err
 	}
 
@@ -494,7 +536,7 @@ func (user *User) Update(updatePassword bool) error {
 	return updateUserCache(*user)
 }
 
-func (user *User) Edit(updatePassword bool) error {
+func (user *User) Edit(updatePassword bool, includeQuota bool) error {
 	var err error
 	if updatePassword {
 		user.Password, err = common.Password2Hash(user.Password)
@@ -508,15 +550,22 @@ func (user *User) Edit(updatePassword bool) error {
 		"username":     newUser.Username,
 		"display_name": newUser.DisplayName,
 		"group":        newUser.Group,
-		"quota":        newUser.Quota,
 		"remark":       newUser.Remark,
+	}
+	if includeQuota {
+		updates["quota"] = newUser.Quota
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password
 	}
 
-	DB.First(&user, user.Id)
+	if err = DB.First(&user, user.Id).Error; err != nil {
+		return err
+	}
 	if err = DB.Model(user).Updates(updates).Error; err != nil {
+		return err
+	}
+	if err = DB.First(user, user.Id).Error; err != nil {
 		return err
 	}
 

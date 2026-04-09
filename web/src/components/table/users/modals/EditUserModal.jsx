@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   API,
@@ -72,14 +72,14 @@ const EditUserModal = (props) => {
   const [addQuotaModalOpen, setIsModalOpen] = useState(false);
   const [addQuotaLocal, setAddQuotaLocal] = useState('');
   const [addAmountLocal, setAddAmountLocal] = useState('');
+  const [originalQuota, setOriginalQuota] = useState(0);
+  const [pendingQuotaDelta, setPendingQuotaDelta] = useState(0);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
 
   // model overrides state
   const [globalModels, setGlobalModels] = useState([]);
   const [modelOverrides, setModelOverrides] = useState({});
-  const [overridesSaving, setOverridesSaving] = useState(false);
-  const [overridesHasChanges, setOverridesHasChanges] = useState(false);
   const [modelSearch, setModelSearch] = useState('');
 
   const isEdit = Boolean(userId);
@@ -93,48 +93,6 @@ const EditUserModal = (props) => {
     remark: '',
   });
 
-  const loadModelOverrides = useCallback(async (uid) => {
-    if (!uid || !isRoot()) return;
-    try {
-      const res = await API.get(`/api/user/${uid}/model-overrides`);
-      if (res.data.success) {
-        const { model_overrides, global_models } = res.data.data;
-        const gm = global_models || [];
-        setGlobalModels(gm);
-        if (model_overrides && Object.keys(model_overrides).length > 0) {
-          setModelOverrides(model_overrides);
-          setOverridesHasChanges(false);
-        } else {
-          // 与后端一致：空 overrides 表示不限制，实际可用模型由分组+渠道 abilities 决定；
-          // 不要用全局倍率表全选预填，否则会误显「已勾选」已下线的模型。
-          setModelOverrides({});
-          setOverridesHasChanges(false);
-        }
-      }
-    } catch (e) {
-      /* ignore */
-    }
-  }, []);
-
-  const saveModelOverrides = async () => {
-    if (!userId) return;
-    setOverridesSaving(true);
-    try {
-      const res = await API.put(`/api/user/${userId}/model-overrides`, {
-        model_overrides: modelOverrides,
-      });
-      if (res.data.success) {
-        showSuccess(t('模型配置保存成功'));
-        setOverridesHasChanges(false);
-      } else {
-        showError(res.data.message);
-      }
-    } catch (e) {
-      showError(e.message);
-    }
-    setOverridesSaving(false);
-  };
-
   const toggleModel = (modelName) => {
     setModelOverrides((prev) => {
       const next = { ...prev };
@@ -145,7 +103,6 @@ const EditUserModal = (props) => {
       }
       return next;
     });
-    setOverridesHasChanges(true);
   };
 
   const updateOverride = (modelName, field, value) => {
@@ -153,7 +110,6 @@ const EditUserModal = (props) => {
       ...prev,
       [modelName]: { ...prev[modelName], [field]: value },
     }));
-    setOverridesHasChanges(true);
   };
 
   const selectAll = () => {
@@ -164,7 +120,6 @@ const EditUserModal = (props) => {
       }
     });
     setModelOverrides(newOverrides);
-    setOverridesHasChanges(true);
   };
 
   const deselectAll = () => {
@@ -173,7 +128,6 @@ const EditUserModal = (props) => {
       delete newOverrides[m.model];
     });
     setModelOverrides(newOverrides);
-    setOverridesHasChanges(true);
   };
 
   const handleCancel = () => props.handleClose();
@@ -185,6 +139,10 @@ const EditUserModal = (props) => {
     const { success, message, data } = res.data;
     if (success) {
       data.password = '';
+      setOriginalQuota(data.quota || 0);
+      setPendingQuotaDelta(0);
+      setGlobalModels(data?.global_models || []);
+      setModelOverrides(data?.model_overrides || {});
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
@@ -194,9 +152,6 @@ const EditUserModal = (props) => {
 
   useEffect(() => {
     loadUser();
-    if (userId) {
-      loadModelOverrides(userId);
-    }
     setModelSearch('');
   }, [props.editingUser.id]);
 
@@ -207,6 +162,15 @@ const EditUserModal = (props) => {
       payload.quota = parseInt(payload.quota) || 0;
     if (userId) {
       payload.id = parseInt(userId);
+      if (
+        pendingQuotaDelta !== 0 &&
+        Number(payload.quota || 0) === originalQuota + pendingQuotaDelta
+      ) {
+        payload.quota_delta = pendingQuotaDelta;
+      }
+      if (isRoot()) {
+        payload.model_overrides = modelOverrides;
+      }
     }
     const url = userId ? `/api/user/` : `/api/user/self`;
     const res = await API.put(url, payload);
@@ -225,6 +189,7 @@ const EditUserModal = (props) => {
     const current = parseInt(formApiRef.current?.getValue('quota') || 0);
     const delta = parseInt(addQuotaLocal) || 0;
     formApiRef.current?.setValue('quota', current + delta);
+    setPendingQuotaDelta((prev) => prev + delta);
   };
 
   // merge global models with user overrides for display, deduped
@@ -403,7 +368,7 @@ const EditUserModal = (props) => {
                                 '已保存白名单：仅列表中勾选的模型可调用；未勾选不可调用，可单独设置倍率或固定价。',
                               )
                             : t(
-                                '默认不限制（等同原先「全部勾选」的含义）：用户可在其分组对应的已启用渠道范围内使用模型，计费按全局倍率表。下方列表未勾选仅表示尚未写入白名单，不是禁用。',
+                                '当前未保存专属白名单：系统会回退到默认模型配置。新创建用户默认会预设全部模型；如果你在这里取消勾选后点击提交，未勾选模型将不可调用。',
                               )}
                         </div>
                       </div>
@@ -413,7 +378,7 @@ const EditUserModal = (props) => {
                         </Tag>
                       ) : (
                         <Tag color='grey' size='small' className='ml-2'>
-                          {t('默认不限制')}
+                          {t('未设置专属白名单')}
                         </Tag>
                       )}
                     </div>
@@ -422,7 +387,7 @@ const EditUserModal = (props) => {
                       <Banner
                         type='info'
                         description={t(
-                          '说明：列表来自倍率表，与渠道是否仍提供某模型可能不一致。需要限制可用范围或覆盖计费时，请勾选模型后点「保存模型配置」；也可用「全选」再保存，效果接近以前的默认全部勾选（仍受渠道能力约束）。',
+                          '说明：列表来自倍率表，与渠道是否仍提供某模型可能不一致。新用户默认会写入全部模型；这里显示为空，通常表示该用户当前没有单独保存专属白名单。若要限制可用范围或覆盖计费，请勾选需要的模型后点击提交。',
                         )}
                         className='mb-3 !rounded-lg'
                         closeIcon={null}
@@ -521,19 +486,6 @@ const EditUserModal = (props) => {
                           );
                         })
                       )}
-                    </div>
-
-                    <div className='mt-3'>
-                      <Button
-                        theme='solid'
-                        type='warning'
-                        size='small'
-                        loading={overridesSaving}
-                        disabled={!overridesHasChanges}
-                        onClick={saveModelOverrides}
-                      >
-                        {t('保存模型配置')}
-                      </Button>
                     </div>
                   </Card>
                 )}

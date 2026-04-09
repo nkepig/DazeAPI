@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,7 +34,7 @@ func Login(c *gin.Context) {
 		return
 	}
 	var loginRequest LoginRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&loginRequest)
+	err := common.DecodeJson(c.Request.Body, &loginRequest)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -138,7 +137,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	var user model.User
-	err := json.NewDecoder(c.Request.Body).Decode(&user)
+	err := common.DecodeJson(c.Request.Body, &user)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -274,10 +273,14 @@ func GetUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
 		return
 	}
+	responseData := buildUserResponseData(user, true)
+	if myRole == common.RoleRootUser {
+		appendRootModelConfig(responseData, user.GetSetting())
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    user,
+		"data":    responseData,
 	})
 	return
 }
@@ -319,6 +322,42 @@ func GenerateAccessToken(c *gin.Context) {
 
 type TransferAffQuotaRequest struct {
 	Quota int `json:"quota" binding:"required"`
+}
+
+type UpdateUserRequest struct {
+	model.User
+	QuotaDelta     *int                             `json:"quota_delta"`
+	ModelOverrides map[string]dto.UserModelOverride `json:"model_overrides"`
+}
+
+func validateUserModelOverrides(modelOverrides map[string]dto.UserModelOverride) error {
+	for name, o := range modelOverrides {
+		if o.Value < 0 {
+			return fmt.Errorf("model %s value must be >= 0", name)
+		}
+		if o.BillingType != "ratio" && o.BillingType != "price" {
+			return fmt.Errorf("model %s billing_type must be 'ratio' or 'price'", name)
+		}
+	}
+	return nil
+}
+
+func validateUserSettingPayload(modelOverrides map[string]dto.UserModelOverride) error {
+	return validateUserModelOverrides(modelOverrides)
+}
+
+func applyAdminUserSettings(userId int, modelOverrides map[string]dto.UserModelOverride) error {
+	if modelOverrides == nil {
+		return nil
+	}
+	currentUser, err := model.GetUserById(userId, true)
+	if err != nil {
+		return err
+	}
+	currentSetting := currentUser.GetSetting()
+	currentSetting.ModelOverrides = modelOverrides
+	currentUser.SetSetting(currentSetting)
+	return currentUser.Update(false)
 }
 
 func TransferAffQuota(c *gin.Context) {
@@ -380,11 +419,23 @@ func GetSelf(c *gin.Context) {
 	// 计算用户权限信息
 	permissions := calculateUserPermissions(userRole)
 
-	// 获取用户设置并提取sidebar_modules
-	userSetting := user.GetSetting()
+	responseData := buildUserResponseData(user, false)
+	settingObj := responseData["setting"].(dto.UserSetting)
+	responseData["setting"] = user.Setting
+	responseData["sidebar_modules"] = settingObj.SidebarModules
+	responseData["permissions"] = permissions
 
-	// 构建响应数据，包含用户信息和权限
-	responseData := map[string]interface{}{
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    responseData,
+	})
+	return
+}
+
+func buildUserResponseData(user *model.User, includeRemark bool) gin.H {
+	setting := user.GetSetting()
+	responseData := gin.H{
 		"id":                user.Id,
 		"username":          user.Username,
 		"display_name":      user.DisplayName,
@@ -406,18 +457,36 @@ func GetSelf(c *gin.Context) {
 		"aff_history_quota": user.AffHistoryQuota,
 		"inviter_id":        user.InviterId,
 		"linux_do_id":       user.LinuxDOId,
-		"setting":           user.Setting,
+		"setting":           setting,
 		"stripe_customer":   user.StripeCustomer,
-		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
-		"permissions":       permissions,                // 新增权限字段
 	}
+	if includeRemark {
+		responseData["remark"] = user.Remark
+	}
+	return responseData
+}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    responseData,
-	})
-	return
+func appendRootModelConfig(responseData gin.H, settings dto.UserSetting) {
+	type GlobalModelInfo struct {
+		Model       string  `json:"model"`
+		BillingType string  `json:"billing_type"`
+		Value       float64 `json:"value"`
+	}
+	pricingList := model.GetPricing()
+	globalModels := make([]GlobalModelInfo, 0, len(pricingList))
+	for _, p := range pricingList {
+		g := GlobalModelInfo{Model: p.ModelName}
+		if p.QuotaType == 1 {
+			g.BillingType = "price"
+			g.Value = p.ModelPrice
+		} else {
+			g.BillingType = "ratio"
+			g.Value = p.ModelRatio
+		}
+		globalModels = append(globalModels, g)
+	}
+	responseData["model_overrides"] = settings.ModelOverrides
+	responseData["global_models"] = globalModels
 }
 
 // 计算用户权限的辅助函数
@@ -478,7 +547,7 @@ func generateDefaultSidebarConfig(userRole int) string {
 	// 普通用户不包含admin区域
 
 	// 转换为JSON字符串
-	configBytes, err := json.Marshal(defaultConfig)
+	configBytes, err := common.Marshal(defaultConfig)
 	if err != nil {
 		common.SysLog("生成默认边栏配置失败: " + err.Error())
 		return ""
@@ -529,8 +598,9 @@ func GetUserModels(c *gin.Context) {
 }
 
 func UpdateUser(c *gin.Context) {
-	var updatedUser model.User
-	err := json.NewDecoder(c.Request.Body).Decode(&updatedUser)
+	var req UpdateUserRequest
+	err := common.DecodeJson(c.Request.Body, &req)
+	updatedUser := req.User
 	if err != nil || updatedUser.Id == 0 {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -559,12 +629,38 @@ func UpdateUser(c *gin.Context) {
 	if updatedUser.Password == "$I_LOVE_U" {
 		updatedUser.Password = "" // rollback to what it should be
 	}
-	updatePassword := updatedUser.Password != ""
-	if err := updatedUser.Edit(updatePassword); err != nil {
+	if myRole != common.RoleRootUser {
+		req.ModelOverrides = nil
+	}
+	if err := validateUserSettingPayload(req.ModelOverrides); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if originUser.Quota != updatedUser.Quota {
+	updatePassword := updatedUser.Password != ""
+	includeQuota := req.QuotaDelta == nil
+	if err := updatedUser.Edit(updatePassword, includeQuota); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if c.GetInt("role") == common.RoleRootUser {
+		if err := applyAdminUserSettings(updatedUser.Id, req.ModelOverrides); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
+			return
+		}
+	}
+	if req.QuotaDelta != nil {
+		if err := model.DeltaUpdateUserQuota(originUser.Id, *req.QuotaDelta); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if *req.QuotaDelta != 0 {
+			action := "增加"
+			if *req.QuotaDelta < 0 {
+				action = "减少"
+			}
+			model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员为用户%s额度 %s", action, logger.LogQuota(absInt(*req.QuotaDelta))))
+		}
+	} else if originUser.Quota != updatedUser.Quota {
 		model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员将用户额度从 %s修改为 %s", logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -574,9 +670,16 @@ func UpdateUser(c *gin.Context) {
 	return
 }
 
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 func UpdateSelf(c *gin.Context) {
 	var requestData map[string]interface{}
-	err := json.NewDecoder(c.Request.Body).Decode(&requestData)
+	err := common.DecodeJson(c.Request.Body, &requestData)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -640,12 +743,12 @@ func UpdateSelf(c *gin.Context) {
 
 	// 原有的用户信息更新逻辑
 	var user model.User
-	requestDataBytes, err := json.Marshal(requestData)
+	requestDataBytes, err := common.Marshal(requestData)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-	err = json.Unmarshal(requestDataBytes, &user)
+	err = common.Unmarshal(requestDataBytes, &user)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -712,7 +815,7 @@ func DeleteUser(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	originUser, err := model.GetUserById(id, false)
+	originUser, err := model.GetUserByIdUnscoped(id, false)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -722,14 +825,23 @@ func DeleteUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionHigherLevel)
 		return
 	}
-	err = model.HardDeleteUserById(id)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "",
-		})
+	if !originUser.DeletedAt.Valid {
+		common.ApiError(c, fmt.Errorf("only cancelled users can be permanently removed"))
 		return
 	}
+	if myRole != common.RoleRootUser {
+		common.ApiError(c, fmt.Errorf("only root user can permanently remove cancelled users"))
+		return
+	}
+	err = model.HardDeleteUserById(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
 }
 
 func DeleteSelf(c *gin.Context) {
@@ -754,8 +866,9 @@ func DeleteSelf(c *gin.Context) {
 }
 
 func CreateUser(c *gin.Context) {
-	var user model.User
-	err := json.NewDecoder(c.Request.Body).Decode(&user)
+	var req UpdateUserRequest
+	err := common.DecodeJson(c.Request.Body, &req)
+	user := req.User
 	user.Username = strings.TrimSpace(user.Username)
 	if err != nil || user.Username == "" || user.Password == "" {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
@@ -773,6 +886,13 @@ func CreateUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserCannotCreateHigherLevel)
 		return
 	}
+	if myRole != common.RoleRootUser {
+		req.ModelOverrides = nil
+	}
+	if err := validateUserSettingPayload(req.ModelOverrides); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	// Even for admin users, we cannot fully trust them!
 	cleanUser := model.User{
 		Username:    user.Username,
@@ -782,6 +902,10 @@ func CreateUser(c *gin.Context) {
 	}
 	if err := cleanUser.Insert(0); err != nil {
 		common.ApiError(c, err)
+		return
+	}
+	if err := applyAdminUserSettings(cleanUser.Id, req.ModelOverrides); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
 		return
 	}
 
@@ -800,7 +924,7 @@ type ManageRequest struct {
 // ManageUser Only admin user can do this
 func ManageUser(c *gin.Context) {
 	var req ManageRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&req)
+	err := common.DecodeJson(c.Request.Body, &req)
 
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
@@ -841,6 +965,11 @@ func ManageUser(c *gin.Context) {
 			})
 			return
 		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+		})
+		return
 	case "promote":
 		if myRole != common.RoleRootUser {
 			common.ApiErrorI18n(c, i18n.MsgUserAdminCannotPromote)
@@ -1101,6 +1230,9 @@ func UpdateUserSetting(c *gin.Context) {
 		AcceptUnsetRatioModel:            req.AcceptUnsetModelRatioModel,
 		RecordIpLog:                      req.RecordIpLog,
 		ModelOverrides:                   existingSettings.ModelOverrides,
+		SidebarModules:                   existingSettings.SidebarModules,
+		BillingPreference:                existingSettings.BillingPreference,
+		Language:                         existingSettings.Language,
 	}
 
 	// 如果是webhook类型,添加webhook相关设置
@@ -1141,102 +1273,6 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	common.ApiSuccessI18n(c, i18n.MsgSettingSaved, nil)
-}
-
-type UpdateModelOverridesRequest struct {
-	ModelOverrides map[string]dto.UserModelOverride `json:"model_overrides"`
-}
-
-func GetUserModelOverrides(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
-		return
-	}
-
-	user, err := model.GetUserById(id, true)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	settings := user.GetSetting()
-	type GlobalModelInfo struct {
-		Model       string  `json:"model"`
-		BillingType string  `json:"billing_type"`
-		Value       float64 `json:"value"`
-	}
-	pricingList := model.GetPricing()
-	globalModels := make([]GlobalModelInfo, 0, len(pricingList))
-	for _, p := range pricingList {
-		g := GlobalModelInfo{Model: p.ModelName}
-		if p.QuotaType == 1 {
-			g.BillingType = "price"
-			g.Value = p.ModelPrice
-		} else {
-			g.BillingType = "ratio"
-			g.Value = p.ModelRatio
-		}
-		globalModels = append(globalModels, g)
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"model_overrides": settings.ModelOverrides,
-			"global_models":   globalModels,
-		},
-	})
-}
-
-func AdminUpdateUserModelOverrides(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
-		return
-	}
-
-	var req UpdateModelOverridesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
-		return
-	}
-
-	for name, o := range req.ModelOverrides {
-		if o.Value < 0 {
-			common.ApiError(c, fmt.Errorf("model %s value must be >= 0", name))
-			return
-		}
-		if o.BillingType != "ratio" && o.BillingType != "price" {
-			common.ApiError(c, fmt.Errorf("model %s billing_type must be 'ratio' or 'price'", name))
-			return
-		}
-	}
-
-	user, err := model.GetUserById(id, true)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	myRole := c.GetInt("role")
-	if myRole <= user.Role && myRole != common.RoleRootUser {
-		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionHigherLevel)
-		return
-	}
-
-	settings := user.GetSetting()
-	settings.ModelOverrides = req.ModelOverrides
-	user.SetSetting(settings)
-	if err := user.Update(false); err != nil {
-		common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
 }
 
 // AdminSyncUserModels removes model_overrides entries for models that no longer

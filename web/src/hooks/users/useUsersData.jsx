@@ -147,6 +147,25 @@ export const useUsersData = () => {
     setLoading(false);
   };
 
+  const deleteUser = async (user) => {
+    if (!user) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await API.delete(`/api/user/${user.id}`);
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('用户已从数据库彻底移除'));
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(error.message || t('操作失败，请重试'));
+    }
+    setLoading(false);
+  };
+
   const resetUserPasskey = async (user) => {
     if (!user) {
       return;
@@ -296,6 +315,7 @@ export const useUsersData = () => {
     loadUsers,
     searchUsers,
     manageUser,
+    deleteUser,
     syncModels,
     resetUserPasskey,
     resetUserTwoFA,

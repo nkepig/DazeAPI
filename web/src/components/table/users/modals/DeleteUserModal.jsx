@@ -29,28 +29,32 @@ const DeleteUserModal = ({
   activePage,
   refresh,
   manageUser,
+  deleteUser,
+  permanently,
   t,
 }) => {
   const handleConfirm = async () => {
-    await manageUser(user.id, 'delete', user);
-    await refresh();
-    setTimeout(() => {
-      if (users.length === 0 && activePage > 1) {
-        refresh(activePage - 1);
-      }
-    }, 100);
+    if (permanently) {
+      await deleteUser(user);
+    } else {
+      await manageUser(user.id, 'delete', user);
+    }
+    const nextPage = users.length === 1 && activePage > 1 ? activePage - 1 : activePage;
+    await refresh(nextPage);
     onCancel(); // Close modal after success
   };
 
   return (
     <Modal
-      title={t('确定是否要注销此用户？')}
+      title={permanently ? t('确定要彻底移除此用户吗？') : t('确定是否要注销此用户？')}
       visible={visible}
       onCancel={onCancel}
       onOk={handleConfirm}
       type='danger'
     >
-      {t('相当于删除用户，此修改将不可逆')}
+      {permanently
+        ? t('该用户已注销，此操作会从数据库中彻底移除且不可恢复')
+        : t('相当于删除用户，此修改将不可逆')}
     </Modal>
   );
 };
