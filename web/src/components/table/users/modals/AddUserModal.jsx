@@ -141,7 +141,7 @@ const AddUserModal = (props) => {
                   <Col span={24}>
                     <Form.Input
                       field='username'
-                      label={t('用户名')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('用户名')}</span>}
                       placeholder={t('请输入用户名')}
                       rules={[{ required: true, message: t('请输入用户名') }]}
                       showClear
@@ -150,7 +150,7 @@ const AddUserModal = (props) => {
                   <Col span={24}>
                     <Form.Input
                       field='display_name'
-                      label={t('显示名称')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('显示名称')}</span>}
                       placeholder={t('请输入显示名称')}
                       showClear
                     />
@@ -158,7 +158,7 @@ const AddUserModal = (props) => {
                   <Col span={24}>
                     <Form.Input
                       field='password'
-                      label={t('密码')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('密码')}</span>}
                       type='password'
                       placeholder={t('请输入密码')}
                       rules={[{ required: true, message: t('请输入密码') }]}
@@ -168,8 +168,8 @@ const AddUserModal = (props) => {
                   <Col span={24}>
                     <Form.Input
                       field='remark'
-                      label={t('备注')}
-                      placeholder={t('请输入备注（仅管理员可见）')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('备注')}</span>}
+                      placeholder={t('管理员可见')}
                       showClear
                     />
                   </Col>

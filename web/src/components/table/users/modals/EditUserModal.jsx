@@ -284,36 +284,36 @@ const EditUserModal = (props) => {
                   </div>
                   <Row gutter={12}>
                     <Col span={24}>
-                      <Form.Input
+                       <Form.Input
                         field='username'
-                        label={t('用户名')}
-                        placeholder={t('请输入新的用户名')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('用户名')}</span>}
+                        placeholder={t('新用户名')}
                         rules={[{ required: true, message: t('请输入用户名') }]}
                         showClear
                       />
                     </Col>
                     <Col span={24}>
-                      <Form.Input
+                       <Form.Input
                         field='password'
-                        label={t('密码')}
-                        placeholder={t('请输入新的密码，最短 8 位')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('密码')}</span>}
+                        placeholder={t('新密码')}
                         mode='password'
                         showClear
                       />
                     </Col>
                     <Col span={24}>
-                      <Form.Input
+                       <Form.Input
                         field='display_name'
-                        label={t('显示名称')}
-                        placeholder={t('请输入新的显示名称')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('显示名称')}</span>}
+                        placeholder={t('新显示名')}
                         showClear
                       />
                     </Col>
                     <Col span={24}>
                       <Form.Input
                         field='remark'
-                        label={t('备注')}
-                        placeholder={t('请输入备注（仅管理员可见）')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('备注')}</span>}
+                        placeholder={t('管理员可见')}
                         showClear
                       />
                     </Col>
@@ -336,8 +336,8 @@ const EditUserModal = (props) => {
                       <Col span={10}>
                         <Form.InputNumber
                           field='quota'
-                          label={t('剩余额度')}
-                          placeholder={t('请输入新的剩余额度')}
+                          label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('剩余额度')}</span>}
+                          placeholder={t('剩余额度')}
                           step={500000}
                           extraText={renderQuotaWithPrompt(values.quota || 0)}
                           rules={[{ required: true, message: t('请输入额度') }]}
@@ -345,7 +345,7 @@ const EditUserModal = (props) => {
                         />
                       </Col>
                       <Col span={14}>
-                        <Form.Slot label={t('添加额度')}>
+                        <Form.Slot label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('添加额度')}</span>}>
                           <Button icon={<IconPlus />} onClick={() => setIsModalOpen(true)} />
                         </Form.Slot>
                       </Col>

@@ -1290,14 +1290,14 @@ const EditChannelModal = (props) => {
 
                   <Form.TextArea
                     field='param_override'
-                    label={t('参数覆盖')}
-                    placeholder={t('此项可选，JSON 格式，用于覆盖请求参数，不支持覆盖 stream')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('参数覆盖')}</span>}
+                    placeholder={t('JSON 格式，覆盖请求参数')}
                     autosize={{ minRows: 3, maxRows: 10 }}
                     onChange={(value) => handleInputChange('param_override', value)}
                     showClear
                     extraText={
                       <Text
-                        className='!text-semi-color-primary cursor-pointer'
+                        className='!text-semi-color-primary cursor-pointer underline'
                         onClick={() => formatJsonField('param_override')}
                       >
                         {t('格式化')}
@@ -1307,8 +1307,8 @@ const EditChannelModal = (props) => {
 
                   <Form.TextArea
                     field='header_override'
-                    label={t('请求头覆盖')}
-                    placeholder={t('此项可选，JSON 格式，用于覆盖请求头，支持变量 {api_key}')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('请求头覆盖')}</span>}
+                    placeholder={t('JSON 格式，覆盖请求头')}
                     autosize={{ minRows: 3, maxRows: 10 }}
                     onChange={(value) =>
                       handleInputChange('header_override', value)
@@ -1316,7 +1316,7 @@ const EditChannelModal = (props) => {
                     extraText={
                       <Space>
                         <Text
-                          className='!text-semi-color-primary cursor-pointer'
+                          className='!text-semi-color-primary cursor-pointer underline'
                           onClick={() =>
                             handleInputChange(
                               'header_override',
@@ -1327,7 +1327,7 @@ const EditChannelModal = (props) => {
                           {t('填入模板')}
                         </Text>
                         <Text
-                          className='!text-semi-color-primary cursor-pointer'
+                          className='!text-semi-color-primary cursor-pointer underline'
                           onClick={() => formatJsonField('header_override')}
                         >
                           {t('格式化')}
@@ -1339,8 +1339,8 @@ const EditChannelModal = (props) => {
                   <JSONEditor
                     key={`status_code_mapping-${isEdit ? channelId : 'new'}`}
                     field='status_code_mapping'
-                    label={t('状态码复写')}
-                    placeholder={t('此项可选，键为原状态码，值为目标状态码，仅影响本地判断')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('状态码复写')}</span>}
+                    placeholder={t('键值对，覆盖状态码')}
                     value={inputs.status_code_mapping || ''}
                     onChange={(value) =>
                       handleInputChange('status_code_mapping', value)
@@ -1349,16 +1349,16 @@ const EditChannelModal = (props) => {
                     templateLabel={t('填入模板')}
                     editorType='keyValue'
                     formApi={formApiRef.current}
-                    extraText={t('键为原状态码，值为要复写的状态码，仅影响本地判断')}
+                    extraText={t('本地状态码映射')}
                   />
 
                   <Form.Input
                     field='proxy'
-                    label={t('代理地址')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('代理地址')}</span>}
                     placeholder={t('例如: socks5://user:pass@host:port')}
                     showClear
                     onChange={(value) => handleInputChange('proxy', value)}
-                    extraText={t('用于配置网络代理，支持 socks5 协议')}
+                    extraText={t('支持 socks5')}
                   />
                 </div>
 
@@ -1372,7 +1372,7 @@ const EditChannelModal = (props) => {
                     <Col span={12}>
                       <Form.InputNumber
                         field='priority'
-                        label={t('渠道优先级')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('渠道优先级')}</span>}
                         placeholder={t('渠道优先级')}
                         min={0}
                         onNumberChange={(value) => handleInputChange('priority', value)}
@@ -1382,7 +1382,7 @@ const EditChannelModal = (props) => {
                     <Col span={12}>
                       <Form.InputNumber
                         field='weight'
-                        label={t('渠道权重')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('渠道权重')}</span>}
                         placeholder={t('渠道权重')}
                         min={0}
                         onNumberChange={(value) => handleInputChange('weight', value)}
@@ -1444,7 +1444,7 @@ const EditChannelModal = (props) => {
 
                     <Form.Select
                       field='type'
-                      label={t('类型')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('类型')}</span>}
                       placeholder={t('请选择渠道类型')}
                       rules={[{ required: true, message: t('请选择渠道类型') }]}
                       optionList={channelOptionList}
@@ -1491,8 +1491,8 @@ const EditChannelModal = (props) => {
 
                     <Form.Input
                       field='name'
-                      label={t('名称')}
-                      placeholder={t('请为渠道命名')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('名称')}</span>}
+                      placeholder={t('渠道名称')}
                       rules={[{ required: true, message: t('请为渠道命名') }]}
                       showClear
                       onChange={(value) => handleInputChange('name', value)}
@@ -1502,7 +1502,7 @@ const EditChannelModal = (props) => {
                     {inputs.type === 18 && (
                       <Form.Input
                         field='other'
-                        label={t('模型版本')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('模型版本')}</span>}
                         placeholder={
                           'v2.1'
                         }
@@ -1515,8 +1515,8 @@ const EditChannelModal = (props) => {
                       <JSONEditor
                         key={`region-${isEdit ? channelId : 'new'}`}
                         field='other'
-                        label={t('部署地区')}
-                        placeholder={t('例如：us-central1，支持 JSON 格式设置不同模型的地区')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('部署地区')}</span>}
+                        placeholder={t('如：us-central1')}
                         value={inputs.other || ''}
                         onChange={(value) => handleInputChange('other', value)}
                         rules={[
@@ -1532,8 +1532,8 @@ const EditChannelModal = (props) => {
                     {inputs.type === 21 && (
                       <Form.Input
                         field='other'
-                        label={t('知识库 ID')}
-                        placeholder={'请输入知识库 ID，例如：123456'}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('知识库 ID')}</span>}
+                        placeholder={'知识库ID'}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -1554,8 +1554,8 @@ const EditChannelModal = (props) => {
                     {inputs.type === 49 && (
                       <Form.Input
                         field='other'
-                        label={t('智能体ID')}
-                        placeholder={'请输入智能体ID，例如：7342866812345'}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('智能体ID')}</span>}
+                        placeholder={'智能体ID'}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -1564,7 +1564,7 @@ const EditChannelModal = (props) => {
                     {inputs.type === 1 && (
                       <Form.Input
                         field='openai_organization'
-                        label={t('组织')}
+                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('组织')}</span>}
                         placeholder={t('请输入组织org-xxx')}
                         showClear
                         helpText={t('组织，不填则为默认组织')}
@@ -1624,7 +1624,7 @@ const EditChannelModal = (props) => {
                           <div>
                             <Form.Input
                               field='other'
-                              label={t('默认 API 版本')}
+                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('默认 API 版本')}</span>}
                               placeholder='2025-04-01-preview'
                               onChange={(value) =>
                                 handleInputChange('other', value)
@@ -1635,10 +1635,8 @@ const EditChannelModal = (props) => {
                           <div>
                             <Form.Input
                               field='azure_responses_version'
-                              label={t(
-                                '默认 Responses API 版本，为空则使用上方版本',
-                              )}
-                              placeholder={t('例如：preview')}
+                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('默认 Responses API 版本，为空则使用上方版本')}</span>}
+                              placeholder={t('如：preview')}
                               onChange={(value) =>
                                 handleChannelOtherSettingsChange(
                                   'azure_responses_version',
@@ -1661,7 +1659,7 @@ const EditChannelModal = (props) => {
                           <div>
                             <Form.Input
                               field='base_url'
-                              label={t('完整的 Base URL，支持变量{model}')}
+                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('完整的 Base URL，支持变量{model}')}</span>}
                               placeholder='https://api.openai.com/v1/chat/completions'
                               onChange={(value) =>
                                 handleInputChange('base_url', value)
@@ -1689,14 +1687,14 @@ const EditChannelModal = (props) => {
                           <div>
                             <Form.Input
                               field='base_url'
-                              label={t('API地址')}
-                          placeholder={t('可选，末尾不要带 /v1 或 /')}
+                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('API地址')}</span>}
+                          placeholder={t('选填，末尾不带 /v1')}
                               onChange={(value) =>
                                 handleInputChange('base_url', value)
                               }
                               showClear
                               disabled={isIonetLocked}
-                              extraText={t('官方渠道已内置，第三方代理或自定义地址时填写')}
+                              extraText={t('默认官方地址')}
                             />
                           </div>
                         )}
@@ -1705,7 +1703,7 @@ const EditChannelModal = (props) => {
                         <div>
                           <Form.Input
                             field='base_url'
-                            label={t('私有部署地址')}
+                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('私有部署地址')}</span>}
                             placeholder='https://fastgpt.run/api/openapi'
                             onChange={(value) =>
                               handleInputChange('base_url', value)
@@ -1720,7 +1718,7 @@ const EditChannelModal = (props) => {
                         <div>
                           <Form.Input
                             field='base_url'
-                            label={t('API 地址（非 Chat API）')}
+                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('API 地址（非 Chat API）')}</span>}
                             placeholder='https://api.example.com'
                             onChange={(value) =>
                               handleInputChange('base_url', value)
@@ -1735,7 +1733,7 @@ const EditChannelModal = (props) => {
                         <div>
                           <Form.Select
                             field='base_url'
-                            label={t('API地址')}
+                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('API地址')}</span>}
                             placeholder={t('请选择API地址')}
                             onChange={(value) =>
                               handleInputChange('base_url', value)
@@ -1767,16 +1765,12 @@ const EditChannelModal = (props) => {
                         <div className='mt-2'>
                           <Form.TextArea
                             field='key'
-                            label={t('密钥')}
+                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('密钥')}</span>}
                             placeholder={type2secretPrompt(inputs.type)}
                             extraText={
                               isEdit
-                                ? t(
-                                    '留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。',
-                                  )
-                                : t(
-                                    '可选。每行一个密钥；多行将创建为同一渠道的多密钥模式（随机调度）。',
-                                  )
+                                ? t('批量覆盖密钥，一行一个')
+                                : t('一行一个密钥')
                             }
                             autosize={{ minRows: 3, maxRows: 12 }}
                             onChange={(value) => handleInputChange('key', value)}
@@ -1791,7 +1785,7 @@ const EditChannelModal = (props) => {
                   {/* Model Selection - Part of Core Config */}
                   <Form.Select
                       field='models'
-                      label={t('模型')}
+                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('模型')}</span>}
                       placeholder={t('请选择该渠道所支持的模型')}
                       rules={[]}
                       multiple
@@ -1872,7 +1866,7 @@ const EditChannelModal = (props) => {
                   {/* Custom Model Name - Core Config */}
                   <Form.Input
                     field='custom_model'
-                    label={t('自定义模型名称')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('自定义模型名称')}</span>}
                     placeholder={t('输入自定义模型名称')}
                     onChange={(value) => setCustomModel(value.trim())}
                     value={customModel}
@@ -1891,8 +1885,8 @@ const EditChannelModal = (props) => {
                   <JSONEditor
                     key={`model_mapping-${isEdit ? channelId : 'new'}`}
                     field='model_mapping'
-                    label={t('模型重定向')}
-                    placeholder={t('此项可选，键为请求的模型名，值为替换的模型名')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('模型重定向')}</span>}
+                    placeholder={t('键值对，模型重定向')}
                     value={inputs.model_mapping || ''}
                     onChange={(value) =>
                       handleInputChange('model_mapping', value)
@@ -1922,9 +1916,7 @@ const EditChannelModal = (props) => {
                         </Tooltip>
                       );
                     }}
-                    extraText={t(
-                      '键为请求中的模型名称，值为要替换的模型名称',
-                    )}
+                    extraText={t('请求模型→替换模型')}
                   />
 
                   {/* Auto Ban - Core Config */}
@@ -1949,8 +1941,8 @@ const EditChannelModal = (props) => {
                   <Form.Input
                     style={{ marginTop: 12 }}
                     field='test_model'
-                    label={t('默认测试模型')}
-                    placeholder={t('不填则为模型列表第一个')}
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('默认测试模型')}</span>}
+                    placeholder={t('默认取列表首个')}
                     onChange={(value) =>
                       handleInputChange('test_model', value)
                     }
