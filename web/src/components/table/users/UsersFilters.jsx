@@ -76,12 +76,6 @@ const UsersFilters = ({
       >
         {t('查询')}
       </Button>
-      <Button
-        size='small'
-        onClick={handleReset}
-      >
-        {t('重置')}
-      </Button>
     </Form>
   );
 };

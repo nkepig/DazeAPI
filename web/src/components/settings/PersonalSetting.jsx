@@ -142,7 +142,6 @@ const PersonalSetting = () => {
           />
           <InfoRow icon={Wallet} label={t('已用额度')} value={renderQuota(user?.used_quota)} />
           <InfoRow icon={Mail} label={t('邮箱')} value={user?.email || t('未绑定')} />
-          <InfoRow icon={Users} label={t('用户分组')} value={user?.group || t('默认')} />
           <InfoRow icon={KeyRound} label={t('请求次数')} value={String(user?.request_count || 0)} />
         </div>
 

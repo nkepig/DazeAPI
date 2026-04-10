@@ -86,19 +86,6 @@ const ChannelsFilters = ({
         >
           {t('查询')}
         </Button>
-        <Button
-          size='small'
-          onClick={() => {
-            if (formApi) {
-              formApi.reset();
-              setTimeout(() => {
-                refresh();
-              }, 100);
-            }
-          }}
-        >
-          {t('重置')}
-        </Button>
       </Form>
     </>
   );

@@ -136,14 +136,6 @@ const renderType = (type, record = {}, t) => {
   );
 };
 
-const renderTagType = (t) => {
-  return (
-    <Tag color='light-blue' shape='circle' type='light'>
-      {t('标签聚合')}
-    </Tag>
-  );
-};
-
 const renderStatus = (status, channelInfo = undefined, t) => {
   if (channelInfo) {
     if (channelInfo.is_multi_key) {
@@ -433,7 +425,7 @@ export const getChannelsColumns = ({
         if (record.children === undefined) {
           return <>{renderType(text, record, t)}</>;
         } else {
-          return <>{renderTagType(t)}</>;
+          return null;
         }
       },
     },

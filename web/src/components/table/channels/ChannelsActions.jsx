@@ -21,8 +21,6 @@ import React from 'react';
 import { Switch, Typography, Select } from '@douyinfe/semi-ui';
 
 const ChannelsActions = ({
-  enableTagMode,
-  setEnableTagMode,
   statusFilter,
   setStatusFilter,
   loadChannels,
@@ -31,44 +29,26 @@ const ChannelsActions = ({
   t,
 }) => {
   return (
-    <>
-      <div className='flex items-center gap-1.5'>
-        <Typography.Text size='small' type='tertiary' className='whitespace-nowrap select-none'>
-          {t('标签聚合')}
-        </Typography.Text>
-        <Switch
-          size='small'
-          checked={enableTagMode}
-          onChange={(v) => {
-            localStorage.setItem('enable-tag-mode', v + '');
-            setEnableTagMode(v);
-            setActivePage(1);
-            loadChannels(1, pageSize, v);
-          }}
-        />
-      </div>
-
-      <div className='flex items-center gap-1.5'>
-        <Typography.Text size='small' type='tertiary' className='whitespace-nowrap select-none'>
-          {t('状态')}
-        </Typography.Text>
-        <Select
-          size='small'
-          value={statusFilter}
-          onChange={(v) => {
-            localStorage.setItem('channel-status-filter', v);
-            setStatusFilter(v);
-            setActivePage(1);
-            loadChannels(1, pageSize, enableTagMode, undefined, v);
-          }}
-          style={{ minWidth: 72 }}
-        >
-          <Select.Option value='all'>{t('全部')}</Select.Option>
-          <Select.Option value='enabled'>{t('已启用')}</Select.Option>
-          <Select.Option value='disabled'>{t('已禁用')}</Select.Option>
-        </Select>
-      </div>
-    </>
+    <div className='flex items-center gap-1.5'>
+      <Typography.Text size='small' type='tertiary' className='whitespace-nowrap select-none'>
+        {t('状态')}
+      </Typography.Text>
+      <Select
+        size='small'
+        value={statusFilter}
+        onChange={(v) => {
+          localStorage.setItem('channel-status-filter', v);
+          setStatusFilter(v);
+          setActivePage(1);
+          loadChannels(1, pageSize, undefined, undefined, v);
+        }}
+        style={{ minWidth: 72 }}
+      >
+        <Select.Option value='all'>{t('全部')}</Select.Option>
+        <Select.Option value='enabled'>{t('已启用')}</Select.Option>
+        <Select.Option value='disabled'>{t('已禁用')}</Select.Option>
+      </Select>
+    </div>
   );
 };
 

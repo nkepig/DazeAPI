@@ -782,7 +782,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
               <Col span={12}>
                 <Form.Input
                   field="slug"
-                  label="Slug"
+                  label={t('Slug')}
                   placeholder={t('例如：github-enterprise')}
                   extraText={t('URL 标识，只能包含小写字母、数字和连字符')}
                   rules={[{ required: true, message: t('请输入 Slug') }]}
@@ -829,7 +829,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
               <Col span={12}>
                 <Form.Input
                   field="client_id"
-                  label="Client ID"
+                  label={t('Client ID')}
                   placeholder={t('OAuth Client ID')}
                   rules={[{ required: true, message: t('请输入 Client ID') }]}
                 />
@@ -837,7 +837,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
               <Col span={12}>
                 <Form.Input
                   field="client_secret"
-                  label="Client Secret"
+                  label={t('Client Secret')}
                   type="password"
                   placeholder={
                     editingProvider
@@ -866,7 +866,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
                     selectedPreset && OAUTH_PRESETS[selectedPreset]
                       ? t('填写 Issuer URL 后自动生成：') +
                         OAUTH_PRESETS[selectedPreset].authorization_endpoint
-                      : 'https://example.com/oauth/authorize'
+                      : t('https://example.com/oauth/authorize')
                   }
                   rules={[
                     { required: true, message: t('请输入 Authorization Endpoint') },
@@ -883,7 +883,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
                   placeholder={
                     selectedPreset && OAUTH_PRESETS[selectedPreset]
                       ? t('自动生成：') + OAUTH_PRESETS[selectedPreset].token_endpoint
-                      : 'https://example.com/oauth/token'
+                      : t('https://example.com/oauth/token')
                   }
                   rules={[{ required: true, message: t('请输入 Token Endpoint') }]}
                 />
@@ -895,7 +895,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
                   placeholder={
                     selectedPreset && OAUTH_PRESETS[selectedPreset]
                       ? t('自动生成：') + OAUTH_PRESETS[selectedPreset].user_info_endpoint
-                      : 'https://example.com/api/user'
+                      : t('https://example.com/api/user')
                   }
                   rules={[
                     { required: true, message: t('请输入 User Info Endpoint') },
@@ -909,7 +909,7 @@ const CustomOAuthSetting = ({ serverAddress }) => {
                 <Form.Input
                   field="scopes"
                   label={t('Scopes（可选）')}
-                  placeholder="openid profile email"
+                  placeholder={t('openid profile email')}
                   extraText={
                     discoveryInfo?.scopesSupported?.length
                       ? t('Discovery 建议 scopes：') +

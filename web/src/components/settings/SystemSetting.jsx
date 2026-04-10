@@ -720,7 +720,7 @@ const SystemSetting = () => {
                       <Form.Input
                         field='ServerAddress'
                         label={t('服务器地址')}
-                        placeholder='https://yourdomain.com'
+                        placeholder={t('https://yourdomain.com')}
                         extraText={t(
                           '该服务器地址将影响支付回调地址以及默认首页展示的地址，请确保正确配置',
                         )}
@@ -760,7 +760,7 @@ const SystemSetting = () => {
                       <Form.Input
                         field='WorkerUrl'
                         label={t('Worker地址')}
-                        placeholder='例如：https://workername.yourdomain.workers.dev'
+                        placeholder={t('例如：https://workername.yourdomain.workers.dev')}
                       />
                     </Col>
                     <Col xs={24} sm={24} md={12} lg={12} xl={12}>
@@ -1322,7 +1322,7 @@ const SystemSetting = () => {
                         field='SMTPToken'
                         label={t('SMTP 访问凭证')}
                         type='password'
-                        placeholder='敏感信息不会发送到前端显示'
+                        placeholder={t('敏感信息不会发送到前端显示')}
                       />
                     </Col>
                     <Col xs={24} sm={24} md={8} lg={8} xl={8}>
@@ -1524,8 +1524,8 @@ const SystemSetting = () => {
                     <Col xs={24} sm={24} md={4} lg={4} xl={4}>
                       <Form.Input
                         field='LinuxDOMinimumTrustLevel'
-                        label='LinuxDO Minimum Trust Level'
-                        placeholder='允许注册的最低信任等级'
+                        label={t('LinuxDO Minimum Trust Level')}
+                        placeholder={t('允许注册的最低信任等级')}
                       />
                     </Col>
                   </Row>

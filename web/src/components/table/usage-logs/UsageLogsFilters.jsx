@@ -127,18 +127,6 @@ const LogsFilters = ({
         >
           {t('查询')}
         </Button>
-        <Button
-          size='small'
-          onClick={() => {
-            if (formApi) {
-              formApi.reset();
-              setLogType(0);
-              setTimeout(() => { refresh(); }, 100);
-            }
-          }}
-        >
-          {t('重置')}
-        </Button>
         </div>
       </Form>
     </div>
