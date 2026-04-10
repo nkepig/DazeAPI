@@ -93,24 +93,13 @@ const EditUserModal = (props) => {
     remark: '',
   });
 
-  const getDefaultOverrideFromModel = (modelInfo) => ({
-    billing_type: modelInfo?.billing_type === 'price' ? 'price' : 'ratio',
-    value:
-      typeof modelInfo?.value === 'number'
-        ? modelInfo.value
-        : modelInfo?.billing_type === 'price'
-          ? 0
-          : 1,
-  });
-
   const toggleModel = (modelName) => {
     setModelOverrides((prev) => {
       const next = { ...prev };
       if (next[modelName]) {
         delete next[modelName];
       } else {
-        const modelInfo = allModels.find((model) => model.model === modelName);
-        next[modelName] = getDefaultOverrideFromModel(modelInfo);
+        next[modelName] = { billing_type: 'ratio', value: 1 };
       }
       return next;
     });
@@ -127,7 +116,7 @@ const EditUserModal = (props) => {
     const newOverrides = { ...modelOverrides };
     filteredModels.forEach((m) => {
       if (!newOverrides[m.model]) {
-        newOverrides[m.model] = getDefaultOverrideFromModel(m);
+        newOverrides[m.model] = { billing_type: 'ratio', value: 1 };
       }
     });
     setModelOverrides(newOverrides);
