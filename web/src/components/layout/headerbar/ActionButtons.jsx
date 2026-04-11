@@ -35,7 +35,6 @@ const ActionButtons = ({
   userState,
   isLoading,
   isMobile,
-  isSelfUseMode,
   logout,
   navigate,
   t,
@@ -62,7 +61,6 @@ const ActionButtons = ({
         userState={userState}
         isLoading={isLoading}
         isMobile={isMobile}
-        isSelfUseMode={isSelfUseMode}
         logout={logout}
         navigate={navigate}
         t={t}

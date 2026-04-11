@@ -43,15 +43,7 @@ const SetupWizard = () => {
     username: '',
     password: '',
     confirmPassword: '',
-    usageMode: 'external',
   });
-
-  // 确保默认选中“对外运营模式”，并同步到表单
-  useEffect(() => {
-    if (formRef.current) {
-      formRef.current.setValue('usageMode', 'external');
-    }
-  }, []);
 
   // 定义步骤内容
   const steps = [
@@ -103,7 +95,6 @@ const SetupWizard = () => {
 
   const handleUsageModeChange = (e) => {
     const nextMode = e?.target?.value ?? e;
-    setFormData((prev) => ({ ...prev, usageMode: nextMode }));
     // 同步到表单，便于 getValues() 拿到 usageMode
     if (formRef.current) {
       formRef.current.setValue('usageMode', nextMode);
@@ -148,7 +139,8 @@ const SetupWizard = () => {
         }
         return true;
       case 2: // 使用模式步骤
-        if (!formData.usageMode) {
+        const values = formRef.current?.getValues();
+        if (!values?.usageMode) {
           showError(t('请选择使用模式'));
           return false;
         }
@@ -193,7 +185,6 @@ const SetupWizard = () => {
     // Prepare submission data
     const formValues = { ...values };
     const usageMode = values.usageMode;
-    formValues.SelfUseModeEnabled = usageMode === 'self';
     formValues.DemoSiteEnabled = usageMode === 'demo';
 
     // Remove usageMode as it's not needed by the backend

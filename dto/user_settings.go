@@ -16,12 +16,11 @@ type UserSetting struct {
 	GotifyUrl                        string  `json:"gotify_url,omitempty"`
 	GotifyToken                      string  `json:"gotify_token,omitempty"`
 	GotifyPriority                   int     `json:"gotify_priority"`
-	UpstreamModelUpdateNotifyEnabled bool    `json:"upstream_model_update_notify_enabled,omitempty"`
-	AcceptUnsetRatioModel            bool    `json:"accept_unset_model_ratio_model,omitempty"`
-	RecordIpLog                      bool    `json:"record_ip_log,omitempty"`
-	SidebarModules                   string  `json:"sidebar_modules,omitempty"`
-	BillingPreference                string  `json:"billing_preference,omitempty"`
-	Language                         string  `json:"language,omitempty"`
+	UpstreamModelUpdateNotifyEnabled bool                         `json:"upstream_model_update_notify_enabled,omitempty"`
+	RecordIpLog                      bool                         `json:"record_ip_log,omitempty"`
+	SidebarModules                   string                       `json:"sidebar_modules,omitempty"`
+	BillingPreference                string                       `json:"billing_preference,omitempty"`
+	Language                         string                       `json:"language,omitempty"`
 	// ModelOverrides 管理员为该用户指定的可用模型及其计费覆盖。
 	// 非空时：用户只能使用 map 中的模型，模型列表也只显示这些模型。
 	ModelOverrides map[string]UserModelOverride `json:"model_overrides,omitempty"`

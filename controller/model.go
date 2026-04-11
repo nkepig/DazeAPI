@@ -16,8 +16,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/moonshot"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -113,15 +111,6 @@ func ListModels(c *gin.Context, modelType int) {
 	userOpenAiModels := make([]dto.OpenAIModels, 0)
 
 	userId := c.GetInt("id")
-	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
-	if !acceptUnsetRatioModel {
-		if userId > 0 {
-			userSettings, _ := model.GetUserSetting(userId, false)
-			if userSettings.AcceptUnsetRatioModel {
-				acceptUnsetRatioModel = true
-			}
-		}
-	}
 
 	// check user-level model overrides — if set, only those models are visible
 	var userModelOverrides map[string]dto.UserModelOverride
@@ -157,26 +146,20 @@ func ListModels(c *gin.Context, modelType int) {
 			} else {
 				tokenModelLimit = map[string]bool{}
 			}
-			for allowModel := range tokenModelLimit {
-				if !acceptUnsetRatioModel {
-					_, _, exist := ratio_setting.GetModelRatioOrPrice(allowModel)
-					if !exist {
-						continue
-					}
-				}
-				if oaiModel, ok := openAIModelsMap[allowModel]; ok {
-					oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
-					userOpenAiModels = append(userOpenAiModels, oaiModel)
-				} else {
-					userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
-						Id:                     allowModel,
-						Object:                 "model",
-						Created:                1626777600,
-						OwnedBy:                "custom",
-						SupportedEndpointTypes: model.GetModelSupportEndpointTypes(allowModel),
-					})
-				}
+		for allowModel := range tokenModelLimit {
+			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
+				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
+				userOpenAiModels = append(userOpenAiModels, oaiModel)
+			} else {
+				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+					Id:                     allowModel,
+					Object:                 "model",
+					Created:                1626777600,
+					OwnedBy:                "custom",
+					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(allowModel),
+				})
 			}
+		}
 		} else {
 			userGroup, err := model.GetUserGroup(userId, false)
 			if err != nil {
@@ -204,26 +187,20 @@ func ListModels(c *gin.Context, modelType int) {
 			} else {
 				models = model.GetGroupEnabledModels(group)
 			}
-			for _, modelName := range models {
-				if !acceptUnsetRatioModel {
-					_, _, exist := ratio_setting.GetModelRatioOrPrice(modelName)
-					if !exist {
-						continue
-					}
-				}
-				if oaiModel, ok := openAIModelsMap[modelName]; ok {
-					oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
-					userOpenAiModels = append(userOpenAiModels, oaiModel)
-				} else {
-					userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
-						Id:                     modelName,
-						Object:                 "model",
-						Created:                1626777600,
-						OwnedBy:                "custom",
-						SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
-					})
-				}
+		for _, modelName := range models {
+			if oaiModel, ok := openAIModelsMap[modelName]; ok {
+				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+				userOpenAiModels = append(userOpenAiModels, oaiModel)
+			} else {
+				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+					Id:                     modelName,
+					Object:                 "model",
+					Created:                1626777600,
+					OwnedBy:                "custom",
+					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+				})
 			}
+		}
 		}
 	}
 

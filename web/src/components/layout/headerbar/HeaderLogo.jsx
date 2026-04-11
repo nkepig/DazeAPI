@@ -29,7 +29,6 @@ const HeaderLogo = ({
   logoLoaded,
   isLoading,
   systemName,
-  isSelfUseMode,
   isDemoSiteMode,
   t,
 }) => {
@@ -62,14 +61,14 @@ const HeaderLogo = ({
               {systemName}
             </Typography.Title>
           </SkeletonWrapper>
-          {(isSelfUseMode || isDemoSiteMode) && !isLoading && (
+          {isDemoSiteMode && !isLoading && (
             <Tag
-              color={isSelfUseMode ? 'purple' : 'blue'}
+              color='blue'
               className='text-xs px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm'
               size='small'
               shape='circle'
             >
-              {isSelfUseMode ? t('自用模式') : t('演示站点')}
+              {t('演示站点')}
             </Tag>
           )}
         </div>

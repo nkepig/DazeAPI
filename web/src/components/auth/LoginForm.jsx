@@ -445,12 +445,10 @@ const LoginForm = () => {
                     >{loginLoading ? '...' : t('登录')}</button>
                   </div>
 
-                  {!status.self_use_mode_enabled && (
-                    <div className='flex items-center justify-between mt-4 text-[12px]'>
-                      <Link to='/register' className='text-[#1A1A1A] hover:underline no-underline font-medium'>{t('注册')}</Link>
-                      <Link to='/reset' className='text-[#999] hover:text-[#1A1A1A] hover:underline no-underline'>{t('忘记密码')}</Link>
-                    </div>
-                  )}
+                  <div className='flex items-center justify-between mt-4 text-[12px]'>
+                    <Link to='/register' className='text-[#1A1A1A] hover:underline no-underline font-medium'>{t('注册')}</Link>
+                    <Link to='/reset' className='text-[#999] hover:text-[#1A1A1A] hover:underline no-underline'>{t('忘记密码')}</Link>
+                  </div>
 
                   {hasOAuthLoginOptions && (
                     <>

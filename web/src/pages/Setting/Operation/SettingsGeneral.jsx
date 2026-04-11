@@ -33,9 +33,9 @@ export default function GeneralSettings(props) {
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState({
     RetryTimes: '',
-    SelfUseModeEnabled: false,
     'general_setting.recharge_redirect_url': '',
     'global.pass_through_request_enabled': false,
+    SystemName: 'API',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -74,9 +74,9 @@ export default function GeneralSettings(props) {
 
   const formFieldKeys = [
     'RetryTimes',
-    'SelfUseModeEnabled',
     'general_setting.recharge_redirect_url',
     'global.pass_through_request_enabled',
+    'SystemName',
     'SMTPServer',
     'SMTPPort',
     'SMTPAccount',
@@ -92,7 +92,6 @@ export default function GeneralSettings(props) {
         currentInputs[key] = props.options[key];
       } else {
         currentInputs[key] =
-          key === 'SelfUseModeEnabled' || 
           key === 'global.pass_through_request_enabled' ||
           key === 'SMTPSSLEnabled'
             ? false
@@ -124,14 +123,13 @@ export default function GeneralSettings(props) {
               />
             </Col>
             <Col xs={24} sm={12} md={8} lg={8} xl={8}>
-              <Form.Switch
-                field={'SelfUseModeEnabled'}
-                label={t('自用模式')}
-                extraText={t('开启后不限制：必须设置模型倍率')}
-                size='default'
-                checkedText='｜'
-                uncheckedText='〇'
-                onChange={handleFieldChange('SelfUseModeEnabled')}
+              <Form.Input
+                field={'SystemName'}
+                label={t('站点名称')}
+                initValue={'API'}
+                placeholder={t('例如：API、DazeAI')}
+                onChange={handleFieldChange('SystemName')}
+                showClear
               />
             </Col>
             <Col xs={24} sm={12} md={8} lg={8} xl={8}>

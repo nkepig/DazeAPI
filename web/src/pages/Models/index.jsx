@@ -136,6 +136,17 @@ const Models = () => {
 
   const getPriceInfo = (model) => {
     const gr = model.user_multiplier != null ? model.user_multiplier : getUsedGroupRatio(model);
+    
+    const isDefaultPrice = model.model_price === 0.111 || Math.abs(model.model_price - 0.111) < 0.0001;
+    
+    if (isDefaultPrice) {
+      return { 
+        type: 'unconfigured', 
+        groupRatio: gr, 
+        hasUserMultiplier: model.user_multiplier != null 
+      };
+    }
+    
     if (model.quota_type === 1) {
       const priceUSD = parseFloat(model.model_price) * gr;
       return { type: 'fixed', price: displayPrice(priceUSD), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };
@@ -277,7 +288,13 @@ const Models = () => {
                       </span>
                     </div>
 
-                    {priceInfo.type === 'token' ? (
+                    {priceInfo.type === 'unconfigured' ? (
+                      <div className='space-y-1.5'>
+                        <div className='text-center py-4'>
+                          <p className={`text-[14px] font-medium ${color.accent}`}>{t('模型价格未配置')}</p>
+                        </div>
+                      </div>
+                    ) : priceInfo.type === 'token' ? (
                       <div className='space-y-1.5'>
                         <div className='grid grid-cols-2 gap-x-4 gap-y-1'>
                           <div>
