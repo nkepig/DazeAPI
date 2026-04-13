@@ -39,19 +39,19 @@ const renderRole = (role, t) => {
   switch (role) {
     case 1:
       return (
-        <Tag color='blue' shape='circle'>
+        <Tag color='green' shape='circle'>
           {t('普通用户')}
         </Tag>
       );
     case 10:
       return (
-        <Tag color='yellow' shape='circle'>
+        <Tag color='blue' shape='circle'>
           {t('管理员')}
         </Tag>
       );
     case 100:
       return (
-        <Tag color='orange' shape='circle'>
+        <Tag color='violet' shape='circle'>
           {t('超级管理员')}
         </Tag>
       );

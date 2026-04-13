@@ -11,6 +11,7 @@ import {
   getSystemName,
   showError,
   setStatusData,
+  setUserData,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
@@ -29,6 +30,20 @@ const PageLayout = () => {
     let user = localStorage.getItem('user');
     if (user) {
       userDispatch({ type: 'login', payload: JSON.parse(user) });
+    }
+  };
+
+  const refreshUser = async () => {
+    if (!localStorage.getItem('user')) return;
+    try {
+      const res = await API.get('/api/user/self');
+      const { success, data } = res.data;
+      if (success) {
+        userDispatch({ type: 'login', payload: data });
+        setUserData(data);
+      }
+    } catch {
+      // Session may be expired; keep cached data for now
     }
   };
 
@@ -63,6 +78,7 @@ const PageLayout = () => {
       if (linkEl) linkEl.href = logo;
     }
     loadStatus().catch(console.error);
+    refreshUser();
   }, []);
 
   useEffect(() => {
