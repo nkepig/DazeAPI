@@ -127,7 +127,7 @@ export default function GeneralSettings(props) {
                 field={'SystemName'}
                 label={t('站点名称')}
                 initValue={'API'}
-                placeholder={t('例如：API、DazeAI')}
+                placeholder={t('例如：API、MyAPI')}
                 onChange={handleFieldChange('SystemName')}
                 showClear
               />

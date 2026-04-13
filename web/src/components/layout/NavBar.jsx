@@ -15,7 +15,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { UserContext } from '../../context/User';
-import { isAdmin, isRoot } from '../../helpers';
+import { isAdmin, isRoot, getSystemName } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
 import { normalizeLanguage } from '../../i18n/language';
 
@@ -83,18 +83,14 @@ const NavBar = () => {
 
   const activeLang = normalizeLanguage(i18n.language) || 'zh-CN';
   const currentLang = languages.find((l) => l.code === activeLang)?.label || '简体中文';
+  const systemName = getSystemName();
 
   return (
     <nav className='fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)] bg-white/80 backdrop-blur-lg'>
       <div className='h-full px-6 lg:px-10 flex items-center justify-between'>
         {/* Logo */}
         <Link to='/' className='flex items-center gap-3 no-underline shrink-0'>
-          <img
-            src='/logo.png'
-            alt='Logo'
-            className='w-11 h-11 rounded-lg shrink-0 object-contain relative top-[4px]'
-          />
-          <span className='text-[18px] font-bold text-[#1A1A1A] leading-none'>DazeAI</span>
+          <span className='text-[18px] font-bold text-[#1A1A1A] leading-none'>{systemName}</span>
         </Link>
 
         {/* Desktop Nav */}

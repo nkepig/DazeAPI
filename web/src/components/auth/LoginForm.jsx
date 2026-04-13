@@ -89,6 +89,7 @@ const LoginForm = () => {
   const logoRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState('oauth');
+  const systemName = getSystemName();
 
   const githubButtonTextKeyByState = {
     idle: '使用 GitHub 继续',
@@ -381,7 +382,7 @@ const LoginForm = () => {
 
       {/* Landing hero */}
       <div className='auth-content-overlay'>
-        <div ref={logoRef} className='auth-glitch-logo' data-text='DazeAI'>DazeAI</div>
+        <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
         <p className='auth-tagline'>MULTI-MODEL API AGGREGATION PLATFORM</p>
         <nav className='auth-button-matrix'>
           <button className='auth-neo-btn auth-btn-outline' onClick={() => { setShowForm(true); setFormMode(hasOAuthLoginOptions ? 'oauth' : 'email'); }}>

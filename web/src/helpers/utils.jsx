@@ -48,7 +48,7 @@ export function isRoot() {
 
 export function getSystemName() {
   let system_name = localStorage.getItem('system_name');
-  if (!system_name) return 'DazeAI';
+  if (!system_name) return 'API';
   return system_name;
 }
 
