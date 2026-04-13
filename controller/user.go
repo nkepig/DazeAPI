@@ -471,11 +471,25 @@ func appendRootModelConfig(responseData gin.H, settings dto.UserSetting) {
 		Model       string  `json:"model"`
 		BillingType string  `json:"billing_type"`
 		Value       float64 `json:"value"`
+		VendorID    int     `json:"vendor_id,omitempty"`
+		VendorName  string  `json:"vendor_name,omitempty"`
+	}
+	// 构建供应商 ID -> 名称映射
+	vendors := model.GetVendors()
+	vendorNameMap := make(map[int]string, len(vendors))
+	for _, v := range vendors {
+		vendorNameMap[v.ID] = v.Name
 	}
 	pricingList := model.GetPricing()
 	globalModels := make([]GlobalModelInfo, 0, len(pricingList))
 	for _, p := range pricingList {
-		g := GlobalModelInfo{Model: p.ModelName}
+		g := GlobalModelInfo{
+			Model:    p.ModelName,
+			VendorID: p.VendorID,
+		}
+		if p.VendorID > 0 {
+			g.VendorName = vendorNameMap[p.VendorID]
+		}
 		if p.QuotaType == 1 {
 			g.BillingType = "price"
 			g.Value = p.ModelPrice
