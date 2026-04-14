@@ -18,9 +18,53 @@ type TopUp struct {
 	Money         float64 `json:"money"`
 	TradeNo       string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod string  `json:"payment_method" gorm:"type:varchar(50)"`
+	QrUrl         string  `json:"qr_url" gorm:"type:varchar(500)"`
 	CreateTime    int64   `json:"create_time"`
 	CompleteTime  int64   `json:"complete_time"`
 	Status        string  `json:"status"`
+}
+
+// TopUpAdmin 管理员全平台充值列表（附带用户信息）
+type TopUpAdmin struct {
+	TopUp
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+}
+
+func enrichTopUpsAdmin(topups []*TopUp) []*TopUpAdmin {
+	if len(topups) == 0 {
+		return nil
+	}
+	seen := make(map[int]bool)
+	var ids []int
+	for _, t := range topups {
+		if t == nil || seen[t.UserId] {
+			continue
+		}
+		seen[t.UserId] = true
+		ids = append(ids, t.UserId)
+	}
+	var users []User
+	um := make(map[int]User)
+	if len(ids) > 0 {
+		_ = DB.Where("id IN ?", ids).Select("id", "username", "display_name").Find(&users).Error
+		for i := range users {
+			um[users[i].Id] = users[i]
+		}
+	}
+	out := make([]*TopUpAdmin, len(topups))
+	for i, t := range topups {
+		if t == nil {
+			continue
+		}
+		u := um[t.UserId]
+		out[i] = &TopUpAdmin{
+			TopUp:       *t,
+			Username:    u.Username,
+			DisplayName: u.DisplayName,
+		}
+	}
+	return out
 }
 
 func (topUp *TopUp) Insert() error {
@@ -104,6 +148,35 @@ func Recharge(referenceId string, customerId string) (err error) {
 	return nil
 }
 
+func CompleteTopUp(topUp *TopUp, quota int64) error {
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", topUp.TradeNo).First(topUp).Error; err != nil {
+			return errors.New("充值订单不存在")
+		}
+
+		if topUp.Status != common.TopUpStatusPending {
+			return nil
+		}
+
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quota)).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func GetUserTopUps(userId int, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
 	// Start transaction
 	tx := DB.Begin()
@@ -116,15 +189,17 @@ func GetUserTopUps(userId int, pageInfo *common.PageInfo) (topups []*TopUp, tota
 		}
 	}()
 
+	finishedStatus := []string{common.TopUpStatusSuccess, common.TopUpStatusFailed}
+
 	// Get total count within transaction
-	err = tx.Model(&TopUp{}).Where("user_id = ?", userId).Count(&total).Error
+	err = tx.Model(&TopUp{}).Where("user_id = ?", userId).Where("status IN ?", finishedStatus).Count(&total).Error
 	if err != nil {
 		tx.Rollback()
 		return nil, 0, err
 	}
 
 	// Get paginated topups within same transaction
-	err = tx.Where("user_id = ?", userId).Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error
+	err = tx.Where("user_id = ?", userId).Where("status IN ?", finishedStatus).Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error
 	if err != nil {
 		tx.Rollback()
 		return nil, 0, err
@@ -138,8 +213,9 @@ func GetUserTopUps(userId int, pageInfo *common.PageInfo) (topups []*TopUp, tota
 	return topups, total, nil
 }
 
-// GetAllTopUps 获取全平台的充值记录（管理员使用）
-func GetAllTopUps(pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+// GetAllTopUps 获取全平台的充值记录（管理员使用，含用户名）
+func GetAllTopUps(pageInfo *common.PageInfo) (items []*TopUpAdmin, total int64, err error) {
+	var topups []*TopUp
 	tx := DB.Begin()
 	if tx.Error != nil {
 		return nil, 0, tx.Error
@@ -150,12 +226,14 @@ func GetAllTopUps(pageInfo *common.PageInfo) (topups []*TopUp, total int64, err 
 		}
 	}()
 
-	if err = tx.Model(&TopUp{}).Count(&total).Error; err != nil {
+	finishedStatus := []string{common.TopUpStatusSuccess, common.TopUpStatusFailed}
+
+	if err = tx.Model(&TopUp{}).Where("status IN ?", finishedStatus).Count(&total).Error; err != nil {
 		tx.Rollback()
 		return nil, 0, err
 	}
 
-	if err = tx.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error; err != nil {
+	if err = tx.Where("status IN ?", finishedStatus).Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error; err != nil {
 		tx.Rollback()
 		return nil, 0, err
 	}
@@ -164,7 +242,7 @@ func GetAllTopUps(pageInfo *common.PageInfo) (topups []*TopUp, total int64, err 
 		return nil, 0, err
 	}
 
-	return topups, total, nil
+	return enrichTopUpsAdmin(topups), total, nil
 }
 
 // SearchUserTopUps 按订单号搜索某用户的充值记录
@@ -179,7 +257,8 @@ func SearchUserTopUps(userId int, keyword string, pageInfo *common.PageInfo) (to
 		}
 	}()
 
-	query := tx.Model(&TopUp{}).Where("user_id = ?", userId)
+	finishedStatus := []string{common.TopUpStatusSuccess, common.TopUpStatusFailed}
+	query := tx.Model(&TopUp{}).Where("user_id = ?", userId).Where("status IN ?", finishedStatus)
 	if keyword != "" {
 		like := "%%" + keyword + "%%"
 		query = query.Where("trade_no LIKE ?", like)
@@ -201,8 +280,9 @@ func SearchUserTopUps(userId int, keyword string, pageInfo *common.PageInfo) (to
 	return topups, total, nil
 }
 
-// SearchAllTopUps 按订单号搜索全平台充值记录（管理员使用）
-func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+// SearchAllTopUps 按订单号搜索全平台充值记录（管理员使用，含用户名）
+func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (items []*TopUpAdmin, total int64, err error) {
+	var topups []*TopUp
 	tx := DB.Begin()
 	if tx.Error != nil {
 		return nil, 0, tx.Error
@@ -213,7 +293,8 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 		}
 	}()
 
-	query := tx.Model(&TopUp{})
+	finishedStatus := []string{common.TopUpStatusSuccess, common.TopUpStatusFailed}
+	query := tx.Model(&TopUp{}).Where("status IN ?", finishedStatus)
 	if keyword != "" {
 		like := "%%" + keyword + "%%"
 		query = query.Where("trade_no LIKE ?", like)
@@ -232,7 +313,7 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 	if err = tx.Commit().Error; err != nil {
 		return nil, 0, err
 	}
-	return topups, total, nil
+	return enrichTopUpsAdmin(topups), total, nil
 }
 
 // ManualCompleteTopUp 管理员手动完成订单并给用户充值
@@ -268,7 +349,7 @@ func ManualCompleteTopUp(tradeNo string) error {
 
 		// 计算应充值额度：
 		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit
-		// - 其他订单（如易支付）：Amount 为美元数量，* QuotaPerUnit
+		// - 其他在线充值订单：Amount 为美元数量，* QuotaPerUnit
 		if topUp.PaymentMethod == "stripe" {
 			dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 			quotaToAdd = int(decimal.NewFromFloat(topUp.Money).Mul(dQuotaPerUnit).IntPart())

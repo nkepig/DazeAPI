@@ -23,6 +23,7 @@ import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
+import PaymentSetting from './PaymentSetting';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -112,6 +113,7 @@ const OperationSetting = () => {
       <Card style={{ marginTop: '10px' }}>
         <SettingsCreditLimit options={inputs} refresh={onRefresh} />
       </Card>
+      <PaymentSetting />
     </Spin>
   );
 };

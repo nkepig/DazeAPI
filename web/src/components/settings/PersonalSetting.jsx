@@ -133,7 +133,7 @@ const PersonalSetting = () => {
             value={renderQuota(user?.quota)}
             action={
               <button
-                onClick={() => goToRecharge(navigate, statusState?.status)}
+                onClick={() => goToRecharge(navigate)}
                 className='text-[11px] text-[#2563eb] hover:text-[#1d4ed8] font-medium cursor-pointer border-none bg-transparent p-0'
               >
                 {t('去充值')}

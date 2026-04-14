@@ -88,7 +88,7 @@ const LoginForm = () => {
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const logoRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
-  const [formMode, setFormMode] = useState('oauth');
+  const [formMode, setFormMode] = useState('email');
   const systemName = getSystemName();
 
   const githubButtonTextKeyByState = {
@@ -136,11 +136,7 @@ const LoginForm = () => {
     try { return JSON.parse(savedStatus) || {}; } catch { return {}; }
   }, [statusState?.status]);
 
-  const hasCustomOAuthProviders = (status.custom_oauth_providers || []).length > 0;
-  const hasOAuthLoginOptions = Boolean(
-    status.github_oauth || status.discord_oauth || status.oidc_enabled ||
-    status.wechat_login || status.linuxdo_oauth || status.telegram_oauth || hasCustomOAuthProviders,
-  );
+  const hasOAuthLoginOptions = false;
 
   // Canvas data stream
   useEffect(() => {
@@ -245,9 +241,6 @@ const LoginForm = () => {
   useEffect(() => {
     if (!hasOAuthLoginOptions) setFormMode('email');
   }, [hasOAuthLoginOptions]);
-
-  let affCode = new URLSearchParams(window.location.search).get('aff');
-  if (affCode) localStorage.setItem('aff', affCode);
 
   function handleChange(name, value) { setInputs((p) => ({ ...p, [name]: value })); }
 
@@ -385,7 +378,7 @@ const LoginForm = () => {
         <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
         <p className='auth-tagline'>MULTI-MODEL API AGGREGATION PLATFORM</p>
         <nav className='auth-button-matrix'>
-          <button className='auth-neo-btn auth-btn-outline' onClick={() => { setShowForm(true); setFormMode(hasOAuthLoginOptions ? 'oauth' : 'email'); }}>
+          <button className='auth-neo-btn auth-btn-outline' onClick={() => { setShowForm(true); setFormMode('email'); }}>
             Get Started
           </button>
           <a href='/docs' className='auth-neo-btn auth-btn-ghost'>View Docs</a>

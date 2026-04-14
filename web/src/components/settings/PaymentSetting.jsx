@@ -2,9 +2,9 @@
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+it under the terms of the GNU Affero General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
+any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,96 +19,26 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from '@douyinfe/semi-ui';
-import SettingsGeneralPayment from '../../pages/Setting/Payment/SettingsGeneralPayment';
-import SettingsPaymentGateway from '../../pages/Setting/Payment/SettingsPaymentGateway';
-import SettingsPaymentGatewayStripe from '../../pages/Setting/Payment/SettingsPaymentGatewayStripe';
-import SettingsPaymentGatewayCreem from '../../pages/Setting/Payment/SettingsPaymentGatewayCreem';
-import SettingsPaymentGatewayWaffo from '../../pages/Setting/Payment/SettingsPaymentGatewayWaffo';
-import { API, showError, toBoolean } from '../../helpers';
+import SettingsPaymentGatewayAlipay from '../../pages/Setting/Payment/SettingsPaymentGatewayAlipay';
+import { API, showError } from '../../helpers';
 import { useTranslation } from 'react-i18next';
 
 const PaymentSetting = () => {
   const { t } = useTranslation();
-  let [inputs, setInputs] = useState({
-    ServerAddress: '',
-    PayAddress: '',
-    EpayId: '',
-    EpayKey: '',
-    Price: 7.3,
-    MinTopUp: 1,
-    TopupGroupRatio: '',
-    CustomCallbackAddress: '',
-    PayMethods: '',
-    AmountOptions: '',
-    AmountDiscount: '',
-
-    StripeApiSecret: '',
-    StripeWebhookSecret: '',
-    StripePriceId: '',
-    StripeUnitPrice: 8.0,
-    StripeMinTopUp: 1,
-    StripePromotionCodesEnabled: false,
-  });
-
-  let [loading, setLoading] = useState(false);
+  const [inputs, setInputs] = useState({});
+  const [loading, setLoading] = useState(false);
 
   const getOptions = async () => {
     const res = await API.get('/api/option/');
     const { success, message, data } = res.data;
     if (success) {
-      let newInputs = {};
+      const next = {};
       data.forEach((item) => {
-        switch (item.key) {
-          case 'TopupGroupRatio':
-            try {
-              newInputs[item.key] = JSON.stringify(
-                JSON.parse(item.value),
-                null,
-                2,
-              );
-            } catch (error) {
-              newInputs[item.key] = item.value;
-            }
-            break;
-          case 'payment_setting.amount_options':
-            try {
-              newInputs['AmountOptions'] = JSON.stringify(
-                JSON.parse(item.value),
-                null,
-                2,
-              );
-            } catch (error) {
-              newInputs['AmountOptions'] = item.value;
-            }
-            break;
-          case 'payment_setting.amount_discount':
-            try {
-              newInputs['AmountDiscount'] = JSON.stringify(
-                JSON.parse(item.value),
-                null,
-                2,
-              );
-            } catch (error) {
-              newInputs['AmountDiscount'] = item.value;
-            }
-            break;
-          case 'Price':
-          case 'MinTopUp':
-          case 'StripeUnitPrice':
-          case 'StripeMinTopUp':
-            newInputs[item.key] = parseFloat(item.value);
-            break;
-          default:
-            if (item.key.endsWith('Enabled')) {
-              newInputs[item.key] = toBoolean(item.value);
-            } else {
-              newInputs[item.key] = item.value;
-            }
-            break;
+        if (item.key.startsWith('payment_setting.alipay_')) {
+          next[item.key] = item.value;
         }
       });
-
-      setInputs(newInputs);
+      setInputs(next);
     } else {
       showError(t(message));
     }
@@ -130,25 +60,11 @@ const PaymentSetting = () => {
   }, []);
 
   return (
-    <>
-      <Spin spinning={loading} size='large'>
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsGeneralPayment options={inputs} refresh={onRefresh} />
-        </Card>
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsPaymentGateway options={inputs} refresh={onRefresh} />
-        </Card>
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsPaymentGatewayStripe options={inputs} refresh={onRefresh} />
-        </Card>
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsPaymentGatewayCreem options={inputs} refresh={onRefresh} />
-        </Card>
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsPaymentGatewayWaffo options={inputs} refresh={onRefresh} />
-        </Card>
-      </Spin>
-    </>
+    <Spin spinning={loading} size='large'>
+      <Card style={{ marginTop: '10px' }}>
+        <SettingsPaymentGatewayAlipay options={inputs} refresh={onRefresh} />
+      </Card>
+    </Spin>
   );
 };
 

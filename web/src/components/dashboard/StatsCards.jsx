@@ -90,7 +90,7 @@ const StatsCards = ({
                       size='large'
                       onClick={(e) => {
                         e.stopPropagation();
-                        goToRecharge(navigate, statusState?.status);
+                        goToRecharge(navigate);
                       }}
                     >
                       {t('充值')}

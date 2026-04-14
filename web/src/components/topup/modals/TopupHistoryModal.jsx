@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Modal,
   Table,
@@ -24,7 +24,6 @@ import {
   Typography,
   Toast,
   Empty,
-  Button,
   Input,
   Tag,
 } from '@douyinfe/semi-ui';
@@ -39,12 +38,10 @@ import { isAdmin } from '../../../helpers/utils';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 const { Text } = Typography;
 
-// 状态映射配置
+// 仅展示已结束订单（成功/失败），与接口筛选一致
 const STATUS_CONFIG = {
   success: { type: 'success', key: '成功' },
-  pending: { type: 'warning', key: '待支付' },
   failed: { type: 'danger', key: '失败' },
-  expired: { type: 'danger', key: '已过期' },
 };
 
 // 支付方式映射
@@ -108,32 +105,6 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     setPage(1);
   };
 
-  // 管理员补单
-  const handleAdminComplete = async (tradeNo) => {
-    try {
-      const res = await API.post('/api/user/topup/complete', {
-        trade_no: tradeNo,
-      });
-      const { success, message } = res.data;
-      if (success) {
-        Toast.success({ content: t('补单成功') });
-        await loadTopups(page, pageSize);
-      } else {
-        Toast.error({ content: message || t('补单失败') });
-      }
-    } catch (e) {
-      Toast.error({ content: t('补单失败') });
-    }
-  };
-
-  const confirmAdminComplete = (tradeNo) => {
-    Modal.confirm({
-      title: t('确认补单'),
-      content: t('是否将该订单标记为成功并为用户入账？'),
-      onOk: () => handleAdminComplete(tradeNo),
-    });
-  };
-
   // 渲染状态徽章
   const renderStatusBadge = (status) => {
     const config = STATUS_CONFIG[status] || { type: 'primary', key: status };
@@ -156,11 +127,37 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     return Number(record?.amount || 0) === 0 && tradeNo.startsWith('sub');
   };
 
-  // 检查是否为管理员
   const userIsAdmin = useMemo(() => isAdmin(), []);
 
+  const renderUserCell = useCallback((_, record) => {
+    const un = record.username || '';
+    const dn = (record.display_name || '').trim();
+    if (dn && dn !== un) {
+      return (
+        <Text>
+          {un}
+          <Text type='tertiary' style={{ marginLeft: 4, fontSize: 12 }}>
+            ({dn})
+          </Text>
+        </Text>
+      );
+    }
+    return <Text>{un || `#${record.user_id}`}</Text>;
+  }, []);
+
   const columns = useMemo(() => {
-    const baseColumns = [
+    const baseColumns = [];
+
+    if (userIsAdmin) {
+      baseColumns.push({
+        title: t('用户'),
+        key: 'user',
+        width: 160,
+        render: renderUserCell,
+      });
+    }
+
+    baseColumns.push(
       {
         title: t('订单号'),
         dataIndex: 'trade_no',
@@ -197,7 +194,9 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
         title: t('支付金额'),
         dataIndex: 'money',
         key: 'money',
-        render: (money) => <Text type='danger'>¥{money.toFixed(2)}</Text>,
+        render: (money) => (
+          <Text type='danger'>¥{Number(money ?? 0).toFixed(2)}</Text>
+        ),
       },
       {
         title: t('状态'),
@@ -205,32 +204,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
         key: 'status',
         render: renderStatusBadge,
       },
-    ];
-
-    // 管理员才显示操作列
-    if (userIsAdmin) {
-      baseColumns.push({
-        title: t('操作'),
-        key: 'action',
-        render: (_, record) => {
-          const actions = [];
-          if (record.status === 'pending') {
-            actions.push(
-              <Button
-                key="complete"
-                size='small'
-                type='primary'
-                theme='outline'
-                onClick={() => confirmAdminComplete(record.trade_no)}
-              >
-                {t('补单')}
-              </Button>
-            );
-          }
-          return actions.length > 0 ? <>{actions}</> : null;
-        },
-      });
-    }
+    );
 
     baseColumns.push({
       title: t('创建时间'),
@@ -240,7 +214,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     });
 
     return baseColumns;
-  }, [t, userIsAdmin]);
+  }, [t, userIsAdmin, renderUserCell]);
 
   return (
     <Modal

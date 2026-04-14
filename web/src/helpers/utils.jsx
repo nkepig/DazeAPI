@@ -978,36 +978,6 @@ export const resetPricingFilters = ({
   setCurrentPage?.(DEFAULT_PRICING_FILTERS.currentPage);
 };
 
-/**
- * 解析充值外链：通用设置 recharge_redirect_url 优先，其次运营设置 top_up_link
- * @param {object} [status] - /api/status 的 data
- */
-export function resolveRechargeRedirectUrl(status) {
-  if (!status || typeof status !== 'object') {
-    return '';
-  }
-  const a = (status.recharge_redirect_url || '').trim();
-  if (a) {
-    return a;
-  }
-  return (status.top_up_link || '').trim();
-}
-
-/** 充值跳转：优先通用设置自定义地址，其次运营设置「充值链接」，否则站内 /console/topup */
-export function goToRecharge(navigate, statusOrLegacyLink) {
-  let link = '';
-  if (typeof statusOrLegacyLink === 'string') {
-    link = (statusOrLegacyLink || '').trim();
-  } else {
-    link = resolveRechargeRedirectUrl(statusOrLegacyLink);
-  }
-  if (!link) {
-    navigate('/console/topup');
-    return;
-  }
-  if (/^https?:\/\//i.test(link)) {
-    window.location.assign(link);
-    return;
-  }
-  navigate(link.startsWith('/') ? link : `/${link}`);
+export function goToRecharge(navigate) {
+  navigate('/console/topup');
 }

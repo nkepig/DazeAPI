@@ -12,15 +12,10 @@ const (
 
 type GeneralSetting struct {
 	DocsLink            string `json:"docs_link"`
-	// 控制台「去充值」等跳转地址，优先生效；空则回退运营设置「充值链接」TopUpLink
-	RechargeRedirectUrl string `json:"recharge_redirect_url"`
 	PingIntervalEnabled bool   `json:"ping_interval_enabled"`
 	PingIntervalSeconds int    `json:"ping_interval_seconds"`
-	// 当前站点额度展示类型：USD / CNY / TOKENS
 	QuotaDisplayType string `json:"quota_display_type"`
-	// 自定义货币符号，用于 CUSTOM 展示类型
 	CustomCurrencySymbol string `json:"custom_currency_symbol"`
-	// 自定义货币与美元汇率（1 USD = X Custom）
 	CustomCurrencyExchangeRate float64 `json:"custom_currency_exchange_rate"`
 }
 

@@ -61,7 +61,7 @@ const CHART_COLORS = [
 const TOP_MODEL_COUNT = 5;
 
 const Dashboard = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [userState] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
@@ -188,9 +188,15 @@ const Dashboard = () => {
     return Object.values(dayMap);
   }, [rawData, chartRange, selectedModel]);
 
-  const today = new Date().toLocaleDateString('zh-CN', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
-  });
+  const today = new Date().toLocaleDateString(
+    i18n.language === 'zh' || i18n.language === 'zh-CN' ? 'zh-CN' :
+    i18n.language === 'zh-TW' ? 'zh-TW' :
+    i18n.language === 'ja' ? 'ja-JP' :
+    i18n.language === 'vi' ? 'vi-VN' :
+    i18n.language === 'fr' ? 'fr-FR' :
+    i18n.language === 'ru' ? 'ru-RU' : 'en-US',
+    { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }
+  );
 
   const statItems = [
     { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v) },

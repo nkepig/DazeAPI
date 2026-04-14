@@ -19,21 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 
 export const CHANNEL_OPTIONS = [
   { value: 1, color: 'green', label: 'OpenAI' },
-  {
-    value: 2,
-    color: 'light-blue',
-    label: 'Midjourney Proxy',
-  },
-  {
-    value: 5,
-    color: 'blue',
-    label: 'Midjourney Proxy Plus',
-  },
-  {
-    value: 36,
-    color: 'purple',
-    label: 'Suno API',
-  },
   { value: 4, color: 'grey', label: 'Ollama' },
   {
     value: 14,
@@ -51,32 +36,11 @@ export const CHANNEL_OPTIONS = [
     color: 'teal',
     label: 'Azure OpenAI',
   },
-  {
-    value: 34,
-    color: 'purple',
-    label: 'Cohere',
-  },
-  { value: 39, color: 'grey', label: 'Cloudflare' },
   { value: 43, color: 'blue', label: 'DeepSeek' },
-  {
-    value: 15,
-    color: 'blue',
-    label: '百度文心千帆',
-  },
-  {
-    value: 46,
-    color: 'blue',
-    label: '百度文心千帆V2',
-  },
   {
     value: 17,
     color: 'orange',
     label: '阿里通义千问',
-  },
-  {
-    value: 18,
-    color: 'blue',
-    label: '讯飞星火认知',
   },
   {
     value: 16,
@@ -103,32 +67,14 @@ export const CHANNEL_OPTIONS = [
     color: 'orange',
     label: 'Google PaLM2',
   },
-  {
-    value: 47,
-    color: 'blue',
-    label: 'Xinference',
-  },
   { value: 25, color: 'green', label: 'Moonshot' },
   { value: 20, color: 'green', label: 'OpenRouter' },
-  { value: 19, color: 'blue', label: '360 智脑' },
   { value: 23, color: 'teal', label: '腾讯混元' },
   { value: 31, color: 'green', label: '零一万物' },
   { value: 35, color: 'green', label: 'MiniMax' },
-  { value: 37, color: 'teal', label: 'Dify' },
-  { value: 38, color: 'blue', label: 'Jina' },
   { value: 40, color: 'purple', label: 'SiliconCloud' },
   { value: 42, color: 'blue', label: 'Mistral AI' },
   { value: 8, color: 'pink', label: '自定义渠道' },
-  {
-    value: 22,
-    color: 'blue',
-    label: '知识库：FastGPT',
-  },
-  {
-    value: 21,
-    color: 'purple',
-    label: '知识库：AI Proxy',
-  },
   {
     value: 44,
     color: 'purple',
@@ -160,16 +106,6 @@ export const CHANNEL_OPTIONS = [
     label: '即梦',
   },
   {
-    value: 52,
-    color: 'purple',
-    label: 'Vidu',
-  },
-  {
-    value: 53,
-    color: 'blue',
-    label: 'SubModel',
-  },
-  {
     value: 54,
     color: 'blue',
     label: '豆包视频',
@@ -180,11 +116,6 @@ export const CHANNEL_OPTIONS = [
     label: 'Sora',
   },
   {
-    value: 56,
-    color: 'blue',
-    label: 'Replicate',
-  },
-  {
     value: 57,
     color: 'blue',
     label: 'Codex (OpenAI OAuth)',
@@ -193,7 +124,7 @@ export const CHANNEL_OPTIONS = [
 
 // Channel types that support upstream model list fetching in UI.
 export const MODEL_FETCHABLE_CHANNEL_TYPES = new Set([
-  1, 4, 14, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43,
+  1, 4, 14, 17, 26, 27, 24, 25, 20, 23, 31, 40, 42, 48, 43,
 ]);
 
 export const MODEL_TABLE_PAGE_SIZE = 10;

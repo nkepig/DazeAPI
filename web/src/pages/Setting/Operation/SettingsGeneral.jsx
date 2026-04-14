@@ -33,7 +33,6 @@ export default function GeneralSettings(props) {
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState({
     RetryTimes: '',
-    'general_setting.recharge_redirect_url': '',
     'global.pass_through_request_enabled': false,
     SystemName: 'API',
   });
@@ -74,7 +73,6 @@ export default function GeneralSettings(props) {
 
   const formFieldKeys = [
     'RetryTimes',
-    'general_setting.recharge_redirect_url',
     'global.pass_through_request_enabled',
     'SystemName',
     'SMTPServer',
@@ -141,18 +139,6 @@ export default function GeneralSettings(props) {
                 checkedText='｜'
                 uncheckedText='〇'
                 onChange={handleFieldChange('global.pass_through_request_enabled')}
-              />
-            </Col>
-            <Col xs={24} sm={24} md={16} lg={16} xl={16}>
-              <Form.Input
-                field={'general_setting.recharge_redirect_url'}
-                label={t('控制台充值跳转地址')}
-                initValue={''}
-                placeholder={t('例如 https://example.com/topup 或 /console/topup，留空则使用运营设置中的充值链接')}
-                onChange={handleFieldChange(
-                  'general_setting.recharge_redirect_url',
-                )}
-                showClear
               />
             </Col>
           </Row>

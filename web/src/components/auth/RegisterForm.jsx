@@ -107,9 +107,6 @@ const RegisterForm = () => {
   const githubTimeoutRef = useRef(null);
   const githubButtonText = t({ idle: '使用 GitHub 继续', redirecting: '正在跳转 GitHub...', timeout: '请求超时' }[githubButtonState]);
 
-  let affCode = new URLSearchParams(window.location.search).get('aff');
-  if (affCode) localStorage.setItem('aff', affCode);
-
   const status = useMemo(() => {
     if (statusState?.status) return statusState.status;
     const s = localStorage.getItem('status');
@@ -117,14 +114,12 @@ const RegisterForm = () => {
     try { return JSON.parse(s) || {}; } catch { return {}; }
   }, [statusState?.status]);
 
-  const hasCustomOAuthProviders = (status.custom_oauth_providers || []).length > 0;
-  const hasOAuthOptions = Boolean(status.github_oauth || status.discord_oauth || status.oidc_enabled || status.wechat_login || status.linuxdo_oauth || status.telegram_oauth || hasCustomOAuthProviders);
+  const hasOAuthOptions = false;
 
   useEffect(() => {
     if (status?.turnstile_check) { setTurnstileEnabled(true); setTurnstileSiteKey(status.turnstile_site_key); }
     setHasUserAgreement(status?.user_agreement_enabled || false);
     setHasPrivacyPolicy(status?.privacy_policy_enabled || false);
-    if (hasOAuthOptions) setFormMode('oauth');
   }, [status]);
 
   useEffect(() => {

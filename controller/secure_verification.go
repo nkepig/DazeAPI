@@ -69,8 +69,21 @@ func UniversalVerify(c *gin.Context) {
 	passkey, passkeyErr := model.GetPasskeyByUserID(userId)
 	hasPasskey := passkeyErr == nil && passkey != nil
 
+	// 未启用两步验证/Passkey 时，直接标记为已验证（敏感操作仍依赖登录态）
 	if !has2FA && !hasPasskey {
-		common.ApiError(c, fmt.Errorf("用户未启用2FA或Passkey"))
+		now, err := setSecureVerificationSession(c)
+		if err != nil {
+			common.ApiError(c, fmt.Errorf("保存验证状态失败: %v", err))
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "验证成功",
+			"data": gin.H{
+				"verified":   true,
+				"expires_at": now + SecureVerificationTimeout,
+			},
+		})
 		return
 	}
 
