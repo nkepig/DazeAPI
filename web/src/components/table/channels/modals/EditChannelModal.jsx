@@ -151,7 +151,7 @@ const EditChannelModal = (props) => {
     models: [],
     auto_ban: 1,
     test_model: '',
-    groups: ['default'],
+    groups: [],
     priority: 0,
     weight: 0,
     tag: '',
@@ -1046,7 +1046,7 @@ const EditChannelModal = (props) => {
     localInputs.models = localInputs.models.join(',');
     const groupsForSubmit = Array.isArray(localInputs.groups) && localInputs.groups.length > 0
       ? localInputs.groups
-      : (Array.isArray(inputs.groups) && inputs.groups.length > 0 ? inputs.groups : ['default']);
+      : (Array.isArray(inputs.groups) && inputs.groups.length > 0 ? inputs.groups : []);
     localInputs.groups = groupsForSubmit;
     localInputs.group = groupsForSubmit.join(',');
 

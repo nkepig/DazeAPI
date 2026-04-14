@@ -40,7 +40,7 @@ type User struct {
 	Quota            int            `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
+	Group            string         `json:"group" gorm:"type:varchar(64);default:''"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
@@ -418,6 +418,7 @@ func (user *User) Insert(inviterId int) error {
 		user.SetSetting(defaultSetting)
 	}
 	applyDefaultUserSettings(user)
+	user.Group = NormalizeGroupField(user.Group)
 
 	result := DB.Create(user)
 	if result.Error != nil {
@@ -476,6 +477,7 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		user.SetSetting(defaultSetting)
 	}
 	applyDefaultUserSettings(user)
+	user.Group = NormalizeGroupField(user.Group)
 
 	result := tx.Create(user)
 	if result.Error != nil {
@@ -524,6 +526,7 @@ func (user *User) Update(updatePassword bool) error {
 			return err
 		}
 	}
+	user.Group = NormalizeGroupField(user.Group)
 	newUser := *user
 	if err = DB.First(&user, user.Id).Error; err != nil {
 		return err
@@ -547,6 +550,7 @@ func (user *User) Edit(updatePassword bool, includeQuota bool) error {
 			return err
 		}
 	}
+	user.Group = NormalizeGroupField(user.Group)
 
 	newUser := *user
 	updates := map[string]interface{}{

@@ -153,6 +153,7 @@ func Register(c *gin.Context) {
 		DisplayName: user.Username,
 		InviterId:   inviterId,
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
+		Group:       "",
 	}
 	// 总是保存用户提供的 email（如果有）
 	if user.Email != "" {
@@ -892,6 +893,7 @@ func CreateUser(c *gin.Context) {
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
 		Role:        user.Role, // 保持管理员设置的角色
+		Group:       model.NormalizeGroupField(user.Group),
 	}
 	if err := cleanUser.Insert(0); err != nil {
 		common.ApiError(c, err)
