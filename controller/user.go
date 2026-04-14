@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/QuantumNous/new-api/constant"
 
@@ -1316,4 +1317,59 @@ func AdminSyncUserModels(c *gin.Context) {
 			"removed_models": removedTotal,
 		},
 	})
+}
+
+// AdminGetDefaultVendorRatios 返回全部供应商及新用户默认供应商倍率配置
+func AdminGetDefaultVendorRatios(c *gin.Context) {
+	vendors, err := model.GetAllVendors(0, 10000)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	s := operation_setting.GetUserDefaultsSetting()
+	m := s.DefaultVendorRatioMultipliers
+	if m == nil {
+		m = map[int]float64{}
+	}
+	common.ApiSuccess(c, gin.H{
+		"vendors":                          vendors,
+		"default_vendor_ratio_multipliers": m,
+	})
+}
+
+type adminUpdateDefaultVendorRatiosRequest struct {
+	DefaultVendorRatioMultipliers map[int]float64 `json:"default_vendor_ratio_multipliers"`
+}
+
+// AdminUpdateDefaultVendorRatios 保存新用户默认供应商倍率（按供应商 ID 乘在系统模型倍率/价格上）
+func AdminUpdateDefaultVendorRatios(c *gin.Context) {
+	var req adminUpdateDefaultVendorRatiosRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorMsg(c, "无效的请求参数")
+		return
+	}
+	if req.DefaultVendorRatioMultipliers == nil {
+		req.DefaultVendorRatioMultipliers = map[int]float64{}
+	}
+	normalized := make(map[int]float64, len(req.DefaultVendorRatioMultipliers))
+	for id, v := range req.DefaultVendorRatioMultipliers {
+		if id <= 0 {
+			continue
+		}
+		if v <= 0 || v > 1000 {
+			common.ApiErrorMsg(c, "倍率须在 (0, 1000] 之间")
+			return
+		}
+		normalized[id] = v
+	}
+	jsonBytes, err := common.Marshal(normalized)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.UpdateOption("user_defaults_setting.default_vendor_ratio_multipliers", string(jsonBytes)); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
 }

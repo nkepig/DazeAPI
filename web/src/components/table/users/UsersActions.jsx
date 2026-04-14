@@ -18,36 +18,60 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
-import { Button } from '@douyinfe/semi-ui';
+import { Button, Dropdown } from '@douyinfe/semi-ui';
+import { ChevronDown } from 'lucide-react';
+import DefaultVendorRatioModal from './modals/DefaultVendorRatioModal';
 
 const UsersActions = ({ setShowAddUser, syncModels, t }) => {
   const [syncing, setSyncing] = useState(false);
+  const [vendorModalOpen, setVendorModalOpen] = useState(false);
 
   const handleAddUser = () => {
     setShowAddUser(true);
   };
 
-  const handleSyncModels = async () => {
+  const handleDeleteUnavailable = async () => {
     setSyncing(true);
     await syncModels();
     setSyncing(false);
   };
 
   return (
-    <div className='flex items-center gap-2'>
+    <div className='flex items-center gap-2 flex-wrap'>
       <Button onClick={handleAddUser} size='small' className='shrink-0'>
         {t('添加用户')}
       </Button>
-      <Button
-        onClick={handleSyncModels}
-        size='small'
-        className='shrink-0'
-        loading={syncing}
-        theme='light'
-        type='tertiary'
+      <Dropdown
+        trigger='click'
+        position='bottomLeft'
+        render={
+          <Dropdown.Menu>
+            <Dropdown.Item onClick={handleDeleteUnavailable}>
+              {t('删除不可用模型')}
+            </Dropdown.Item>
+            <Dropdown.Item onClick={() => setVendorModalOpen(true)}>
+              {t('默认供应商倍率')}
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        }
       >
-        {t('同步模型')}
-      </Button>
+        <Button
+          size='small'
+          className='shrink-0'
+          loading={syncing}
+          theme='light'
+          type='tertiary'
+          iconPosition='right'
+          icon={<ChevronDown size={14} />}
+        >
+          {t('同步模型')}
+        </Button>
+      </Dropdown>
+      <DefaultVendorRatioModal
+        visible={vendorModalOpen}
+        onClose={() => setVendorModalOpen(false)}
+        t={t}
+      />
     </div>
   );
 };

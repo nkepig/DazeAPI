@@ -154,7 +154,8 @@ func CompleteTopUp(topUp *TopUp, quota int64) error {
 		refCol = `"trade_no"`
 	}
 
-	return DB.Transaction(func(tx *gorm.DB) error {
+	var completed bool
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", topUp.TradeNo).First(topUp).Error; err != nil {
 			return errors.New("充值订单不存在")
 		}
@@ -173,8 +174,16 @@ func CompleteTopUp(topUp *TopUp, quota int64) error {
 			return err
 		}
 
+		completed = true
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if completed {
+		RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("支付宝充值成功，充值额度: %v，支付金额：%.2f 元，订单号: %s", logger.FormatQuota(int(quota)), topUp.Money, topUp.TradeNo))
+	}
+	return nil
 }
 
 func GetUserTopUps(userId int, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {

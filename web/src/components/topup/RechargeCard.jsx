@@ -123,7 +123,7 @@ const RechargeCard = ({
                 value={payAmount}
                 min={minTopUp}
                 max={999999.99}
-                step={0.01}
+                step={1}
                 precision={2}
                 className='flex-1 min-w-0'
                 onChange={(v) => onPayAmountChange(v == null ? minTopUp : v)}
@@ -131,7 +131,7 @@ const RechargeCard = ({
               <Text className='shrink-0 text-[var(--semi-color-text-1)]'>{t('元')}</Text>
             </div>
             <Text type='tertiary' style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
-              {t('金额须为两位小数，例如 10.00')}
+              {t('上下箭头每次增减 1 元；手动输入支持两位小数')}
             </Text>
           </div>
           <Button

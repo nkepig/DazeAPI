@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
@@ -142,10 +143,12 @@ func buildDefaultModelOverrides() map[string]dto.UserModelOverride {
 	}
 	overrides := make(map[string]dto.UserModelOverride, len(pricingList))
 	for _, pricing := range pricingList {
-		override := dto.UserModelOverride{BillingType: "ratio", Value: pricing.ModelRatio}
+		mult := operation_setting.VendorRatioMultiplier(pricing.VendorID)
+		// ratio 计费：Value 仅作「分组倍率」乘在系统 modelRatio 上（见 relay/helper/price.go applyUserOverride），不得写入 modelRatio 本身
+		override := dto.UserModelOverride{BillingType: "ratio", Value: mult}
 		if pricing.QuotaType == 1 {
 			override.BillingType = "price"
-			override.Value = pricing.ModelPrice
+			override.Value = pricing.ModelPrice * mult
 		}
 		overrides[pricing.ModelName] = override
 	}
