@@ -540,45 +540,59 @@ const EditChannelModal = (props) => {
 
   const fetchUpstreamModelList = async (name, options = {}) => {
     const silent = !!options.silent;
-    // if (inputs['type'] !== 1) {
-    //   showError(t('仅支持 OpenAI 接口格式'));
-    //   return;
-    // }
-    setLoading(true);
-    const models = [];
-    let err = false;
+    const formKey = (inputs.key || '').trim();
+
+    if (formKey) {
+      setLoading(true);
+      const models = [];
+      const res = await API.post(
+        '/api/channel/fetch_models',
+        {
+          base_url: inputs.base_url || '',
+          type: inputs.type,
+          key: formKey.split('\n')[0].trim(),
+        },
+        { skipErrorHandler: true },
+      );
+      if (res && res.data && res.data.success) {
+        models.push(...res.data.data);
+        const uniqueModels = Array.from(new Set(models));
+        setFetchedModels(uniqueModels);
+        if (!silent) {
+          setModelModalVisible(true);
+        }
+        setLoading(false);
+        return uniqueModels;
+      } else {
+        showError(t('获取模型列表失败'));
+        setLoading(false);
+        return null;
+      }
+    }
 
     if (isEdit) {
-      // 如果是编辑模式，使用已有的 channelId 获取模型列表
+      setLoading(true);
+      const models = [];
       const res = await API.get('/api/channel/fetch_models/' + channelId, {
         skipErrorHandler: true,
       });
       if (res && res.data && res.data.success) {
         models.push(...res.data.data);
+        const uniqueModels = Array.from(new Set(models));
+        setFetchedModels(uniqueModels);
+        if (!silent) {
+          setModelModalVisible(true);
+        }
+        setLoading(false);
+        return uniqueModels;
       } else {
-        err = true;
+        showError(t('获取模型列表失败'));
+        setLoading(false);
+        return null;
       }
-    } else {
-      showError(
-        t(
-          '请先保存渠道；若未在表单中填写密钥，请在保存后于密钥管理中配置再获取模型列表',
-        ),
-      );
-      err = true;
     }
 
-    if (!err) {
-      const uniqueModels = Array.from(new Set(models));
-      setFetchedModels(uniqueModels);
-      if (!silent) {
-        setModelModalVisible(true);
-      }
-      setLoading(false);
-      return uniqueModels;
-    } else {
-      showError(t('获取模型列表失败'));
-    }
-    setLoading(false);
+    showError(t('请先填写密钥'));
     return null;
   };
 
