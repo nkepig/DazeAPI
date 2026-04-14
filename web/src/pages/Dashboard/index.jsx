@@ -377,9 +377,7 @@ const Dashboard = () => {
 
         {/* Chart area — extra bottom padding so XAxis labels aren't clipped */}
         <div className='h-[300px]'>
-          {loading ? (
-            <div className='skeleton w-full h-full rounded-lg' />
-          ) : chartData.some((d) => d[dataKey] > 0) ? (
+          {!loading && (
             <ResponsiveContainer width='100%' height='100%'>
               <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 24 }}>
                 <defs>
@@ -388,7 +386,6 @@ const Dashboard = () => {
                     <stop offset='100%' stopColor='#E0E0E0' stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray='3 3' stroke='#F0F0F0' />
                 <XAxis
                   dataKey='date'
                   tick={{ fontSize: 11, fill: '#C8C8C8' }}
@@ -415,7 +412,13 @@ const Dashboard = () => {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          ) : (
+          )}
+          {loading && (
+            <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
+              {t('加载中')}...
+            </div>
+          )}
+          {!loading && !chartData.some((d) => d[dataKey] > 0) && (
             <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
               {t('暂无数据')}
             </div>

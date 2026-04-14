@@ -427,6 +427,9 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 				httpResp.StatusCode,
 				err,
 			))
+			if constant.ErrorLogEnabled {
+				model.RecordErrorLog(c, 1, channel.Id, testModel, "模型测试", err.Error(), 0, 0, false, group, nil)
+			}
 			return testResult{
 				context:     c,
 				localErr:    err,

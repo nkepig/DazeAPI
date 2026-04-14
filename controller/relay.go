@@ -168,7 +168,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		Ctx:        c,
 		TokenGroup: relayInfo.TokenGroup,
 		ModelName:  relayInfo.OriginModelName,
-		Retry:      common.GetPointer(0),
+		Retry:      0,
 	}
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
@@ -193,6 +193,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 			break
 		}
+		defer bodyStorage.Close()
 		c.Request.Body = io.NopCloser(bodyStorage)
 
 		switch relayFormat {
@@ -448,7 +449,7 @@ func RelayTask(c *gin.Context) {
 		Ctx:        c,
 		TokenGroup: relayInfo.TokenGroup,
 		ModelName:  relayInfo.OriginModelName,
-		Retry:      common.GetPointer(0),
+		Retry:      0,
 	}
 
 	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
@@ -482,6 +483,7 @@ func RelayTask(c *gin.Context) {
 			}
 			break
 		}
+		defer bodyStorage.Close()
 		c.Request.Body = io.NopCloser(bodyStorage)
 
 		result, taskErr = relay.RelayTaskSubmit(c, relayInfo)

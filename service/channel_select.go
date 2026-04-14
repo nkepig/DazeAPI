@@ -15,19 +15,16 @@ type RetryParam struct {
 	Ctx          *gin.Context
 	TokenGroup   string
 	ModelName    string
-	Retry        *int
+	Retry        int
 	resetNextTry bool
 }
 
 func (p *RetryParam) GetRetry() int {
-	if p.Retry == nil {
-		return 0
-	}
-	return *p.Retry
+	return p.Retry
 }
 
 func (p *RetryParam) SetRetry(retry int) {
-	p.Retry = &retry
+	p.Retry = retry
 }
 
 func (p *RetryParam) IncreaseRetry() {
@@ -35,10 +32,7 @@ func (p *RetryParam) IncreaseRetry() {
 		p.resetNextTry = false
 		return
 	}
-	if p.Retry == nil {
-		p.Retry = new(int)
-	}
-	*p.Retry++
+	p.Retry++
 }
 
 func (p *RetryParam) ResetRetryNextTry() {

@@ -147,7 +147,7 @@ func Distribute() func(c *gin.Context) {
 						Ctx:        c,
 						ModelName:  modelRequest.Model,
 						TokenGroup: usingGroup,
-						Retry:      common.GetPointer(0),
+						Retry:      0,
 					})
 					if err != nil {
 						showGroup := usingGroup

@@ -22,6 +22,7 @@ func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
 	}
+	rand.Seed(time.Now().UnixNano())
 	newChannelId2channel := make(map[int]*Channel)
 	var channels []*Channel
 	DB.Find(&channels)
@@ -40,10 +41,10 @@ func InitChannelCache() {
 	}
 	for _, channel := range channels {
 		if channel.Status != common.ChannelStatusEnabled {
-			continue // skip disabled channels
+			continue
 		}
-		groups := strings.Split(channel.Group, ",")
-		for _, group := range groups {
+		groupList := strings.Split(channel.Group, ",")
+		for _, group := range groupList {
 			models := strings.Split(channel.Models, ",")
 			for _, model := range models {
 				if _, ok := newGroup2model2channels[group][model]; !ok {
@@ -54,7 +55,6 @@ func InitChannelCache() {
 		}
 	}
 
-	// sort by priority
 	for group, model2channels := range newGroup2model2channels {
 		for model, channels := range model2channels {
 			sort.Slice(channels, func(i, j int) bool {
@@ -66,13 +66,11 @@ func InitChannelCache() {
 
 	channelSyncLock.Lock()
 	group2model2channels = newGroup2model2channels
-	//channelsIDM = newChannelId2channel
 	for i, channel := range newChannelId2channel {
 		if channel.ChannelInfo.IsMultiKey {
 			channel.Keys = channel.GetKeys()
 			if channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
 				if oldChannel, ok := channelsIDM[i]; ok {
-					// 存在旧的渠道，如果是多key且轮询，保留轮询索引信息
 					if oldChannel.ChannelInfo.IsMultiKey && oldChannel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
 						channel.ChannelInfo.MultiKeyPollingIndex = oldChannel.ChannelInfo.MultiKeyPollingIndex
 					}
@@ -99,37 +97,65 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		return GetChannel(group, model, retry)
 	}
 
+	var channels []int
 	channelSyncLock.RLock()
-	defer channelSyncLock.RUnlock()
-
-	// First, try to find channels with the exact model name.
-	channels := group2model2channels[group][model]
-
-	// If no channels found, try to find channels with the normalized model name.
-	if len(channels) == 0 {
-		normalizedModel := ratio_setting.FormatMatchingModelName(model)
-		channels = group2model2channels[group][normalizedModel]
+	groupMap, ok := group2model2channels[group]
+	if ok {
+		channels = groupMap[model]
 	}
 
 	if len(channels) == 0 {
+		normalizedModel := ratio_setting.FormatMatchingModelName(model)
+		if ok {
+			channels = groupMap[normalizedModel]
+		}
+	}
+	channelIDs := make([]int, len(channels))
+	copy(channelIDs, channels)
+	channelSyncLock.RUnlock()
+
+	if len(channelIDs) == 0 {
 		return nil, nil
 	}
 
-	if len(channels) == 1 {
-		if channel, ok := channelsIDM[channels[0]]; ok {
+	if len(channelIDs) == 1 {
+		channelSyncLock.RLock()
+		channel, ok := channelsIDM[channelIDs[0]]
+		channelSyncLock.RUnlock()
+		if ok {
 			return channel, nil
 		}
-		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
+		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelIDs[0])
 	}
 
 	uniquePriorities := make(map[int]bool)
-	for _, channelId := range channels {
+	type channelInfo struct {
+		channel  *Channel
+		priority int64
+		weight   int
+	}
+	channelInfos := make([]channelInfo, 0, len(channelIDs))
+
+	channelSyncLock.RLock()
+	for _, channelId := range channelIDs {
 		if channel, ok := channelsIDM[channelId]; ok {
 			uniquePriorities[int(channel.GetPriority())] = true
+			channelInfos = append(channelInfos, channelInfo{
+				channel:  channel,
+				priority: channel.GetPriority(),
+				weight:   channel.GetWeight(),
+			})
 		} else {
+			channelSyncLock.RUnlock()
 			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
 		}
 	}
+	channelSyncLock.RUnlock()
+
+	if len(channelInfos) == 0 {
+		return nil, errors.New(fmt.Sprintf("no channels found for group: %s, model: %s", group, model))
+	}
+
 	var sortedUniquePriorities []int
 	for priority := range uniquePriorities {
 		sortedUniquePriorities = append(sortedUniquePriorities, priority)
@@ -141,17 +167,12 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	}
 	targetPriority := int64(sortedUniquePriorities[retry])
 
-	// get the priority for the given retry number
 	var sumWeight = 0
 	var targetChannels []*Channel
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			if channel.GetPriority() == targetPriority {
-				sumWeight += channel.GetWeight()
-				targetChannels = append(targetChannels, channel)
-			}
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
+	for _, info := range channelInfos {
+		if info.priority == targetPriority {
+			sumWeight += info.weight
+			targetChannels = append(targetChannels, info.channel)
 		}
 	}
 
@@ -257,9 +278,5 @@ func CacheUpdateChannel(channel *Channel) {
 		return
 	}
 
-	println("CacheUpdateChannel:", channel.Id, channel.Name, channel.Status, channel.ChannelInfo.MultiKeyPollingIndex)
-
-	println("before:", channelsIDM[channel.Id].ChannelInfo.MultiKeyPollingIndex)
 	channelsIDM[channel.Id] = channel
-	println("after :", channelsIDM[channel.Id].ChannelInfo.MultiKeyPollingIndex)
 }
