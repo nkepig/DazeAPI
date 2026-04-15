@@ -82,7 +82,6 @@ func GetStatus(c *gin.Context) {
 		"enable_data_export":            common.DataExportEnabled,
 		"data_export_default_time":      common.DataExportDefaultTime,
 		"default_collapse_sidebar":      common.DefaultCollapseSidebar,
-		"mj_notify_enabled":             setting.MjNotifyEnabled,
 		"demo_site_enabled":             operation_setting.DemoSiteEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 

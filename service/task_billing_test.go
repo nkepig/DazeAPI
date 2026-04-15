@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 	model.DB = db
 	model.LOG_DB = db
 
-	common.UsingSQLite = true
+    common.UsingPostgreSQL = true
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
@@ -42,7 +42,6 @@ func TestMain(m *testing.M) {
 		&model.Token{},
 		&model.Log{},
 		&model.Channel{},
-		&model.UserSubscription{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -62,7 +61,6 @@ func truncate(t *testing.T) {
 		model.DB.Exec("DELETE FROM tokens")
 		model.DB.Exec("DELETE FROM logs")
 		model.DB.Exec("DELETE FROM channels")
-		model.DB.Exec("DELETE FROM user_subscriptions")
 	})
 }
 
@@ -86,19 +84,6 @@ func seedToken(t *testing.T, id int, userId int, key string, remainQuota int) {
 	require.NoError(t, model.DB.Create(token).Error)
 }
 
-func seedSubscription(t *testing.T, id int, userId int, amountTotal int64, amountUsed int64) {
-	t.Helper()
-	sub := &model.UserSubscription{
-		Id:          id,
-		UserId:      userId,
-		AmountTotal: amountTotal,
-		AmountUsed:  amountUsed,
-		Status:      "active",
-		StartTime:   time.Now().Unix(),
-		EndTime:     time.Now().Add(30 * 24 * time.Hour).Unix(),
-	}
-	require.NoError(t, model.DB.Create(sub).Error)
-}
 
 func seedChannel(t *testing.T, id int) {
 	t.Helper()
@@ -158,12 +143,6 @@ func getTokenUsedQuota(t *testing.T, id int) int {
 	return token.UsedQuota
 }
 
-func getSubscriptionUsed(t *testing.T, id int) int64 {
-	t.Helper()
-	var sub model.UserSubscription
-	require.NoError(t, model.DB.Select("amount_used").Where("id = ?", id).First(&sub).Error)
-	return sub.AmountUsed
-}
 
 func getLastLog(t *testing.T) *model.Log {
 	t.Helper()
@@ -217,34 +196,6 @@ func TestRefundTaskQuota_Wallet(t *testing.T) {
 	assert.Equal(t, "test-model", log.ModelName)
 }
 
-func TestRefundTaskQuota_Subscription(t *testing.T) {
-	truncate(t)
-	ctx := context.Background()
-
-	const userID, tokenID, channelID, subID = 2, 2, 2, 1
-	const preConsumed = 2000
-	const subTotal, subUsed int64 = 100000, 50000
-	const tokenRemain = 8000
-
-	seedUser(t, userID, 0)
-	seedToken(t, tokenID, userID, "sk-sub-key", tokenRemain)
-	seedChannel(t, channelID)
-	seedSubscription(t, subID, userID, subTotal, subUsed)
-
-	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceSubscription, subID)
-
-	RefundTaskQuota(ctx, task, "subscription task failed")
-
-	// Subscription used should decrease by preConsumed
-	assert.Equal(t, subUsed-int64(preConsumed), getSubscriptionUsed(t, subID))
-
-	// Token should also be refunded
-	assert.Equal(t, tokenRemain+preConsumed, getTokenRemainQuota(t, tokenID))
-
-	log := getLastLog(t)
-	require.NotNil(t, log)
-	assert.Equal(t, model.LogTypeRefund, log.Type)
-}
 
 func TestRefundTaskQuota_ZeroQuota(t *testing.T) {
 	truncate(t)
@@ -395,37 +346,6 @@ func TestRecalculate_ActualQuotaZero(t *testing.T) {
 	assert.Equal(t, int64(0), countLogs(t))
 }
 
-func TestRecalculate_Subscription_NegativeDelta(t *testing.T) {
-	truncate(t)
-	ctx := context.Background()
-
-	const userID, tokenID, channelID, subID = 14, 14, 14, 2
-	const preConsumed = 5000
-	const actualQuota = 2000 // over-charged by 3000
-	const subTotal, subUsed int64 = 100000, 50000
-	const tokenRemain = 8000
-
-	seedUser(t, userID, 0)
-	seedToken(t, tokenID, userID, "sk-sub-recalc", tokenRemain)
-	seedChannel(t, channelID)
-	seedSubscription(t, subID, userID, subTotal, subUsed)
-
-	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceSubscription, subID)
-
-	RecalculateTaskQuota(ctx, task, actualQuota, "subscription over-charge")
-
-	// Subscription used should decrease by delta (refund 3000)
-	assert.Equal(t, subUsed-int64(preConsumed-actualQuota), getSubscriptionUsed(t, subID))
-
-	// Token refunded
-	assert.Equal(t, tokenRemain+(preConsumed-actualQuota), getTokenRemainQuota(t, tokenID))
-
-	assert.Equal(t, actualQuota, task.Quota)
-
-	log := getLastLog(t)
-	require.NotNil(t, log)
-	assert.Equal(t, model.LogTypeRefund, log.Type)
-}
 
 // ===========================================================================
 // CAS + Billing integration tests

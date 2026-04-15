@@ -90,7 +90,7 @@ export const useSecureVerification = ({
       const methods = await checkVerificationMethods();
 
       if (!methods.has2FA && !methods.hasPasskey) {
-        const errorMessage = t('您需要先启用两步验证或 Passkey 才能执行此操作');
+        const errorMessage = t('当前系统未启用二次验证（功能已移除），无法执行此敏感操作');
         showError(errorMessage);
         onError?.(new Error(errorMessage));
         return false;

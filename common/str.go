@@ -107,12 +107,13 @@ func GetJsonString(data any) string {
 }
 
 // NormalizeBillingPreference clamps the billing preference to valid values.
+// Subscription-based preferences are no longer supported; they fall back to wallet.
 func NormalizeBillingPreference(pref string) string {
 	switch strings.TrimSpace(pref) {
-	case "subscription_first", "wallet_first", "subscription_only", "wallet_only":
+	case "wallet_first", "wallet_only":
 		return strings.TrimSpace(pref)
 	default:
-		return "subscription_first"
+		return "wallet_only"
 	}
 }
 

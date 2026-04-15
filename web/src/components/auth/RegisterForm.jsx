@@ -21,7 +21,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   API, getLogo, showError, showInfo, showSuccess, updateAPI, getSystemName,
-  getOAuthProviderIcon, setUserData, onDiscordOAuthClicked, onCustomOAuthClicked,
+  setUserData, onDiscordOAuthClicked,
   onGitHubOAuthClicked, onLinuxDOOAuthClicked, onOIDCClicked,
 } from '../../helpers';
 import Turnstile from 'react-turnstile';
@@ -96,7 +96,6 @@ const RegisterForm = () => {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [verificationCodeLoading, setVerificationCodeLoading] = useState(false);
   const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
-  const [customOAuthLoading, setCustomOAuthLoading] = useState({});
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -204,7 +203,6 @@ const RegisterForm = () => {
   const handleDiscordClick = requireTerms(() => { setDiscordLoading(true); try { onDiscordOAuthClicked(status.discord_client_id, { shouldLogout: true }); } finally { setTimeout(() => setDiscordLoading(false), 3000); } });
   const handleOIDCClick = requireTerms(() => { setOidcLoading(true); try { onOIDCClicked(status.oidc_authorization_endpoint, status.oidc_client_id, false, { shouldLogout: true }); } finally { setTimeout(() => setOidcLoading(false), 3000); } });
   const handleLinuxDOClick = requireTerms(() => { setLinuxdoLoading(true); try { onLinuxDOOAuthClicked(status.linuxdo_client_id, { shouldLogout: true }); } finally { setTimeout(() => setLinuxdoLoading(false), 3000); } });
-  const handleCustomOAuthClick = requireTerms((p) => { setCustomOAuthLoading((prev) => ({ ...prev, [p.slug]: true })); try { onCustomOAuthClicked(p, { shouldLogout: true }); } finally { setTimeout(() => setCustomOAuthLoading((prev) => ({ ...prev, [p.slug]: false })), 3000); } });
 
   const oauthBtnClass = 'w-full h-11 flex items-center justify-center !rounded-lg !border-[#E0E0E0] hover:!bg-[#F8F8F8] transition-colors';
 
@@ -227,7 +225,6 @@ const RegisterForm = () => {
                 {status.discord_oauth && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<SiDiscord style={{ color: '#5865F2', width: 20, height: 20 }} />} onClick={handleDiscordClick} loading={discordLoading}><span className='ml-2 text-[13px]'>{t('使用 Discord 继续')}</span></Button>}
                 {status.oidc_enabled && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<OIDCIcon style={{ color: '#1877F2' }} />} onClick={handleOIDCClick} loading={oidcLoading}><span className='ml-2 text-[13px]'>{t('使用 OIDC 继续')}</span></Button>}
                 {status.linuxdo_oauth && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<LinuxDoIcon style={{ color: '#E95420', width: 20, height: 20 }} />} onClick={handleLinuxDOClick} loading={linuxdoLoading}><span className='ml-2 text-[13px]'>{t('使用 LinuxDO 继续')}</span></Button>}
-                {status.custom_oauth_providers?.map((p) => <Button key={p.slug} theme='outline' className={oauthBtnClass} type='tertiary' icon={getOAuthProviderIcon(p.icon || '', 20)} onClick={() => handleCustomOAuthClick(p)} loading={customOAuthLoading[p.slug]}><span className='ml-2 text-[13px]'>{t('使用 {{name}} 继续', { name: p.name })}</span></Button>)}
                 {status.telegram_oauth && <div className='flex justify-center my-2'><TelegramLoginButton dataOnauth={onTelegramLoginClicked} botName={status.telegram_bot_name} /></div>}
               </div>
               <Divider margin='16px' align='center'><span className='text-[11px] text-[#CCC]'>{t('或')}</span></Divider>

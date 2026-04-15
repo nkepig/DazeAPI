@@ -109,11 +109,7 @@ const SecureVerificationModal = ({
             {t('需要安全验证')}
           </Typography.Title>
           <Typography.Text type='tertiary'>
-            {t('您需要先启用两步验证或 Passkey 才能查看敏感信息。')}
-          </Typography.Text>
-          <br />
-          <Typography.Text type='tertiary'>
-            {t('请前往个人设置 → 安全设置进行配置。')}
+            {t('当前系统未启用二次验证（功能已移除），无法完成此验证。')}
           </Typography.Text>
         </div>
       </Modal>

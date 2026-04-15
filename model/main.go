@@ -1,65 +1,23 @@
 package model
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"strings"
-	"sync"
-	"time"
+    "fmt"
+    "log"
+    "os"
+    "strings"
+    "sync"
+    "time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
+    "github.com/QuantumNous/new-api/common"
+    "github.com/QuantumNous/new-api/constant"
 
-	"github.com/glebarez/sqlite"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+    "gorm.io/driver/postgres"
+    "gorm.io/gorm"
 )
 
-var commonGroupCol string
-var commonKeyCol string
-var commonTrueVal string
-var commonFalseVal string
-
-var logKeyCol string
-var logGroupCol string
-
-func initCol() {
-	// init common column names
-	if common.UsingPostgreSQL {
-		commonGroupCol = `"group"`
-		commonKeyCol = `"key"`
-		commonTrueVal = "true"
-		commonFalseVal = "false"
-	} else {
-		commonGroupCol = "`group`"
-		commonKeyCol = "`key`"
-		commonTrueVal = "1"
-		commonFalseVal = "0"
-	}
-	if os.Getenv("LOG_SQL_DSN") != "" {
-		switch common.LogSqlType {
-		case common.DatabaseTypePostgreSQL:
-			logGroupCol = `"group"`
-			logKeyCol = `"key"`
-		default:
-			logGroupCol = commonGroupCol
-			logKeyCol = commonKeyCol
-		}
-	} else {
-		// LOG_SQL_DSN 为空时，日志数据库与主数据库相同
-		if common.UsingPostgreSQL {
-			logGroupCol = `"group"`
-			logKeyCol = `"key"`
-		} else {
-			logGroupCol = commonGroupCol
-			logKeyCol = commonKeyCol
-		}
-	}
-	// log sql type and database type
-	//common.SysLog("Using Log SQL Type: " + common.LogSqlType)
-}
+const commonGroupCol = "\"group\""
+const commonKeyCol = "\"key\""
+const logGroupCol = commonGroupCol
 
 var DB *gorm.DB
 
@@ -117,62 +75,26 @@ func CheckSetup() {
 }
 
 func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
-	defer func() {
-		initCol()
-	}()
-	dsn := os.Getenv(envName)
-	if dsn != "" {
-		if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
-			// Use PostgreSQL
-			common.SysLog("using PostgreSQL as database")
-			if !isLog {
-				common.UsingPostgreSQL = true
-			} else {
-				common.LogSqlType = common.DatabaseTypePostgreSQL
-			}
-			return gorm.Open(postgres.New(postgres.Config{
-				DSN:                  dsn,
-				PreferSimpleProtocol: true, // disables implicit prepared statement usage
-			}), &gorm.Config{
-				PrepareStmt: true, // precompile SQL
-			})
-		}
-		if strings.HasPrefix(dsn, "local") {
-			common.SysLog("SQL_DSN not set, using SQLite as database")
-			if !isLog {
-				common.UsingSQLite = true
-			} else {
-				common.LogSqlType = common.DatabaseTypeSQLite
-			}
-			return gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{
-				PrepareStmt: true, // precompile SQL
-			})
-		}
-		// Use MySQL
-		common.SysLog("using MySQL as database")
-		// check parseTime
-		if !strings.Contains(dsn, "parseTime") {
-			if strings.Contains(dsn, "?") {
-				dsn += "&parseTime=true"
-			} else {
-				dsn += "?parseTime=true"
-			}
-		}
-		if !isLog {
-			common.UsingMySQL = true
-		} else {
-			common.LogSqlType = common.DatabaseTypeMySQL
-		}
-		return gorm.Open(mysql.Open(dsn), &gorm.Config{
-			PrepareStmt: true, // precompile SQL
-		})
-	}
-	// Use SQLite
-	common.SysLog("SQL_DSN not set, using SQLite as database")
-	common.UsingSQLite = true
-	return gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{
-		PrepareStmt: true, // precompile SQL
-	})
+    dsn := os.Getenv(envName)
+    if dsn == "" {
+        // Per exact requirement: PostgreSQL DSN is required, no SQLite fallback
+        panic("PostgreSQL DSN is required for environment variable: " + envName)
+    }
+    if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+        // Use PostgreSQL
+        common.SysLog("using PostgreSQL as database")
+        if !isLog {
+            common.UsingPostgreSQL = true
+        }
+        return gorm.Open(postgres.New(postgres.Config{
+            DSN:                  dsn,
+            PreferSimpleProtocol: true, // disables implicit prepared statement usage
+        }), &gorm.Config{
+            PrepareStmt: true, // precompile SQL
+        })
+    }
+    // Unsupported DSN format in this refactor
+    panic("Unsupported SQL DSN: only PostgreSQL DSN is supported in this build")
 }
 
 func InitDB() (err error) {
@@ -249,8 +171,6 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
-	// Migrate price_amount column from float/double to decimal for existing tables
-	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
@@ -260,39 +180,17 @@ func migrateDB() error {
 		&Channel{},
 		&Token{},
 		&User{},
-		&PasskeyCredential{},
 		&Option{},
-		&Redemption{},
 		&Ability{},
 		&Log{},
-		&Midjourney{},
 		&TopUp{},
 		&QuotaData{},
 		&Task{},
-		&Model{},
 		&Vendor{},
-		&PrefillGroup{},
 		&Setup{},
-		&TwoFA{},
-		&TwoFABackupCode{},
-		&Checkin{},
-		&SubscriptionOrder{},
-		&UserSubscription{},
-		&SubscriptionPreConsumeRecord{},
-		&CustomOAuthProvider{},
-		&UserOAuthBinding{},
 	)
 	if err != nil {
 		return err
-	}
-	if common.UsingSQLite {
-		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
-			return err
-		}
-	} else {
-		if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -305,30 +203,21 @@ func migrateDBFast() error {
 		model interface{}
 		name  string
 	}{
+		// 核心表 - 保留
 		{&Channel{}, "Channel"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
-		{&PasskeyCredential{}, "PasskeyCredential"},
 		{&Option{}, "Option"},
-		{&Redemption{}, "Redemption"},
 		{&Ability{}, "Ability"},
 		{&Log{}, "Log"},
-		{&Midjourney{}, "Midjourney"},
 		{&TopUp{}, "TopUp"},
 		{&QuotaData{}, "QuotaData"},
 		{&Task{}, "Task"},
-		{&Model{}, "Model"},
 		{&Vendor{}, "Vendor"},
-		{&PrefillGroup{}, "PrefillGroup"},
 		{&Setup{}, "Setup"},
-		{&TwoFA{}, "TwoFA"},
-		{&TwoFABackupCode{}, "TwoFABackupCode"},
-		{&Checkin{}, "Checkin"},
-		{&SubscriptionOrder{}, "SubscriptionOrder"},
-		{&UserSubscription{}, "UserSubscription"},
-		{&SubscriptionPreConsumeRecord{}, "SubscriptionPreConsumeRecord"},
-		{&CustomOAuthProvider{}, "CustomOAuthProvider"},
-		{&UserOAuthBinding{}, "UserOAuthBinding"},
+		// 以下表已移除: PasskeyCredential, Redemption, Midjourney, Model, PrefillGroup
+		// TwoFA, TwoFABackupCode, Checkin, SubscriptionOrder, UserSubscription
+		// SubscriptionPreConsumeRecord, CustomOAuthProvider, UserOAuthBinding
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
@@ -353,15 +242,6 @@ func migrateDBFast() error {
 			return err
 		}
 	}
-	if common.UsingSQLite {
-		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
-			return err
-		}
-	} else {
-		if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
-			return err
-		}
-	}
 	common.SysLog("database migrated")
 	return nil
 }
@@ -374,81 +254,6 @@ func migrateLOGDB() error {
 	return nil
 }
 
-type sqliteColumnDef struct {
-	Name string
-	DDL  string
-}
-
-func ensureSubscriptionPlanTableSQLite() error {
-	if !common.UsingSQLite {
-		return nil
-	}
-	tableName := "subscription_plans"
-	if !DB.Migrator().HasTable(tableName) {
-		createSQL := `CREATE TABLE ` + "`" + tableName + "`" + ` (
-` + "`id`" + ` integer,
-` + "`title`" + ` varchar(128) NOT NULL,
-` + "`subtitle`" + ` varchar(255) DEFAULT '',
-` + "`price_amount`" + ` decimal(10,6) NOT NULL,
-` + "`currency`" + ` varchar(8) NOT NULL DEFAULT 'USD',
-` + "`duration_unit`" + ` varchar(16) NOT NULL DEFAULT 'month',
-` + "`duration_value`" + ` integer NOT NULL DEFAULT 1,
-` + "`custom_seconds`" + ` bigint NOT NULL DEFAULT 0,
-` + "`enabled`" + ` numeric DEFAULT 1,
-` + "`sort_order`" + ` integer DEFAULT 0,
-` + "`stripe_price_id`" + ` varchar(128) DEFAULT '',
-` + "`creem_product_id`" + ` varchar(128) DEFAULT '',
-` + "`max_purchase_per_user`" + ` integer DEFAULT 0,
-` + "`upgrade_group`" + ` varchar(64) DEFAULT '',
-` + "`total_amount`" + ` bigint NOT NULL DEFAULT 0,
-` + "`quota_reset_period`" + ` varchar(16) DEFAULT 'never',
-` + "`quota_reset_custom_seconds`" + ` bigint DEFAULT 0,
-` + "`created_at`" + ` bigint,
-` + "`updated_at`" + ` bigint,
-PRIMARY KEY (` + "`id`" + `)
-)`
-		return DB.Exec(createSQL).Error
-	}
-	var cols []struct {
-		Name string `gorm:"column:name"`
-	}
-	if err := DB.Raw("PRAGMA table_info(`" + tableName + "`)").Scan(&cols).Error; err != nil {
-		return err
-	}
-	existing := make(map[string]struct{}, len(cols))
-	for _, c := range cols {
-		existing[c.Name] = struct{}{}
-	}
-	required := []sqliteColumnDef{
-		{Name: "title", DDL: "`title` varchar(128) NOT NULL"},
-		{Name: "subtitle", DDL: "`subtitle` varchar(255) DEFAULT ''"},
-		{Name: "price_amount", DDL: "`price_amount` decimal(10,6) NOT NULL"},
-		{Name: "currency", DDL: "`currency` varchar(8) NOT NULL DEFAULT 'USD'"},
-		{Name: "duration_unit", DDL: "`duration_unit` varchar(16) NOT NULL DEFAULT 'month'"},
-		{Name: "duration_value", DDL: "`duration_value` integer NOT NULL DEFAULT 1"},
-		{Name: "custom_seconds", DDL: "`custom_seconds` bigint NOT NULL DEFAULT 0"},
-		{Name: "enabled", DDL: "`enabled` numeric DEFAULT 1"},
-		{Name: "sort_order", DDL: "`sort_order` integer DEFAULT 0"},
-		{Name: "stripe_price_id", DDL: "`stripe_price_id` varchar(128) DEFAULT ''"},
-		{Name: "creem_product_id", DDL: "`creem_product_id` varchar(128) DEFAULT ''"},
-		{Name: "max_purchase_per_user", DDL: "`max_purchase_per_user` integer DEFAULT 0"},
-		{Name: "upgrade_group", DDL: "`upgrade_group` varchar(64) DEFAULT ''"},
-		{Name: "total_amount", DDL: "`total_amount` bigint NOT NULL DEFAULT 0"},
-		{Name: "quota_reset_period", DDL: "`quota_reset_period` varchar(16) DEFAULT 'never'"},
-		{Name: "quota_reset_custom_seconds", DDL: "`quota_reset_custom_seconds` bigint DEFAULT 0"},
-		{Name: "created_at", DDL: "`created_at` bigint"},
-		{Name: "updated_at", DDL: "`updated_at` bigint"},
-	}
-	for _, col := range required {
-		if _, ok := existing[col.Name]; ok {
-			continue
-		}
-		if err := DB.Exec("ALTER TABLE `" + tableName + "` ADD COLUMN " + col.DDL).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 // migrateTokenModelLimitsToText migrates model_limits column from varchar(1024) to text
 // This is safe to run multiple times - it checks the column type first
@@ -503,65 +308,6 @@ func migrateTokenModelLimitsToText() error {
 	return nil
 }
 
-// migrateSubscriptionPlanPriceAmount migrates price_amount column from float/double to decimal(10,6)
-// This is safe to run multiple times - it checks the column type first
-func migrateSubscriptionPlanPriceAmount() {
-	// SQLite doesn't support ALTER COLUMN, and its type affinity handles this automatically
-	// Skip early to avoid GORM parsing the existing table DDL which may cause issues
-	if common.UsingSQLite {
-		return
-	}
-
-	tableName := "subscription_plans"
-	columnName := "price_amount"
-
-	// Check if table exists first
-	if !DB.Migrator().HasTable(tableName) {
-		return
-	}
-
-	// Check if column exists
-	if !DB.Migrator().HasColumn(&SubscriptionPlan{}, columnName) {
-		return
-	}
-
-	var alterSQL string
-	if common.UsingPostgreSQL {
-		// PostgreSQL: Check if already decimal/numeric
-		var dataType string
-		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
-			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
-			tableName, columnName).Scan(&dataType).Error; err != nil {
-			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
-		} else if dataType == "numeric" {
-			return // Already decimal/numeric
-		}
-		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE decimal(10,6) USING %s::decimal(10,6)`,
-			tableName, columnName, columnName)
-	} else if common.UsingMySQL {
-		// MySQL: Check if already decimal
-		var columnType string
-		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
-				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
-			tableName, columnName).Scan(&columnType).Error; err != nil {
-			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
-		} else if strings.HasPrefix(strings.ToLower(columnType), "decimal") {
-			return // Already decimal
-		}
-		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s decimal(10,6) NOT NULL DEFAULT 0",
-			tableName, columnName)
-	} else {
-		return
-	}
-
-	if alterSQL != "" {
-		if err := DB.Exec(alterSQL).Error; err != nil {
-			common.SysLog(fmt.Sprintf("Warning: failed to migrate %s.%s to decimal: %v", tableName, columnName, err))
-		} else {
-			common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to decimal(10,6)", tableName, columnName))
-		}
-	}
-}
 
 func closeDB(db *gorm.DB) error {
 	sqlDB, err := db.DB()

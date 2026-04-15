@@ -64,7 +64,7 @@ func UniversalVerify(c *gin.Context) {
 
 	// 检查用户的验证方式
 	twoFA, _ := model.GetTwoFAByUserId(userId)
-	has2FA := twoFA != nil && twoFA.IsEnabled
+	has2FA := twoFA != nil && twoFA.IsEnabled()
 
 	passkey, passkeyErr := model.GetPasskeyByUserID(userId)
 	hasPasskey := passkeyErr == nil && passkey != nil

@@ -29,16 +29,11 @@ import {
   showSuccess,
   updateAPI,
   getSystemName,
-  getOAuthProviderIcon,
   setUserData,
   onGitHubOAuthClicked,
   onDiscordOAuthClicked,
   onOIDCClicked,
   onLinuxDOOAuthClicked,
-  onCustomOAuthClicked,
-  prepareCredentialRequestOptions,
-  buildAssertionResult,
-  isPasskeySupported,
 } from '../../helpers';
 import Turnstile from 'react-turnstile';
 import {
@@ -55,12 +50,10 @@ import {
   IconGithubLogo,
   IconMail,
   IconLock,
-  IconKey,
 } from '@douyinfe/semi-icons';
 import OIDCIcon from '../common/logo/OIDCIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import LinuxDoIcon from '../common/logo/LinuxDoIcon';
-import TwoFAVerification from './TwoFAVerification';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -117,9 +110,6 @@ const LoginForm = () => {
   const [linuxdoLoading, setLinuxdoLoading] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
-  const [showTwoFA, setShowTwoFA] = useState(false);
-  const [passkeySupported, setPasskeySupported] = useState(false);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [hasUserAgreement, setHasUserAgreement] = useState(false);
   const [hasPrivacyPolicy, setHasPrivacyPolicy] = useState(false);
@@ -127,7 +117,6 @@ const LoginForm = () => {
   const [githubButtonDisabled, setGithubButtonDisabled] = useState(false);
   const githubTimeoutRef = useRef(null);
   const githubButtonText = t(githubButtonTextKeyByState[githubButtonState]);
-  const [customOAuthLoading, setCustomOAuthLoading] = useState({});
 
   const status = useMemo(() => {
     if (statusState?.status) return statusState.status;
@@ -216,7 +205,6 @@ const LoginForm = () => {
   }, [status]);
 
   useEffect(() => {
-    isPasskeySupported().then(setPasskeySupported).catch(() => setPasskeySupported(false));
     return () => { if (githubTimeoutRef.current) clearTimeout(githubTimeoutRef.current); };
   }, []);
 
@@ -261,7 +249,6 @@ const LoginForm = () => {
         const res = await API.post(`/api/user/login?turnstile=${turnstileToken}`, { username, password });
         const { success, message, data } = res.data;
         if (success) {
-          if (data?.require_2fa) { setShowTwoFA(true); setLoginLoading(false); return; }
           userDispatch({ type: 'login', payload: data }); setUserData(data); updateAPI();
           showSuccess('登录成功！');
           if (username === 'root' && password === '123456') Modal.error({ title: '您正在使用默认密码！', content: '请立刻修改默认密码！', centered: true });
@@ -307,28 +294,6 @@ const LoginForm = () => {
   const handleDiscordClick = requireTerms(() => { setDiscordLoading(true); try { onDiscordOAuthClicked(status.discord_client_id, { shouldLogout: true }); } finally { setTimeout(() => setDiscordLoading(false), 3000); } });
   const handleOIDCClick = requireTerms(() => { setOidcLoading(true); try { onOIDCClicked(status.oidc_authorization_endpoint, status.oidc_client_id, false, { shouldLogout: true }); } finally { setTimeout(() => setOidcLoading(false), 3000); } });
   const handleLinuxDOClick = requireTerms(() => { setLinuxdoLoading(true); try { onLinuxDOOAuthClicked(status.linuxdo_client_id, { shouldLogout: true }); } finally { setTimeout(() => setLinuxdoLoading(false), 3000); } });
-  const handleCustomOAuthClick = requireTerms((provider) => { setCustomOAuthLoading((p) => ({ ...p, [provider.slug]: true })); try { onCustomOAuthClicked(provider, { shouldLogout: true }); } finally { setTimeout(() => setCustomOAuthLoading((p) => ({ ...p, [provider.slug]: false })), 3000); } });
-
-  const handlePasskeyLogin = requireTerms(async () => {
-    if (!passkeySupported || !window.PublicKeyCredential) { showInfo('当前环境无法使用 Passkey 登录'); return; }
-    setPasskeyLoading(true);
-    try {
-      const beginRes = await API.post('/api/user/passkey/login/begin');
-      const { success, message, data } = beginRes.data;
-      if (!success) { showError(message || '无法发起 Passkey 登录'); return; }
-      const publicKeyOptions = prepareCredentialRequestOptions(data?.options || data?.publicKey || data);
-      const assertion = await navigator.credentials.get({ publicKey: publicKeyOptions });
-      const payload = buildAssertionResult(assertion);
-      if (!payload) { showError('Passkey 验证失败'); return; }
-      const finishRes = await API.post('/api/user/passkey/login/finish', payload);
-      if (finishRes.data.success) { userDispatch({ type: 'login', payload: finishRes.data.data }); setUserData(finishRes.data.data); updateAPI(); showSuccess('登录成功！'); navigate('/console/dashboard'); }
-      else showError(finishRes.data.message || 'Passkey 登录失败');
-    } catch (e) { if (e?.name === 'AbortError') showInfo('已取消 Passkey 登录'); else showError('Passkey 登录失败，请重试'); }
-    finally { setPasskeyLoading(false); }
-  });
-
-  const handle2FASuccess = (data) => { userDispatch({ type: 'login', payload: data }); setUserData(data); updateAPI(); showSuccess('登录成功！'); navigate('/console/dashboard'); };
-  const handleBackToLogin = () => { setShowTwoFA(false); setInputs({ username: '', password: '', wechat_verification_code: '' }); };
 
   const oauthBtnClass = 'w-full h-11 flex items-center justify-center !rounded-lg !border-[#E0E0E0] hover:!bg-[#F8F8F8] transition-colors';
 
@@ -354,9 +319,7 @@ const LoginForm = () => {
       {status.discord_oauth && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<SiDiscord style={{ color: '#5865F2', width: 20, height: 20 }} />} onClick={handleDiscordClick} loading={discordLoading}><span className='ml-2 text-[13px]'>{t('使用 Discord 继续')}</span></Button>}
       {status.oidc_enabled && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<OIDCIcon style={{ color: '#1877F2' }} />} onClick={handleOIDCClick} loading={oidcLoading}><span className='ml-2 text-[13px]'>{t('使用 OIDC 继续')}</span></Button>}
       {status.linuxdo_oauth && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<LinuxDoIcon style={{ color: '#E95420', width: 20, height: 20 }} />} onClick={handleLinuxDOClick} loading={linuxdoLoading}><span className='ml-2 text-[13px]'>{t('使用 LinuxDO 继续')}</span></Button>}
-      {status.custom_oauth_providers?.map((p) => <Button key={p.slug} theme='outline' className={oauthBtnClass} type='tertiary' icon={getOAuthProviderIcon(p.icon || '', 20)} onClick={() => handleCustomOAuthClick(p)} loading={customOAuthLoading[p.slug]}><span className='ml-2 text-[13px]'>{t('使用 {{name}} 继续', { name: p.name })}</span></Button>)}
       {status.telegram_oauth && <div className='flex justify-center my-2'><TelegramLoginButton dataOnauth={onTelegramLoginClicked} botName={status.telegram_bot_name} /></div>}
-      {status.passkey_login && passkeySupported && <Button theme='outline' className={oauthBtnClass} type='tertiary' icon={<IconKey size='large' />} onClick={handlePasskeyLogin} loading={passkeyLoading}><span className='ml-2 text-[13px]'>{t('使用 Passkey 登录')}</span></Button>}
     </div>
   );
 
@@ -419,11 +382,6 @@ const LoginForm = () => {
                 </>
               ) : (
                 <>
-                  {status.passkey_login && passkeySupported && (
-                    <Button theme='outline' type='tertiary' className={oauthBtnClass + ' mb-3'} icon={<IconKey size='large' />} onClick={handlePasskeyLogin} loading={passkeyLoading}>
-                      <span className='ml-2 text-[13px]'>{t('使用 Passkey 登录')}</span>
-                    </Button>
-                  )}
                   <Form className='space-y-1'>
                     <Form.Input field='username' label={t('用户名/邮箱')} placeholder={t('用户名/邮箱')} name='username' onChange={(v) => handleChange('username', v)} prefix={<IconMail />} />
                     <Form.Input field='password' label={t('密码')} placeholder={t('密码')} name='password' mode='password' onChange={(v) => handleChange('password', v)} prefix={<IconLock />} />
@@ -465,11 +423,6 @@ const LoginForm = () => {
         <div className='flex flex-col items-center'><img src={status.wechat_qrcode} alt='' className='mb-4' /></div>
         <p className='text-center mb-4 text-sm'>{t('微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）')}</p>
         <Form><Form.Input field='wechat_verification_code' placeholder={t('验证码')} label={t('验证码')} value={inputs.wechat_verification_code} onChange={(v) => handleChange('wechat_verification_code', v)} /></Form>
-      </Modal>
-
-      {/* 2FA Modal */}
-      <Modal title='两步验证' visible={showTwoFA} onCancel={handleBackToLogin} footer={null} width={450} centered>
-        <TwoFAVerification onSuccess={handle2FASuccess} onBack={handleBackToLogin} isModal />
       </Modal>
 
       {turnstileEnabled && (

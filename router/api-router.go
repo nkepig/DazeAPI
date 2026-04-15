@@ -172,17 +172,6 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 
-		redemptionRoute := apiRouter.Group("/redemption")
-		redemptionRoute.Use(middleware.AdminAuth())
-		{
-			redemptionRoute.GET("/", controller.GetAllRedemptions)
-			redemptionRoute.GET("/search", controller.SearchRedemptions)
-			redemptionRoute.GET("/:id", controller.GetRedemption)
-			redemptionRoute.POST("/", controller.AddRedemption)
-			redemptionRoute.PUT("/", controller.UpdateRedemption)
-			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
-			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
-		}
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
 		logRoute.DELETE("/", middleware.AdminAuth(), controller.DeleteHistoryLogs)
@@ -202,19 +191,11 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			logRoute.GET("/token", middleware.TokenAuthReadOnly(), controller.GetLogByKey)
 		}
+
 		groupRoute := apiRouter.Group("/group")
 		groupRoute.Use(middleware.AdminAuth())
 		{
 			groupRoute.GET("/", controller.GetGroups)
-		}
-
-		prefillGroupRoute := apiRouter.Group("/prefill_group")
-		prefillGroupRoute.Use(middleware.AdminAuth())
-		{
-			prefillGroupRoute.GET("/", controller.GetPrefillGroups)
-			prefillGroupRoute.POST("/", controller.CreatePrefillGroup)
-			prefillGroupRoute.PUT("/", controller.UpdatePrefillGroup)
-			prefillGroupRoute.DELETE("/:id", controller.DeletePrefillGroup)
 		}
 
 		taskRoute := apiRouter.Group("/task")
@@ -232,20 +213,6 @@ func SetApiRouter(router *gin.Engine) {
 			vendorRoute.POST("/", controller.CreateVendorMeta)
 			vendorRoute.PUT("/", controller.UpdateVendorMeta)
 			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
-		}
-
-		modelsRoute := apiRouter.Group("/models")
-		modelsRoute.Use(middleware.AdminAuth())
-		{
-			modelsRoute.GET("/sync_upstream/preview", controller.SyncUpstreamPreview)
-			modelsRoute.POST("/sync_upstream", controller.SyncUpstreamModels)
-			modelsRoute.GET("/missing", controller.GetMissingModels)
-			modelsRoute.GET("/", controller.GetAllModelsMeta)
-			modelsRoute.GET("/search", controller.SearchModelsMeta)
-			modelsRoute.GET("/:id", controller.GetModelMeta)
-			modelsRoute.POST("/", controller.CreateModelMeta)
-			modelsRoute.PUT("/", controller.UpdateModelMeta)
-			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 
 	}
