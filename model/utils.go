@@ -2,6 +2,8 @@ package model
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +19,7 @@ const (
 	BatchUpdateTypeUsedQuota
 	BatchUpdateTypeChannelUsedQuota
 	BatchUpdateTypeRequestCount
-	BatchUpdateTypeCount // if you add a new type, you need to add a new map and a new lock
+	BatchUpdateTypeCount
 )
 
 var batchUpdateStores []map[int]int
@@ -49,8 +51,22 @@ func addNewRecord(type_ int, id int, value int) {
 	}
 }
 
+func batchSingleColumnSQL(table, column string, updates map[int]int) string {
+	cases := make([]string, 0, len(updates))
+	ids := make([]string, 0, len(updates))
+	for id, value := range updates {
+		ids = append(ids, fmt.Sprintf("%d", id))
+		cases = append(cases, fmt.Sprintf("WHEN %d THEN %s + %d", id, column, value))
+	}
+	return fmt.Sprintf(
+		"UPDATE %s SET %s = CASE id %s END WHERE id IN (%s)",
+		table, column,
+		strings.Join(cases, " "),
+		strings.Join(ids, ","),
+	)
+}
+
 func batchUpdate() {
-	// check if there's any data to update
 	hasData := false
 	for i := 0; i < BatchUpdateTypeCount; i++ {
 		batchUpdateLocks[i].Lock()
@@ -67,33 +83,41 @@ func batchUpdate() {
 	}
 
 	common.SysLog("batch update started")
+
 	for i := 0; i < BatchUpdateTypeCount; i++ {
 		batchUpdateLocks[i].Lock()
 		store := batchUpdateStores[i]
 		batchUpdateStores[i] = make(map[int]int)
 		batchUpdateLocks[i].Unlock()
-		// TODO: maybe we can combine updates with same key?
-		for key, value := range store {
-			switch i {
-			case BatchUpdateTypeUserQuota:
-				err := increaseUserQuota(key, value)
-				if err != nil {
-					common.SysLog("failed to batch update user quota: " + err.Error())
-				}
-			case BatchUpdateTypeTokenQuota:
-				err := increaseTokenQuota(key, value)
-				if err != nil {
-					common.SysLog("failed to batch update token quota: " + err.Error())
-				}
-			case BatchUpdateTypeUsedQuota:
-				updateUserUsedQuota(key, value)
-			case BatchUpdateTypeRequestCount:
-				updateUserRequestCount(key, value)
-			case BatchUpdateTypeChannelUsedQuota:
-				updateChannelUsedQuota(key, value)
+
+		if len(store) == 0 {
+			continue
+		}
+
+		switch i {
+		case BatchUpdateTypeUserQuota:
+			if err := DB.Exec(batchSingleColumnSQL("users", "quota", store)).Error; err != nil {
+				common.SysLog("failed to batch update user quota: " + err.Error())
+			}
+		case BatchUpdateTypeTokenQuota:
+			if err := DB.Exec(batchSingleColumnSQL("tokens", "quota", store)).Error; err != nil {
+				common.SysLog("failed to batch update token quota: " + err.Error())
+			}
+		case BatchUpdateTypeUsedQuota:
+			if err := DB.Exec(batchSingleColumnSQL("users", "used_quota", store)).Error; err != nil {
+				common.SysLog("failed to batch update user used quota: " + err.Error())
+			}
+		case BatchUpdateTypeRequestCount:
+			if err := DB.Exec(batchSingleColumnSQL("users", "request_count", store)).Error; err != nil {
+				common.SysLog("failed to batch update user request count: " + err.Error())
+			}
+		case BatchUpdateTypeChannelUsedQuota:
+			if err := DB.Exec(batchSingleColumnSQL("channels", "used_quota", store)).Error; err != nil {
+				common.SysLog("failed to batch update channel used quota: " + err.Error())
 			}
 		}
 	}
+
 	common.SysLog("batch update finished")
 }
 

@@ -464,8 +464,8 @@ export const getChannelsColumns = ({
     },
     {
       key: COLUMN_KEYS.BALANCE,
-      title: t('剩余额度'),
-      dataIndex: 'balance',
+      title: t('已使用额度'),
+      dataIndex: 'used_quota',
       render: (text, record, index) => {
         if (record.children === undefined) {
           return (
@@ -476,7 +476,7 @@ export const getChannelsColumns = ({
                 </Tag>
               ) : (
                 <Tag color='white' type='ghost' shape='circle'>
-                  {renderQuotaWithAmount(record.balance)}
+                  {renderQuotaWithAmount(record.used_quota)}
                 </Tag>
               )}
             </div>
@@ -484,7 +484,7 @@ export const getChannelsColumns = ({
         } else {
           return (
             <Tag color='white' type='ghost' shape='circle'>
-              {renderQuotaWithAmount(record.balance)}
+              {renderQuotaWithAmount(record.used_quota)}
             </Tag>
           );
         }
