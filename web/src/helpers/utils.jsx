@@ -70,12 +70,9 @@ export function getFooterHTML() {
 }
 
 export async function copy(text) {
-  let okay = true;
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (e) {
+  let okay = false;
+  if (!navigator?.clipboard) {
     try {
-      // 构建 textarea 执行复制命令，保留多行文本格式
       const textarea = window.document.createElement('textarea');
       textarea.value = text;
       textarea.setAttribute('readonly', '');
@@ -84,10 +81,16 @@ export async function copy(text) {
       textarea.style.top = '-9999px';
       window.document.body.appendChild(textarea);
       textarea.select();
-      window.document.execCommand('copy');
+      okay = window.document.execCommand('copy');
       window.document.body.removeChild(textarea);
     } catch (e) {
-      okay = false;
+      console.error(e);
+    }
+  } else {
+    try {
+      await navigator.clipboard.writeText(text);
+      okay = true;
+    } catch (e) {
       console.error(e);
     }
   }

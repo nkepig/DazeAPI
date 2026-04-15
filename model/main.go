@@ -215,9 +215,6 @@ func migrateDBFast() error {
 		{&Task{}, "Task"},
 		{&Vendor{}, "Vendor"},
 		{&Setup{}, "Setup"},
-		// 以下表已移除: PasskeyCredential, Redemption, Midjourney, Model, PrefillGroup
-		// TwoFA, TwoFABackupCode, Checkin, SubscriptionOrder, UserSubscription
-		// SubscriptionPreConsumeRecord, CustomOAuthProvider, UserOAuthBinding
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
