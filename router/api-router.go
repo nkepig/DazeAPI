@@ -198,6 +198,12 @@ func SetApiRouter(router *gin.Engine) {
 			groupRoute.GET("/", controller.GetGroups)
 		}
 
+		prefillGroupRoute := apiRouter.Group("/prefill_group")
+		prefillGroupRoute.Use(middleware.AdminAuth())
+		{
+			prefillGroupRoute.GET("/", controller.GetPrefillGroups)
+		}
+
 		taskRoute := apiRouter.Group("/task")
 		{
 			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)

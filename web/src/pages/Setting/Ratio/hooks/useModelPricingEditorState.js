@@ -554,8 +554,11 @@ export function useModelPricingEditorState({
       AudioCompletionRatio: parseOptionJSON(options.AudioCompletionRatio),
     };
 
-    const names = new Set([
-      ...candidateModelNames,
+    const candidateSet = new Set(
+      candidateModelNames.map((n) => (typeof n === 'string' ? n : n.id))
+    );
+
+    const configuredNames = [
       ...Object.keys(sourceMaps.ModelPrice),
       ...Object.keys(sourceMaps.ModelRatio),
       ...Object.keys(sourceMaps.CompletionRatio),
@@ -565,6 +568,11 @@ export function useModelPricingEditorState({
       ...Object.keys(sourceMaps.ImageRatio),
       ...Object.keys(sourceMaps.AudioRatio),
       ...Object.keys(sourceMaps.AudioCompletionRatio),
+    ].filter((name) => candidateSet.has(name));
+
+    const names = new Set([
+      ...candidateModelNames.map((n) => (typeof n === 'string' ? n : n.id)).filter(Boolean),
+      ...configuredNames,
     ]);
 
     const nextModels = Array.from(names)

@@ -28,8 +28,10 @@ import {
 import { TABLE_COMPACT_MODES_KEY } from '../constants';
 import { MOBILE_BREAKPOINT } from '../hooks/common/useIsMobile';
 
+import { safeHtml } from './sanitize';
+
 const HTMLToastContent = ({ htmlContent }) => {
-  return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+  return <div dangerouslySetInnerHTML={{ __html: safeHtml(htmlContent) }} />;
 };
 export default HTMLToastContent;
 export function isAdmin() {

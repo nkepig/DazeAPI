@@ -27,6 +27,7 @@ import {
 } from '@douyinfe/semi-illustrations';
 import { useTranslation } from 'react-i18next';
 import MarkdownRenderer from '../markdown/MarkdownRenderer';
+import { safeHtml } from '../../../helpers/sanitize';
 
 // 检查是否为 URL
 const isUrl = (content) => {
@@ -47,20 +48,18 @@ const isHtmlContent = (content) => {
   return htmlTagRegex.test(content);
 };
 
-// 安全地渲染HTML内容
+// 安全地渲染HTML内容（提取样式 + 净化）
 const sanitizeHtml = (html) => {
-  // 创建一个临时元素来解析HTML
+  const sanitized = safeHtml(html);
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+  tempDiv.innerHTML = sanitized;
 
-  // 提取样式
   const styles = Array.from(tempDiv.querySelectorAll('style'))
     .map((style) => style.innerHTML)
     .join('\n');
 
-  // 提取body内容，如果没有body标签则使用全部内容
   const bodyContent = tempDiv.querySelector('body');
-  const content = bodyContent ? bodyContent.innerHTML : html;
+  const content = bodyContent ? bodyContent.innerHTML : sanitized;
 
   return { content, styles };
 };

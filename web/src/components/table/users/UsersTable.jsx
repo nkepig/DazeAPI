@@ -207,4 +207,4 @@ const UsersTable = (usersData) => {
   );
 };
 
-export default UsersTable;
+export default React.memo(UsersTable);

@@ -174,4 +174,4 @@ const ChannelsTable = (channelsData) => {
   );
 };
 
-export default ChannelsTable;
+export default React.memo(ChannelsTable);

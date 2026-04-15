@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import { invalidateQuotaCache } from './render';
+
 export function setStatusData(data) {
   localStorage.setItem('status', JSON.stringify(data));
   localStorage.setItem('system_name', data.system_name);
@@ -28,6 +30,7 @@ export function setStatusData(data) {
     'default_collapse_sidebar',
     data.default_collapse_sidebar,
   );
+  invalidateQuotaCache();
 
   // cleanup removed features
   localStorage.removeItem('footer_html');

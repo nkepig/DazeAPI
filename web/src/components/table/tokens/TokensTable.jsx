@@ -112,4 +112,4 @@ const TokensTable = (tokensData) => {
   );
 };
 
-export default TokensTable;
+export default React.memo(TokensTable);

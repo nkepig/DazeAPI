@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useState } from 'react';
 import { getFooterHTML } from '../../helpers';
+import { safeHtml } from '../../helpers/sanitize';
 
 const FooterBar = () => {
   const [footer, setFooter] = useState(getFooterHTML());
@@ -42,7 +43,7 @@ const FooterBar = () => {
     <div className='w-full'>
       <div
         className='custom-footer'
-        dangerouslySetInnerHTML={{ __html: footer }}
+        dangerouslySetInnerHTML={{ __html: safeHtml(footer) }}
       />
     </div>
   );

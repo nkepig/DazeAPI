@@ -37,6 +37,7 @@ import {
   showSuccess,
   showError,
   showInfo,
+  getQuotaPerUnit,
 } from '../../../helpers';
 import {
   CHANNEL_OPTIONS,
@@ -287,10 +288,6 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.ID,
       title: t('ID'),
       dataIndex: 'id',
-      render: (text, record) => {
-        const color = record.status === 2 ? '#ef4444' : record.status === 3 ? '#f59e0b' : undefined;
-        return <span style={color ? { color } : undefined}>{text}</span>;
-      },
     },
     {
       key: COLUMN_KEYS.NAME,
@@ -306,9 +303,6 @@ export const getChannelsColumns = ({
           upstreamUpdateMeta.supported &&
           upstreamUpdateMeta.enabled &&
           (pendingAddCount > 0 || pendingRemoveCount > 0);
-        const nameColor =
-          record.status === 2 ? '#ef4444' : record.status === 3 ? '#f59e0b' : undefined;
-        const nameStyle = nameColor ? { color: nameColor, fontWeight: 500 } : undefined;
         const nameNode =
           record.remark && record.remark.trim() !== '' ? (
             <Tooltip
@@ -338,10 +332,10 @@ export const getChannelsColumns = ({
               trigger='hover'
               position='topLeft'
             >
-              <span style={nameStyle}>{text}</span>
+              <span>{text}</span>
             </Tooltip>
           ) : (
-            <span style={nameStyle}>{text}</span>
+            <span>{text}</span>
           );
 
         if ((!passThroughEnabled || globalPassThroughEnabled) && !showUpstreamUpdateTag) {
@@ -476,7 +470,7 @@ export const getChannelsColumns = ({
                 </Tag>
               ) : (
                 <Tag color='white' type='ghost' shape='circle'>
-                  {renderQuotaWithAmount(record.used_quota)}
+                  {renderQuotaWithAmount(record.used_quota / getQuotaPerUnit())}
                 </Tag>
               )}
             </div>
@@ -484,7 +478,7 @@ export const getChannelsColumns = ({
         } else {
           return (
             <Tag color='white' type='ghost' shape='circle'>
-              {renderQuotaWithAmount(record.used_quota)}
+              {renderQuotaWithAmount(record.used_quota / getQuotaPerUnit())}
             </Tag>
           );
         }

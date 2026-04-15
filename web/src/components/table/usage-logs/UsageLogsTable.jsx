@@ -129,4 +129,4 @@ const LogsTable = (logsData) => {
   );
 };
 
-export default LogsTable;
+export default React.memo(LogsTable);

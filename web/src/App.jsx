@@ -5,23 +5,23 @@ Copyright (C) 2025 QuantumNous
 import React, { lazy, Suspense } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import { PrivateRoute, AdminRoute } from './helpers';
-import RegisterForm from './components/auth/RegisterForm';
-import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
-import Setting from './pages/Setting';
-import PasswordResetForm from './components/auth/PasswordResetForm';
-import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
-import Channel from './pages/Channel';
-import Token from './pages/Token';
-import Log from './pages/Log';
-import User from './pages/User';
-import PersonalSetting from './components/settings/PersonalSetting';
-import Setup from './pages/Setup';
 import SetupCheck from './components/layout/SetupCheck';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Models = lazy(() => import('./pages/Models'));
 const TopUp = lazy(() => import('./components/topup'));
+const Channel = lazy(() => import('./pages/Channel'));
+const Token = lazy(() => import('./pages/Token'));
+const Log = lazy(() => import('./pages/Log'));
+const User = lazy(() => import('./pages/User'));
+const Setting = lazy(() => import('./pages/Setting'));
+const PersonalSetting = lazy(() => import('./components/settings/PersonalSetting'));
+const Setup = lazy(() => import('./pages/Setup'));
+const RegisterForm = lazy(() => import('./components/auth/RegisterForm'));
+const LoginForm = lazy(() => import('./components/auth/LoginForm'));
+const PasswordResetForm = lazy(() => import('./components/auth/PasswordResetForm'));
+const PasswordResetConfirm = lazy(() => import('./components/auth/PasswordResetConfirm'));
 
 function Loading() {
   return (
@@ -45,10 +45,10 @@ function App() {
           path='/console/models'
           element={<PrivateRoute><Suspense fallback={<Loading />}><Models /></Suspense></PrivateRoute>}
         />
-        <Route path='/console/channel' element={<AdminRoute><Channel /></AdminRoute>} />
-        <Route path='/console/user' element={<AdminRoute><User /></AdminRoute>} />
-        <Route path='/console/token' element={<PrivateRoute><Token /></PrivateRoute>} />
-        <Route path='/console/log' element={<PrivateRoute><Log /></PrivateRoute>} />
+        <Route path='/console/channel' element={<AdminRoute><Suspense fallback={<Loading />}><Channel /></Suspense></AdminRoute>} />
+        <Route path='/console/user' element={<AdminRoute><Suspense fallback={<Loading />}><User /></Suspense></AdminRoute>} />
+        <Route path='/console/token' element={<PrivateRoute><Suspense fallback={<Loading />}><Token /></Suspense></PrivateRoute>} />
+        <Route path='/console/log' element={<PrivateRoute><Suspense fallback={<Loading />}><Log /></Suspense></PrivateRoute>} />
         <Route
           path='/console/setting'
           element={<AdminRoute><Suspense fallback={<Loading />}><Setting /></Suspense></AdminRoute>}

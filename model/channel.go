@@ -263,7 +263,7 @@ func (channel *Channel) SaveWithoutKey() error {
 func GetAllChannels(startIdx int, num int, selectAll bool, idSort bool) ([]*Channel, error) {
 	var channels []*Channel
 	var err error
-	order := "priority desc"
+	order := "status asc, priority desc"
 	if idSort {
 		order = "id desc"
 	}
@@ -277,7 +277,7 @@ func GetAllChannels(startIdx int, num int, selectAll bool, idSort bool) ([]*Chan
 
 func GetChannelsByTag(tag string, idSort bool, selectAll bool) ([]*Channel, error) {
 	var channels []*Channel
-	order := "priority desc"
+	order := "status asc, priority desc"
 	if idSort {
 		order = "id desc"
 	}
@@ -304,7 +304,7 @@ func SearchChannels(keyword string, group string, model string, idSort bool) ([]
 		baseURLCol = `"base_url"`
 	}
 
-	order := "priority desc"
+	order := "status asc, priority desc"
 	if idSort {
 		order = "id desc"
 	}
@@ -804,7 +804,7 @@ func SearchTags(keyword string, group string, model string, idSort bool) ([]*str
 		baseURLCol = `"base_url"`
 	}
 
-	order := "priority desc"
+	order := "status asc, priority desc"
 	if idSort {
 		order = "id desc"
 	}
@@ -979,7 +979,7 @@ func CountAllTags() (int64, error) {
 // Get channels of specified type with pagination
 func GetChannelsByType(startIdx int, num int, idSort bool, channelType int) ([]*Channel, error) {
 	var channels []*Channel
-	order := "priority desc"
+	order := "status asc, priority desc"
 	if idSort {
 		order = "id desc"
 	}

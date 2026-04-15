@@ -26,6 +26,7 @@ import {
   IllustrationConstructionDark,
 } from '@douyinfe/semi-illustrations';
 import { useTranslation } from 'react-i18next';
+import { safeHtml } from '../../helpers/sanitize';
 
 const About = () => {
   const { t } = useTranslation();
@@ -161,7 +162,7 @@ const About = () => {
           ) : (
             <div
               style={{ fontSize: 'larger' }}
-              dangerouslySetInnerHTML={{ __html: about }}
+              dangerouslySetInnerHTML={{ __html: safeHtml(about) }}
             ></div>
           )}
         </>

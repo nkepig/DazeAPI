@@ -25,6 +25,7 @@ import {
 } from './utils';
 import axios from 'axios';
 import { MESSAGE_ROLES } from '../constants/playground.constants';
+import { authHeader } from './auth';
 
 export let API = axios.create({
   baseURL: import.meta.env.VITE_REACT_APP_SERVER_URL
@@ -97,7 +98,6 @@ export function updateAPI() {
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 如果请求配置中显式要求跳过全局错误处理，则不弹出默认错误提示
     if (error.config && error.config.skipErrorHandler) {
       return Promise.reject(error);
     }
@@ -105,6 +105,12 @@ API.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+API.interceptors.request.use((config) => {
+  const headers = authHeader();
+  config.headers = { ...config.headers, ...headers };
+  return config;
+});
 
 // playground
 
@@ -250,7 +256,7 @@ async function prepareOAuthState(options = {}) {
   if (shouldLogout) {
     try {
       await API.get('/api/user/logout', { skipErrorHandler: true });
-    } catch (err) {}
+    } catch (err) { /* best-effort logout */ }
     localStorage.removeItem('user');
     updateAPI();
   }

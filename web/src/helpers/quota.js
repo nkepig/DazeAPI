@@ -1,7 +1,7 @@
-import { getCurrencyConfig } from './render';
+import { getCurrencyConfig, cachedGetItem } from './render';
 
 export const getQuotaPerUnit = () => {
-  const raw = parseFloat(localStorage.getItem('quota_per_unit') || '1');
+  const raw = parseFloat(cachedGetItem('quota_per_unit') || '1');
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 };
 

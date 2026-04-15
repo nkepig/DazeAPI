@@ -86,7 +86,7 @@ const PageLayout = () => {
       try {
         const settings = JSON.parse(userState.user.setting);
         preferredLang = normalizeLanguage(settings.language);
-      } catch (e) {}
+      } catch (e) { /* invalid user settings JSON, fallback to default */ }
     }
     if (!preferredLang) {
       const savedLang = localStorage.getItem('i18nextLng');

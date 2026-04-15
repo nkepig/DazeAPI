@@ -17,9 +17,31 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ModelPricingEditor from './components/ModelPricingEditor';
+import { API } from '../../../helpers';
 
 export default function ModelSettingsVisualEditor(props) {
-  return <ModelPricingEditor options={props.options} refresh={props.refresh} />;
+  const [channelModels, setChannelModels] = useState([]);
+
+  useEffect(() => {
+    API.get('/api/channel/models_enabled')
+      .then((res) => {
+        const { success, data } = res.data;
+        if (success) {
+          setChannelModels(data || []);
+        }
+      })
+      .catch(() => {
+        setChannelModels([]);
+      });
+  }, []);
+
+  return (
+    <ModelPricingEditor
+      options={props.options}
+      refresh={props.refresh}
+      candidateModelNames={channelModels}
+    />
+  );
 }

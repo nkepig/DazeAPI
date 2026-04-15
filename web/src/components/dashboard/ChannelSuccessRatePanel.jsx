@@ -61,16 +61,14 @@ const ChannelSuccessRatePanel = () => {
   }, [data]);
 
   const getRateColor = (rate) => {
-    if (rate >= 95) return '#16a34a';
-    if (rate >= 80) return '#d97706';
-    if (rate >= 50) return '#ea580c';
+    if (rate >= 80) return '#16a34a';
+    if (rate >= 60) return '#d97706';
     return '#dc2626';
   };
 
   const getRateBg = (rate) => {
-    if (rate >= 95) return '#f0fdf4';
-    if (rate >= 80) return '#fffbeb';
-    if (rate >= 50) return '#fff7ed';
+    if (rate >= 80) return '#f0fdf4';
+    if (rate >= 60) return '#fffbeb';
     return '#fef2f2';
   };
 
@@ -134,7 +132,7 @@ const ChannelSuccessRatePanel = () => {
                   >
                     <path d='m20.56 9.66-7.8 8.97a1 1 0 0 1-1.51 0L3.44 9.66A1 1 0 0 1 4.19 8h15.62a1 1 0 0 1 .75 1.66Z' />
                   </svg>
-                  <span className='text-[13px] font-medium text-[#1A1A1A] truncate'>
+                  <span className='text-[13px] font-medium truncate text-[#1A1A1A]'>
                     <span className='text-[#999]'>#{ch.channelId}</span> {ch.channelName}
                   </span>
                 </div>

@@ -37,6 +37,7 @@ import {
   renderClaudeModelPrice,
   renderModelPrice,
 } from '../../helpers';
+import { cachedGetItem } from '../../helpers/render';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
 import ParamOverrideEntry from '../../components/table/usage-logs/components/ParamOverrideEntry';
@@ -153,7 +154,7 @@ export const useLogsData = () => {
     if (savedMode === 'price' || savedMode === 'ratio') {
       return savedMode;
     }
-    return localStorage.getItem('quota_display_type') === 'TOKENS'
+    return cachedGetItem('quota_display_type') === 'TOKENS'
       ? 'ratio'
       : 'price';
   };

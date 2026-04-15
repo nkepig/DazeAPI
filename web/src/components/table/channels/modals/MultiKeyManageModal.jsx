@@ -94,8 +94,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh, onOpenMode
   /** 最近一次单密钥测试结果（仅前端展示） */
   const [keyTestResults, setKeyTestResults] = useState({});
 
-  const [keySuccessRates, setKeySuccessRates] = useState({});
-
   const isMultiKey = channel?.channel_info?.is_multi_key;
 
   const loadKeyStatus = async (
@@ -424,34 +422,8 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh, onOpenMode
     if (visible && channel?.id) {
       setCurrentPage(1);
       loadKeyStatus(1, pageSize);
-      loadKeySuccessRates();
     }
   }, [visible, channel?.id]);
-
-  const loadKeySuccessRates = async () => {
-    if (!channel?.id) return;
-    try {
-      const now = Math.floor(Date.now() / 1000);
-      const weekAgo = now - 7 * 86400;
-      const res = await API.get(`/api/log/channel_success_rate?start_timestamp=${weekAgo}&end_timestamp=${now}`);
-      if (res.data.success) {
-        const rates = {};
-        for (const item of (res.data.data || [])) {
-          if (item.channel_id === channel.id) {
-            const key = item.key_index || 0;
-            if (!rates[key]) {
-              rates[key] = { total: 0, success: 0 };
-            }
-            rates[key].total += item.total_count;
-            rates[key].success += item.success_count;
-          }
-        }
-        setKeySuccessRates(rates);
-      }
-    } catch (e) {
-      console.error('Failed to load key success rates:', e);
-    }
-  };
 
   useEffect(() => {
     if (!visible) {
@@ -464,7 +436,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh, onOpenMode
       setAutoDisabledCount(0);
       setStatusFilter(null);
       setKeyTestResults({});
-      setKeySuccessRates({});
     }
   }, [visible]);
 
@@ -578,28 +549,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh, onOpenMode
             <StatusPill variant={tr.success ? 'success' : 'danger'}>
               {tr.success ? t('成功') : t('失败')}
             </StatusPill>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      title: t('成功率'),
-      key: 'success_rate',
-      width: 80,
-      render: (_, record) => {
-        const rateData = keySuccessRates[record.index];
-        if (!rateData || rateData.total === 0) {
-          return <Text type='quaternary'>-</Text>;
-        }
-        const rate = (rateData.success / rateData.total * 100).toFixed(1);
-        const rateNum = parseFloat(rate);
-        let color = '#16a34a';
-        if (rateNum < 50) color = '#dc2626';
-        else if (rateNum < 80) color = '#d97706';
-        else if (rateNum < 95) color = '#d97706';
-        return (
-          <Tooltip content={`${rateData.success}/${rateData.total}`}>
-            <span style={{ color, fontWeight: 600, fontSize: 12 }}>{rate}%</span>
           </Tooltip>
         );
       },

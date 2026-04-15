@@ -59,7 +59,7 @@ function getServerAddress() {
       const status = JSON.parse(raw);
       if (status.server_address) return status.server_address;
     }
-  } catch (_) {}
+  } catch (_) { /* invalid status JSON, fallback to origin */ }
   return window.location.origin;
 }
 

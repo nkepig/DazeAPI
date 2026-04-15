@@ -26,6 +26,7 @@ import {
   IllustrationConstructionDark,
 } from '@douyinfe/semi-illustrations';
 import ScrollableContainer from '../common/ui/ScrollableContainer';
+import { safeHtml } from '../../helpers/sanitize';
 
 const AnnouncementsPanel = ({
   announcementData,
@@ -90,7 +91,7 @@ const AnnouncementsPanel = ({
                     item.extra ? (
                       <div
                         className='text-xs text-gray-500'
-                        dangerouslySetInnerHTML={{ __html: htmlExtra }}
+                        dangerouslySetInnerHTML={{ __html: safeHtml(htmlExtra) }}
                       />
                     ) : null
                   }
@@ -98,7 +99,7 @@ const AnnouncementsPanel = ({
                   <div>
                     <div
                       dangerouslySetInnerHTML={{
-                        __html: marked.parse(item.content || ''),
+                        __html: safeHtml(marked.parse(item.content || '')),
                       }}
                     />
                   </div>

@@ -82,7 +82,16 @@ func ChannelListModels(c *gin.Context) {
 func EnabledListModels(c *gin.Context) {
 	models := buildModelList(model.GetEnabledModels())
 	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data":   models,
+		"success": true,
+		"message": "",
+		"data":    models,
+	})
+}
+
+func GetPrefillGroups(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    []interface{}{},
 	})
 }

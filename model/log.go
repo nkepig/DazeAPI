@@ -86,7 +86,7 @@ func RecordLog(userId int, logType int, content string) {
 	}
 	err := LOG_DB.Create(log).Error
 	if err != nil {
-		common.SysLog("failed to record log: " + err.Error())
+		logger.LogError(context.Background(), "failed to record log: "+err.Error())
 	}
 }
 
@@ -484,6 +484,7 @@ type ChannelSuccessRate struct {
 	ModelName    string  `json:"model_name"`
 	ChannelId    int     `json:"channel_id"`
 	ChannelName  string  `json:"channel_name"`
+	ChannelStatus int   `json:"channel_status"`
 	TotalCount   int64   `json:"total_count"`
 	SuccessCount int64   `json:"success_count"`
 	SuccessRate  float64 `json:"success_rate"`
@@ -526,8 +527,12 @@ func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccess
 	result := make([]ChannelSuccessRate, 0, len(results))
 	for _, r := range results {
 		chName := r.ChannelName
+		var chStatus int
 		if chName == "" {
 			chName = channelNames[r.ChannelId]
+		}
+		if ch, err := CacheGetChannel(r.ChannelId); err == nil {
+			chStatus = ch.Status
 		}
 
 		var successRate float64
@@ -536,12 +541,13 @@ func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccess
 		}
 
 		result = append(result, ChannelSuccessRate{
-			ModelName:    r.ModelName,
-			ChannelId:    r.ChannelId,
-			ChannelName:  chName,
-			TotalCount:   r.TotalCount,
-			SuccessCount: r.SuccessCount,
-			SuccessRate:  successRate,
+			ModelName:     r.ModelName,
+			ChannelId:     r.ChannelId,
+			ChannelName:   chName,
+			ChannelStatus: chStatus,
+			TotalCount:    r.TotalCount,
+			SuccessCount:  r.SuccessCount,
+			SuccessRate:   successRate,
 		})
 	}
 

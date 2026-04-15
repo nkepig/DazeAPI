@@ -32,6 +32,7 @@ import { StatusContext } from '../../context/Status';
 import { useActualTheme } from '../../context/Theme';
 import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
+import { safeHtml } from '../../helpers/sanitize';
 import {
   IconGithubLogo,
   IconPlay,
@@ -320,7 +321,7 @@ const Home = () => {
           ) : (
             <div
               className='mt-[60px]'
-              dangerouslySetInnerHTML={{ __html: homePageContent }}
+              dangerouslySetInnerHTML={{ __html: safeHtml(homePageContent) }}
             />
           )}
         </div>
