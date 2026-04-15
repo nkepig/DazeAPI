@@ -832,8 +832,9 @@ export const useChannelsData = () => {
     model,
     endpointType = '',
     stream = false,
+    keyIndex = undefined,
   ) => {
-    const testKey = `${record.id}-${model}`;
+    const testKey = `${record.id}-${model}${keyIndex !== undefined ? `-k${keyIndex}` : ''}`;
 
     // 检查是否应该停止批量测试
     if (shouldStopBatchTestingRef.current && isBatchTesting) {
@@ -844,21 +845,50 @@ export const useChannelsData = () => {
     setTestingModels((prev) => new Set([...prev, model]));
 
     try {
-      let url = `/api/channel/test/${record.id}?model=${model}`;
-      if (endpointType) {
-        url += `&endpoint_type=${endpointType}`;
-      }
-      if (stream) {
-        url += `&stream=true`;
-      }
-      const res = await API.get(url);
+      let res;
+      if (keyIndex !== undefined) {
+        // Key-specific test using multi_key/manage API
+        res = await API.post('/api/channel/multi_key/manage', {
+          channel_id: record.id,
+          action: 'test_key',
+          key_index: keyIndex,
+          test_model: model,
+        });
+        const { success, message } = res.data;
+        setModelTestResults((prev) => ({
+          ...prev,
+          [testKey]: {
+            success,
+            message,
+            time: 0,
+            timestamp: Date.now(),
+          },
+        }));
+        if (success) {
+          showInfo(
+            t('密钥 #${index} 测试成功，模型 ${model}')
+              .replace('${index}', keyIndex)
+              .replace('${model}', model),
+          );
+        } else {
+          showError(`${t('模型')} ${model}: ${message}`);
+        }
+      } else {
+        let url = `/api/channel/test/${record.id}?model=${model}`;
+        if (endpointType) {
+          url += `&endpoint_type=${endpointType}`;
+        }
+        if (stream) {
+          url += `&stream=true`;
+        }
+        res = await API.get(url);
 
-      // 检查是否在请求期间被停止
-      if (shouldStopBatchTestingRef.current && isBatchTesting) {
-        return Promise.resolve();
-      }
+        // 检查是否在请求期间被停止
+        if (shouldStopBatchTestingRef.current && isBatchTesting) {
+          return Promise.resolve();
+        }
 
-      const { success, message, time } = res.data;
+        const { success, message, time } = res.data;
 
       // 更新测试结果
       setModelTestResults((prev) => ({
@@ -896,6 +926,7 @@ export const useChannelsData = () => {
         }
       } else {
         showError(`${t('模型')} ${model}: ${message}`);
+      }
       }
     } catch (error) {
       // 处理网络错误
@@ -984,6 +1015,7 @@ export const useChannelsData = () => {
             model,
             selectedEndpointType,
             isStreamTest,
+            currentTestChannel?._testKeyIndex,
           ),
         );
         const batchResults = await Promise.allSettled(batchPromises);

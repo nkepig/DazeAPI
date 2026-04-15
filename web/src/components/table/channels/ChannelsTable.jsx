@@ -44,7 +44,6 @@ const ChannelsTable = (channelsData) => {
     t,
     COLUMN_KEYS,
     // Column functions and data
-    updateChannelBalance,
     manageChannel,
     manageTag,
     submitTagEdit,
@@ -71,7 +70,6 @@ const ChannelsTable = (channelsData) => {
     return getChannelsColumns({
       t,
       COLUMN_KEYS,
-      updateChannelBalance,
       manageChannel,
       manageTag,
       submitTagEdit,
@@ -96,7 +94,6 @@ const ChannelsTable = (channelsData) => {
   }, [
     t,
     COLUMN_KEYS,
-    updateChannelBalance,
     manageChannel,
     manageTag,
     submitTagEdit,

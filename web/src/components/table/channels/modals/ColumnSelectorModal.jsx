@@ -31,7 +31,6 @@ const ColumnSelectorModal = ({
   COLUMN_KEYS,
   t,
   // Props needed for getChannelsColumns
-  updateChannelBalance,
   manageChannel,
   manageTag,
   submitTagEdit,
@@ -51,7 +50,6 @@ const ColumnSelectorModal = ({
   const allColumns = getChannelsColumns({
     t,
     COLUMN_KEYS,
-    updateChannelBalance,
     manageChannel,
     manageTag,
     submitTagEdit,

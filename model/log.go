@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -477,4 +478,72 @@ func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64,
 	}
 
 	return total, nil
+}
+
+type ChannelSuccessRate struct {
+	ModelName    string  `json:"model_name"`
+	ChannelId    int     `json:"channel_id"`
+	ChannelName  string  `json:"channel_name"`
+	TotalCount   int64   `json:"total_count"`
+	SuccessCount int64   `json:"success_count"`
+	SuccessRate  float64 `json:"success_rate"`
+}
+
+func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccessRate, error) {
+	type countResult struct {
+		ModelName    string
+		ChannelId    int
+		ChannelName  string
+		TotalCount   int64
+		SuccessCount int64
+	}
+
+	var results []countResult
+	err := LOG_DB.Table("logs").
+		Select(`model_name, channel_id, channel_name, COUNT(*) AS total_count, SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) AS success_count`,
+			LogTypeConsume).
+		Where("type IN ? AND created_at >= ? AND created_at <= ?",
+			[]int{LogTypeConsume, LogTypeError}, startTimestamp, endTimestamp).
+		Group("model_name, channel_id, channel_name").
+		Scan(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	missingChannelIds := make(map[int]bool)
+	for _, r := range results {
+		if r.ChannelName == "" {
+			missingChannelIds[r.ChannelId] = true
+		}
+	}
+	channelNames := make(map[int]string)
+	for id := range missingChannelIds {
+		if ch, err := CacheGetChannel(id); err == nil {
+			channelNames[id] = ch.Name
+		}
+	}
+
+	result := make([]ChannelSuccessRate, 0, len(results))
+	for _, r := range results {
+		chName := r.ChannelName
+		if chName == "" {
+			chName = channelNames[r.ChannelId]
+		}
+
+		var successRate float64
+		if r.TotalCount > 0 {
+			successRate = math.Round(float64(r.SuccessCount)/float64(r.TotalCount)*10000) / 100
+		}
+
+		result = append(result, ChannelSuccessRate{
+			ModelName:    r.ModelName,
+			ChannelId:    r.ChannelId,
+			ChannelName:  chName,
+			TotalCount:   r.TotalCount,
+			SuccessCount: r.SuccessCount,
+			SuccessRate:  successRate,
+		})
+	}
+
+	return result, nil
 }

@@ -9,6 +9,7 @@ import {
 import { API, isAdmin, renderQuota, goToRecharge } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
+import ChannelSuccessRatePanel from '../../components/dashboard/ChannelSuccessRatePanel';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -425,6 +426,9 @@ const Dashboard = () => {
           )}
         </div>
       </motion.div>
+
+      {/* Channel Success Rate - Admin only */}
+      <ChannelSuccessRatePanel />
     </div>
   );
 };

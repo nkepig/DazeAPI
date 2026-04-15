@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -146,6 +147,30 @@ func GetLogsSelfStat(c *gin.Context) {
 		},
 	})
 	return
+}
+
+func GetChannelSuccessRate(c *gin.Context) {
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+
+	if startTimestamp == 0 {
+		now := time.Now()
+		startTimestamp = now.AddDate(0, 0, -7).Unix()
+	}
+	if endTimestamp == 0 {
+		endTimestamp = time.Now().Unix()
+	}
+
+	data, err := model.GetChannelSuccessRate(startTimestamp, endTimestamp)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    data,
+	})
 }
 
 func DeleteHistoryLogs(c *gin.Context) {

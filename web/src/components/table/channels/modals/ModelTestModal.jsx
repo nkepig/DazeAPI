@@ -57,6 +57,14 @@ const ModelTestModal = ({
   t,
 }) => {
   const hasChannel = Boolean(currentTestChannel);
+
+  const getResultKey = (model) => {
+    if (!currentTestChannel) return '';
+    return currentTestChannel._testKeyIndex !== undefined
+      ? `${currentTestChannel.id}-${model}-k${currentTestChannel._testKeyIndex}`
+      : `${currentTestChannel.id}-${model}`;
+  };
+
   const streamToggleDisabled = [
     'embeddings',
     'image-generation',
@@ -124,7 +132,7 @@ const ModelTestModal = ({
       .split(',')
       .filter((m) => m.toLowerCase().includes(modelSearchKeyword.toLowerCase()))
       .filter((m) => {
-        const result = modelTestResults[`${currentTestChannel.id}-${m}`];
+        const result = modelTestResults[getResultKey(m)];
         return result && result.success;
       });
     if (successKeys.length === 0) {
@@ -147,8 +155,7 @@ const ModelTestModal = ({
       title: t('状态'),
       dataIndex: 'status',
       render: (text, record) => {
-        const testResult =
-          modelTestResults[`${currentTestChannel.id}-${record.model}`];
+        const testResult = modelTestResults[getResultKey(record.model)];
         const isTesting = testingModels.has(record.model);
 
         if (isTesting) {
@@ -181,8 +188,7 @@ const ModelTestModal = ({
       dataIndex: 'operate',
       render: (text, record) => {
         const isTesting = testingModels.has(record.model);
-        const testResult =
-          modelTestResults[`${currentTestChannel.id}-${record.model}`];
+        const testResult = modelTestResults[getResultKey(record.model)];
         let btnType = 'tertiary';
         if (testResult) {
           btnType = testResult.success ? 'primary' : 'danger';
@@ -197,6 +203,7 @@ const ModelTestModal = ({
                 record.model,
                 selectedEndpointType,
                 isStreamTest,
+                currentTestChannel?._testKeyIndex,
               )
             }
             loading={isTesting}
@@ -230,6 +237,11 @@ const ModelTestModal = ({
                 className='!text-[var(--semi-color-text-0)] !text-base'
               >
                 {currentTestChannel.name} {t('渠道的模型测试')}
+              {currentTestChannel._testKeyIndex !== undefined && (
+                <Typography.Text type='tertiary' size='small'>
+                  {' '}(#{currentTestChannel._testKeyIndex})
+                </Typography.Text>
+              )}
               </Typography.Text>
               <Typography.Text type='tertiary' size='small'>
                 {t('共')} {currentTestChannel.models.split(',').length}{' '}

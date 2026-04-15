@@ -1217,6 +1217,7 @@ type MultiKeyManageRequest struct {
 	Status       *int   `json:"status,omitempty"`         // for get_key_status filtering: 1=enabled, 2=manual_disabled, 3=auto_disabled, nil=all
 	NewKeyValue  string `json:"new_key_value,omitempty"`  // for update_key and add_keys
 	MultiKeyMode string `json:"multi_key_mode,omitempty"` // for add_keys: "random" or "roundrobin"
+	TestModel    string `json:"test_model,omitempty"`
 }
 
 // MultiKeyStatusResponse represents the response for key status query
@@ -1970,12 +1971,16 @@ func ManageMultiKeys(c *gin.Context) {
 			testKeyValue = keys[keyIndex]
 		}
 
-		// Build a temporary single-key channel clone for testing
 		testCh := *channel
 		testCh.Key = testKeyValue
 		testCh.ChannelInfo.IsMultiKey = false
 
-		result := testChannel(&testCh, "", "", false)
+		testModel := request.TestModel
+
+		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, !isSingleKey)
+		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, keyIndex)
+
+		result := testChannel(&testCh, testModel, "", false)
 		if result.localErr != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,

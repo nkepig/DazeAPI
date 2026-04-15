@@ -54,7 +54,7 @@ import { StatusPill } from '../../../common/ui/StatusPill';
 
 const { Text } = Typography;
 
-const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
+const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh, onOpenModelTest }) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [keyStatusList, setKeyStatusList] = useState([]);
@@ -93,6 +93,8 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
 
   /** 最近一次单密钥测试结果（仅前端展示） */
   const [keyTestResults, setKeyTestResults] = useState({});
+
+  const [keySuccessRates, setKeySuccessRates] = useState({});
 
   const isMultiKey = channel?.channel_info?.is_multi_key;
 
@@ -422,8 +424,34 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     if (visible && channel?.id) {
       setCurrentPage(1);
       loadKeyStatus(1, pageSize);
+      loadKeySuccessRates();
     }
   }, [visible, channel?.id]);
+
+  const loadKeySuccessRates = async () => {
+    if (!channel?.id) return;
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const weekAgo = now - 7 * 86400;
+      const res = await API.get(`/api/log/channel_success_rate?start_timestamp=${weekAgo}&end_timestamp=${now}`);
+      if (res.data.success) {
+        const rates = {};
+        for (const item of (res.data.data || [])) {
+          if (item.channel_id === channel.id) {
+            const key = item.key_index || 0;
+            if (!rates[key]) {
+              rates[key] = { total: 0, success: 0 };
+            }
+            rates[key].total += item.total_count;
+            rates[key].success += item.success_count;
+          }
+        }
+        setKeySuccessRates(rates);
+      }
+    } catch (e) {
+      console.error('Failed to load key success rates:', e);
+    }
+  };
 
   useEffect(() => {
     if (!visible) {
@@ -436,6 +464,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       setAutoDisabledCount(0);
       setStatusFilter(null);
       setKeyTestResults({});
+      setKeySuccessRates({});
     }
   }, [visible]);
 
@@ -554,10 +583,32 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       },
     },
     {
+      title: t('成功率'),
+      key: 'success_rate',
+      width: 80,
+      render: (_, record) => {
+        const rateData = keySuccessRates[record.index];
+        if (!rateData || rateData.total === 0) {
+          return <Text type='quaternary'>-</Text>;
+        }
+        const rate = (rateData.success / rateData.total * 100).toFixed(1);
+        const rateNum = parseFloat(rate);
+        let color = '#16a34a';
+        if (rateNum < 50) color = '#dc2626';
+        else if (rateNum < 80) color = '#d97706';
+        else if (rateNum < 95) color = '#d97706';
+        return (
+          <Tooltip content={`${rateData.success}/${rateData.total}`}>
+            <span style={{ color, fontWeight: 600, fontSize: 12 }}>{rate}%</span>
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: t('操作'),
       key: 'action',
       fixed: 'right',
-      width: isRoot() ? 300 : 200,
+      width: isRoot() ? 380 : 200,
       render: (_, record) => (
         <Space>
           {isRoot() && (
@@ -590,17 +641,35 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
               btnType = tr.success ? 'primary' : 'danger';
             }
             return (
-              <Tooltip content={t('测试该密钥')}>
+              <Space spacing={0} style={{ marginRight: 4 }}>
+                <Tooltip content={t('测试该密钥')}>
+                  <Button
+                    size='small'
+                    type={btnType}
+                    theme={tr ? 'solid' : 'light'}
+                    loading={operationLoading[`test_${record.index}`]}
+                    onClick={() => handleTestKey(record.index)}
+                    style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                  >
+                    {t('测试')}
+                  </Button>
+                </Tooltip>
                 <Button
                   size='small'
                   type={btnType}
                   theme={tr ? 'solid' : 'light'}
-                  loading={operationLoading[`test_${record.index}`]}
-                  onClick={() => handleTestKey(record.index)}
+                  onClick={() => {
+                    if (onOpenModelTest) {
+                      onOpenModelTest(channel, record.index);
+                    }
+                  }}
+                  style={{ paddingLeft: 4, paddingRight: 4, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeftWidth: 0 }}
                 >
-                  {t('测试')}
+                  <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                    <path d='m20.56 9.66-7.8 8.97a1 1 0 0 1-1.51 0L3.44 9.66A1 1 0 0 1 4.19 8h15.62a1 1 0 0 1 .75 1.66Z' fill='currentColor' />
+                  </svg>
                 </Button>
-              </Tooltip>
+              </Space>
             );
           })()}
           {record.status === 1 ? (
@@ -814,23 +883,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                           >
                             {t('刷新')}
                           </Button>
-                          {enabledCount > 0 && (
-                            <Popconfirm
-                              title={t('确定要禁用所有的密钥吗？')}
-                              onConfirm={handleDisableAll}
-                              okType={'danger'}
-                              position={'topRight'}
-                            >
-                              <Button
-                                size='small'
-                                type='danger'
-                                theme='light'
-                                loading={operationLoading.disable_all}
-                              >
-                                {t('禁用全部')}
-                              </Button>
-                            </Popconfirm>
-                          )}
                           {isMultiKey && (
                             <Popconfirm
                               title={t('确定要删除所有已自动禁用的密钥吗？')}
@@ -846,21 +898,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                                 loading={operationLoading.delete_disabled}
                               >
                                 {t('删除自动禁用密钥')}
-                              </Button>
-                            </Popconfirm>
-                          )}
-                          {manualDisabledCount + autoDisabledCount > 0 && (
-                            <Popconfirm
-                              title={t('确定要启用所有密钥吗？')}
-                              onConfirm={handleEnableAll}
-                              position={'topRight'}
-                            >
-                              <Button
-                                size='small'
-                                type='primary'
-                                loading={operationLoading.enable_all}
-                              >
-                                {t('启用全部')}
                               </Button>
                             </Popconfirm>
                           )}

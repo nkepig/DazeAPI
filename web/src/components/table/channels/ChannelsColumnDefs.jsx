@@ -261,7 +261,6 @@ const getUpstreamUpdateMeta = (record) => {
 export const getChannelsColumns = ({
   t,
   COLUMN_KEYS,
-  updateChannelBalance,
   manageChannel,
   manageTag,
   submitTagEdit,
@@ -465,50 +464,28 @@ export const getChannelsColumns = ({
     },
     {
       key: COLUMN_KEYS.BALANCE,
-      title: t('已用/剩余'),
-      dataIndex: 'expired_time',
+      title: t('剩余额度'),
+      dataIndex: 'balance',
       render: (text, record, index) => {
         if (record.children === undefined) {
           return (
             <div>
-              <Space spacing={1}>
-                <Tooltip content={t('已用额度')}>
-                  <Tag color='white' type='ghost' shape='circle'>
-                    {renderQuota(record.used_quota)}
-                  </Tag>
-                </Tooltip>
-                <Tooltip
-                  content={
-                    record.type === 57
-                      ? t('查看 Codex 帐号信息与用量')
-                      : t('剩余额度') +
-                        ': ' +
-                        renderQuotaWithAmount(record.balance) +
-                        t('，点击更新')
-                  }
-                >
-                  <Tag
-                    color={record.type === 57 ? 'light-blue' : 'white'}
-                    type={record.type === 57 ? 'light' : 'ghost'}
-                    shape='circle'
-                    className={record.type === 57 ? 'cursor-pointer' : ''}
-                    onClick={() => updateChannelBalance(record)}
-                  >
-                    {record.type === 57
-                      ? t('帐号信息')
-                      : renderQuotaWithAmount(record.balance)}
-                  </Tag>
-                </Tooltip>
-              </Space>
+              {record.type === 57 ? (
+                <Tag color='light-blue' type='light' shape='circle'>
+                  {t('帐号信息')}
+                </Tag>
+              ) : (
+                <Tag color='white' type='ghost' shape='circle'>
+                  {renderQuotaWithAmount(record.balance)}
+                </Tag>
+              )}
             </div>
           );
         } else {
           return (
-            <Tooltip content={t('已用额度')}>
-              <Tag color='white' type='ghost' shape='circle'>
-                {renderQuota(record.used_quota)}
-              </Tag>
-            </Tooltip>
+            <Tag color='white' type='ghost' shape='circle'>
+              {renderQuotaWithAmount(record.balance)}
+            </Tag>
           );
         }
       },

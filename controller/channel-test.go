@@ -428,7 +428,13 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 				err,
 			))
 			if constant.ErrorLogEnabled {
-				model.RecordErrorLog(c, 1, channel.Id, testModel, "模型测试", err.Error(), 0, 0, false, group, nil)
+				other := make(map[string]interface{})
+				isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)
+				if isMultiKey {
+					other["is_multi_key"] = true
+					other["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
+				}
+				model.RecordErrorLog(c, 1, channel.Id, testModel, "模型测试", err.Error(), 0, 0, false, group, other)
 			}
 			return testResult{
 				context:     c,

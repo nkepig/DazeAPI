@@ -62,6 +62,12 @@ const ChannelsPage = () => {
         onCancel={() => channelsData.setShowMultiKeyManageModal(false)}
         channel={channelsData.currentMultiKeyChannel}
         onRefresh={channelsData.refresh}
+        onOpenModelTest={(channel, keyIndex) => {
+          if (!channel) return;
+          const testChannel = { ...channel, _testKeyIndex: keyIndex };
+          channelsData.setCurrentTestChannel(testChannel);
+          channelsData.setShowModelTestModal(true);
+        }}
       />
       <ChannelUpstreamUpdateModal
         visible={channelsData.showUpstreamUpdateModal}
