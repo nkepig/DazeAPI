@@ -26,7 +26,7 @@ services:
       - uqapi-network
 
   uqapi-1:
-    image: dazey/dazeai:test
+    image: dazey/dazeai:latest
     container_name: uqapi-1
     restart: always
     ports:
@@ -44,7 +44,7 @@ services:
       - uqapi-network
 
   uqapi-2:
-    image: dazey/dazeai:test
+    image: dazey/dazeai:latest
     container_name: uqapi-2
     restart: always
     ports:
