@@ -170,7 +170,6 @@ const EditChannelModal = (props) => {
   const [basicModels, setBasicModels] = useState([]);
   const [fullModels, setFullModels] = useState([]);
   const [modelGroups, setModelGroups] = useState([]);
-  const [groupOptions, setGroupOptions] = useState([]);
   const [customModel, setCustomModel] = useState('');
   const [modelSearchValue, setModelSearchValue] = useState('');
   const [modalImageUrl, setModalImageUrl] = useState('');
@@ -669,9 +668,6 @@ const EditChannelModal = (props) => {
     }
   };
 
-  const fetchGroups = async () => {
-    setGroupOptions([]);
-  };
 
   const handleRefreshCodexCredential = async () => {
     if (!isEdit) return;
@@ -775,7 +771,7 @@ const EditChannelModal = (props) => {
         formApiRef.current?.setValues(getInitValues());
       }
       fetchModelGroups();
-      fetchGroups();
+    
       // 重置高级设置折叠状态
       setAdvancedSettingsOpen(false);
     } else {
