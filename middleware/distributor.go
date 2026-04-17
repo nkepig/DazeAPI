@@ -16,7 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+    pricing "github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -57,7 +57,7 @@ func Distribute() func(c *gin.Context) {
 			// check user-level model overrides (whitelist)
 			if userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting); ok {
 				if len(userSetting.ModelOverrides) > 0 {
-					matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model)
+            matchName := pricing.FormatMatchingModelName(modelRequest.Model)
 					_, matchOk := userSetting.ModelOverrides[matchName]
 					if !matchOk {
 						_, matchOk = userSetting.ModelOverrides[modelRequest.Model]
@@ -82,7 +82,7 @@ func Distribute() func(c *gin.Context) {
 				if !ok {
 					tokenModelLimit = map[string]bool{}
 				}
-				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
+            matchName := pricing.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-* 
 				if _, ok := tokenModelLimit[matchName]; !ok {
 					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
 					return
@@ -323,7 +323,7 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	}
 
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/responses/compact") && modelRequest.Model != "" {
-		modelRequest.Model = ratio_setting.WithCompactModelSuffix(modelRequest.Model)
+        modelRequest.Model = pricing.WithCompactModelSuffix(modelRequest.Model)
 	}
 	return &modelRequest, shouldSelectChannel, nil
 }

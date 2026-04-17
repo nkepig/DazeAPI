@@ -22,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
 	_ "github.com/QuantumNous/new-api/setting/performance_setting"
+	"github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -252,6 +253,7 @@ func InitResources() error {
 
 	// Initialize model settings
 	ratio_setting.InitRatioSettings()
+	pricing.InitPricingSettings()
 
 	service.InitHttpClient()
 

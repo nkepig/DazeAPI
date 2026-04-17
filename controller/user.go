@@ -426,6 +426,7 @@ func buildUserResponseData(user *model.User, includeRemark bool) gin.H {
 		"wechat_id":         user.WeChatId,
 		"telegram_id":       user.TelegramId,
 		"group":             user.Group,
+		"group_ratio":       user.GroupRatio,
 		"quota":             user.Quota,
 		"used_quota":        user.UsedQuota,
 		"request_count":     user.RequestCount,
@@ -468,12 +469,12 @@ func appendRootModelConfig(responseData gin.H, settings dto.UserSetting) {
 		if p.VendorID > 0 {
 			g.VendorName = vendorNameMap[p.VendorID]
 		}
-		if p.QuotaType == 1 {
+		if p.PricingType == 1 {
 			g.BillingType = "price"
-			g.Value = p.ModelPrice
+			g.Value = p.PerCallPrice
 		} else {
-			g.BillingType = "ratio"
-			g.Value = p.ModelRatio
+			g.BillingType = "token"
+			g.Value = p.PromptPrice
 		}
 		globalModels = append(globalModels, g)
 	}
@@ -885,13 +886,17 @@ func CreateUser(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	// Even for admin users, we cannot fully trust them!
+	groupName := model.NormalizeGroupField(user.Group)
+	if groupName == "" {
+		groupName = user.Username
+	}
 	cleanUser := model.User{
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
-		Role:        user.Role, // 保持管理员设置的角色
-		Group:       model.NormalizeGroupField(user.Group),
+		Role:        user.Role,
+		Group:       groupName,
+		GroupRatio:  "{}",
 	}
 	if err := cleanUser.Insert(0); err != nil {
 		common.ApiError(c, err)

@@ -62,7 +62,7 @@ const ModelPricingTable = ({
           })
         : { inputPrice: '-', outputPrice: '-', price: '-' };
 
-      // 获取分组倍率
+      // 获取分组折扣
       const groupRatioValue =
         groupRatio && groupRatio[group] ? groupRatio[group] : 1;
 
@@ -71,9 +71,9 @@ const ModelPricingTable = ({
         group: group,
         ratio: groupRatioValue,
         billingType:
-          modelData?.quota_type === 0
+          modelData?.pricing_type === 0
             ? t('按量计费')
-            : modelData?.quota_type === 1
+            : modelData?.pricing_type === 1
               ? t('按次计费')
               : '-',
         priceItems: getModelPriceItems(priceData, t, siteDisplayType),

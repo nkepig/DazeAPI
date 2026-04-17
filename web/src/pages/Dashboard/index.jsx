@@ -86,28 +86,37 @@ const Dashboard = () => {
       const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
       const sep = endpoint.includes('?') ? '&' : '?';
 
-      const [dataRes, pricingRes] = await Promise.all([
+      const [dataRes, pricingRes, statRes] = await Promise.all([
         API.get(`${endpoint}${sep}start_timestamp=${rangeStart}&end_timestamp=${now}`),
         API.get('/api/pricing'),
+        API.get(`/api/log/self/stat?start_timestamp=${todayStart}&end_timestamp=${now}`),
       ]);
 
       if (dataRes.data.success) {
         const records = dataRes.data.data || [];
         setRawData(records);
 
-        let todayQuota = 0;
-        let todayCount = 0;
-        records.forEach((r) => {
-          if (r.created_at >= todayStart) {
-            todayQuota += r.quota || 0;
-            todayCount += r.count || 0;
-          }
-        });
-
         let modelCount = 0;
         if (pricingRes.data.success) {
           const models = pricingRes.data.data || [];
           modelCount = models.length;
+        }
+
+        let todayQuota = 0;
+        let todayCount = 0;
+        if (statRes.data.success && statRes.data.data) {
+          todayQuota = Math.abs(statRes.data.data.quota || 0);
+          const cachedCount = records
+            .filter((r) => r.created_at >= todayStart)
+            .reduce((sum, r) => sum + (r.count || 0), 0);
+          todayCount = cachedCount;
+        } else {
+          records.forEach((r) => {
+            if (r.created_at >= todayStart) {
+              todayQuota += r.quota || 0;
+              todayCount += r.count || 0;
+            }
+          });
         }
 
         setStats({
@@ -380,7 +389,7 @@ const Dashboard = () => {
         <div className='h-[300px]'>
           {!loading && (
             <ResponsiveContainer width='100%' height='100%'>
-              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 24 }}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 60, bottom: 24 }}>
                 <defs>
                   <linearGradient id='fillGrad' x1='0' y1='0' x2='0' y2='1'>
                     <stop offset='0%' stopColor='#E0E0E0' stopOpacity={0.3} />
@@ -392,16 +401,20 @@ const Dashboard = () => {
                   tick={{ fontSize: 11, fill: '#C8C8C8' }}
                   axisLine={false}
                   tickLine={false}
-                  interval={chartRange === 1 ? 5 : 0}
+                  interval={chartRange === 1 ? 2 : 0}
                   angle={chartRange === 3 ? -30 : 0}
                   textAnchor={chartRange === 3 ? 'end' : 'middle'}
                   dy={chartRange === 3 ? 4 : 6}
+                  tickCount={chartRange === 1 ? 12 : undefined}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: '#C8C8C8' }}
                   axisLine={false}
                   tickLine={false}
+                  tickCount={8}
                   tickFormatter={metric === 'quota' ? (v) => renderQuota(v) : undefined}
+                  allowDecimals={true}
+                  minTickGap={10}
                 />
                 <Tooltip content={<ChartTooltip metric={metric} />} />
                 <Area

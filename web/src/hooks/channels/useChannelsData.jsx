@@ -160,6 +160,9 @@ export const useChannelsData = () => {
     setEnableTagMode: searchState.setEnableTagMode,
     setEnableBatchDelete: searchState.setEnableBatchDelete,
     setStatusFilter: searchState.setStatusFilter,
+    groupFilter: searchState.groupFilter,
+    setGroupFilter: searchState.setGroupFilter,
+    groupOptions: searchState.groupOptions,
     setCompactMode: searchState.setCompactMode,
     setActivePage: searchState.setActivePage,
   };

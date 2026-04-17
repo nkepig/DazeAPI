@@ -287,7 +287,8 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	}
 	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
 
-	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
+    info.PriceData.GroupDiscountInfo = helper.HandleGroupRatio(c, info)
+	info.PriceData.ProviderRatioInfo = helper.HandleProviderRatio(info)
 
 	if err != nil {
 		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
@@ -522,12 +523,15 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
 		task.PrivateData.BillingContext = &model.TaskBillingContext{
-			ModelPrice:      relayInfo.PriceData.ModelPrice,
-			GroupRatio:      relayInfo.PriceData.GroupRatioInfo.GroupRatio,
-			ModelRatio:      relayInfo.PriceData.ModelRatio,
-			OtherRatios:     relayInfo.PriceData.OtherRatios,
-			OriginModelName: relayInfo.OriginModelName,
-			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName),
+			PerCallPrice:      relayInfo.PriceData.PerCallPrice,
+			UsePerCallPricing: relayInfo.PriceData.UsePerCallPricing,
+			PromptPrice:       relayInfo.PriceData.PromptPrice,
+			CompletionPrice:   relayInfo.PriceData.CompletionPrice,
+			GroupDiscount:     relayInfo.PriceData.GroupDiscountInfo.GroupDiscount,
+			ProviderRatio:     relayInfo.PriceData.ProviderRatioInfo.ProviderRatio,
+			OtherRatios:       relayInfo.PriceData.OtherRatios,
+			OriginModelName:   relayInfo.OriginModelName,
+			PerCallBilling:    common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName),
 		}
 		task.Quota = result.Quota
 		task.Data = result.TaskData

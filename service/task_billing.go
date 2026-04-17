@@ -10,7 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,10 +37,10 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	}
 	other := make(map[string]interface{})
 	other["request_path"] = c.Request.URL.Path
-	other["model_price"] = info.PriceData.ModelPrice
-	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
-	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
-		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
+	other["model_price"] = info.PriceData.PerCallPrice
+	other["group_ratio"] = info.PriceData.GroupDiscountInfo.GroupDiscount
+	if info.PriceData.GroupDiscountInfo.HasSpecialRatio {
+		other["user_group_ratio"] = info.PriceData.GroupDiscountInfo.GroupSpecialRatio
 	}
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
@@ -108,8 +108,9 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 func taskBillingOther(task *model.Task) map[string]interface{} {
 	other := make(map[string]interface{})
 	if bc := task.PrivateData.BillingContext; bc != nil {
-		other["model_price"] = bc.ModelPrice
-		other["group_ratio"] = bc.GroupRatio
+		other["per_call_price"] = bc.PerCallPrice
+		other["group_discount"] = bc.GroupDiscount
+		other["provider_ratio"] = bc.ProviderRatio
 		if len(bc.OtherRatios) > 0 {
 			for k, v := range bc.OtherRatios {
 				other[k] = v
@@ -231,7 +232,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 }
 
 // RecalculateTaskQuotaByTokens 根据实际 token 消耗重新计费（异步差额结算）。
-// 当任务成功且返回了 totalTokens 时，根据模型倍率和分组倍率重新计算实际扣费额度，
+// 当任务成功且返回了 totalTokens 时，根据模型定价和分组折扣重新计算实际扣费额度，
 // 与预扣费的差额进行补扣或退还。支持钱包和订阅计费来源。
 func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTokens int) {
 	if totalTokens <= 0 {
@@ -240,38 +241,26 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	modelName := taskModelName(task)
 
-	// 获取模型价格和倍率
-	modelRatio, hasRatioSetting, _ := ratio_setting.GetModelRatio(modelName)
-	// 只有配置了倍率(非固定价格)时才按 token 重新计费
-	if !hasRatioSetting || modelRatio <= 0 {
+	// 获取模型定价
+	modelPricing, hasPricing := pricing.GetModelPricing(modelName)
+	// 只有配置了按量计费时才按 token 重新计费
+	if !hasPricing || modelPricing.UsePerCallPricing {
 		return
 	}
 
-	// 获取用户和组的倍率信息
-	group := task.Group
-	if group == "" {
-		user, err := model.GetUserById(task.UserId, false)
-		if err == nil {
-			group = user.Group
-		}
-	}
-	if group == "" {
-		return
+	// 获取分组折扣
+	bc := task.PrivateData.BillingContext
+	groupDiscount := 1.0
+	if bc != nil && bc.GroupDiscount > 0 {
+		groupDiscount = bc.GroupDiscount
 	}
 
-	groupRatio := ratio_setting.GetGroupRatio(group)
-	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group)
+	// 近似估算：假设 prompt/completion 各占一半（异步任务无法获取精确拆分）
+	promptTokens := totalTokens / 2
+	completionTokens := totalTokens - promptTokens
+	costDollars := float64(promptTokens)/1_000_000*modelPricing.PromptPrice + float64(completionTokens)/1_000_000*modelPricing.CompletionPrice
+	actualQuota := int(costDollars * float64(pricing.MicrodollarsPerDollar) * groupDiscount)
 
-	var finalGroupRatio float64
-	if hasUserGroupRatio {
-		finalGroupRatio = userGroupRatio
-	} else {
-		finalGroupRatio = groupRatio
-	}
-
-	// 计算实际应扣费额度: totalTokens * modelRatio * groupRatio
-	actualQuota := int(float64(totalTokens) * modelRatio * finalGroupRatio)
-
-	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f", totalTokens, modelRatio, finalGroupRatio)
+	reason := fmt.Sprintf("token重算：totalTokens=%d, promptPrice=%.4f, completionPrice=%.4f, groupDiscount=%.2f", totalTokens, modelPricing.PromptPrice, modelPricing.CompletionPrice, groupDiscount)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason)
 }

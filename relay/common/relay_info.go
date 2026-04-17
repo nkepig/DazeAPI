@@ -89,6 +89,7 @@ type RelayInfo struct {
 	UserId            int
 	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
 	UserGroup         string // 用户所在分组
+	UserGroupRatio    map[string]float64 // 用户可用分组倍率
 	TokenUnlimited    bool
 	StartTime         time.Time
 	FirstResponseTime time.Time
@@ -97,7 +98,7 @@ type RelayInfo struct {
 	IsStream               bool
 	IsGeminiBatchEmbedding bool
 	IsPlayground           bool
-	UsePrice               bool
+	UsePrice               bool // Deprecated: use PriceData.UsePerCallPricing instead
 	RelayMode              int
 	OriginModelName        string
 	RequestURLPath         string
@@ -266,7 +267,7 @@ func (info *RelayInfo) ToString() string {
 	}
 
 	// Price data (non-sensitive)
-	if info.PriceData.UsePrice {
+	if info.PriceData.UsePerCallPricing || info.PriceData.PromptPrice > 0 {
 		fmt.Fprintf(b, "PriceData{ %s }, ", info.PriceData.ToSetting())
 	}
 
@@ -447,8 +448,9 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
-		UsingGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
-		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUserGroup),
+		UsingGroup:      common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+		UserGroup:       common.GetContextKeyString(c, constant.ContextKeyUserGroup),
+		UserGroupRatio:  common.GetContextKeyMapStringFloat64(c, string(constant.ContextKeyUserGroupRatio)),
 		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
 		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 

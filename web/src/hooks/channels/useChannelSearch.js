@@ -35,6 +35,10 @@ export const useChannelSearch = ({ t }) => {
   const [statusFilter, setStatusFilter] = useState(
     localStorage.getItem('channel-status-filter') || 'all',
   );
+  const [groupFilter, setGroupFilter] = useState(
+    localStorage.getItem('channel-group-filter') || 'all',
+  );
+  const [groupOptions, setGroupOptions] = useState([]);
   const [activeTypeKey, setActiveTypeKey] = useState('all');
   const [typeCounts, setTypeCounts] = useState({});
   const [compactMode, setCompactMode] = useTableCompactMode('channels');
@@ -43,6 +47,19 @@ export const useChannelSearch = ({ t }) => {
   const [formApi, setFormApi] = useState(null);
 
   const requestCounter = useRef(0);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get('/api/group/');
+        if (res.data?.success) {
+          setGroupOptions(res.data.data || []);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, []);
 
   const formInitValues = {
     searchKeyword: '',
@@ -58,6 +75,7 @@ export const useChannelSearch = ({ t }) => {
     BALANCE: 'balance',
     PRIORITY: 'priority',
     WEIGHT: 'weight',
+    GROUPS: 'groups',
     OPERATE: 'operate',
   };
 
@@ -149,13 +167,15 @@ export const useChannelSearch = ({ t }) => {
     enableTagMode,
     typeKey = activeTypeKey,
     statusF,
+    groupF,
   ) => {
     if (statusF === undefined) statusF = statusFilter;
+    if (groupF === undefined) groupF = groupFilter;
 
     const { searchKeyword, searchModel } = getFormValues();
     if (searchKeyword !== '' || searchModel !== '') {
       setLoading(true);
-      await searchChannels(enableTagMode, typeKey, statusF, page, pageSize);
+      await searchChannels(enableTagMode, typeKey, statusF, groupF, page, pageSize);
       setLoading(false);
       return;
     }
@@ -164,8 +184,9 @@ export const useChannelSearch = ({ t }) => {
     setLoading(true);
     const typeParam = typeKey !== 'all' ? `&type=${typeKey}` : '';
     const statusParam = statusF !== 'all' ? `&status=${statusF}` : '';
+    const groupParam = groupF !== 'all' ? `&group=${encodeURIComponent(groupF)}` : '';
     const res = await API.get(
-      `/api/channel/?p=${page}&page_size=${pageSize}&tag_mode=${enableTagMode}${typeParam}${statusParam}`,
+      `/api/channel/?p=${page}&page_size=${pageSize}&tag_mode=${enableTagMode}${typeParam}${statusParam}${groupParam}`,
     );
 
     if (res === undefined || reqId !== requestCounter.current) {
@@ -194,6 +215,7 @@ export const useChannelSearch = ({ t }) => {
     enableTagMode,
     typeKey = activeTypeKey,
     statusF = statusFilter,
+    groupF = groupFilter,
     page = 1,
     pageSz = pageSize,
   ) => {
@@ -201,14 +223,15 @@ export const useChannelSearch = ({ t }) => {
     setSearching(true);
     try {
       if (searchKeyword === '' && searchModel === '') {
-        await loadChannels(page, pageSz, enableTagMode, typeKey, statusF);
+        await loadChannels(page, pageSz, enableTagMode, typeKey, statusF, groupF);
         return;
       }
 
       const typeParam = typeKey !== 'all' ? `&type=${typeKey}` : '';
       const statusParam = statusF !== 'all' ? `&status=${statusF}` : '';
+      const groupParam = groupF !== 'all' ? `&group=${encodeURIComponent(groupF)}` : '';
       const res = await API.get(
-        `/api/channel/search?keyword=${searchKeyword}&group=&model=${searchModel}&tag_mode=${enableTagMode}&p=${page}&page_size=${pageSz}${typeParam}${statusParam}`,
+        `/api/channel/search?keyword=${searchKeyword}&model=${searchModel}&tag_mode=${enableTagMode}&p=${page}&page_size=${pageSz}${typeParam}${statusParam}${groupParam}`,
       );
       const { success, message, data } = res.data;
       if (success) {
@@ -286,6 +309,7 @@ export const useChannelSearch = ({ t }) => {
       [COLUMN_KEYS.BALANCE]: true,
       [COLUMN_KEYS.PRIORITY]: true,
       [COLUMN_KEYS.WEIGHT]: true,
+      [COLUMN_KEYS.GROUPS]: true,
       [COLUMN_KEYS.OPERATE]: true,
     };
   };
@@ -417,6 +441,9 @@ export const useChannelSearch = ({ t }) => {
     setEnableBatchDelete,
     statusFilter,
     setStatusFilter,
+    groupFilter,
+    setGroupFilter,
+    groupOptions,
     compactMode,
     setCompactMode,
     activeTypeKey,

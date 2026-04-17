@@ -84,6 +84,8 @@ func GetAllChannels(c *gin.Context) {
 			typeFilter = t
 		}
 	}
+	// group filter
+	groupFilter := c.Query("group")
 
 	var total int64
 
@@ -113,6 +115,9 @@ func GetAllChannels(c *gin.Context) {
 				if typeFilter >= 0 && ch.Type != typeFilter {
 					continue
 				}
+				if groupFilter != "" && !channelHasGroup(ch.Group, groupFilter) {
+					continue
+				}
 				filtered = append(filtered, ch)
 			}
 			channelData = append(channelData, filtered...)
@@ -127,6 +132,9 @@ func GetAllChannels(c *gin.Context) {
 			baseQuery = baseQuery.Where("status = ?", common.ChannelStatusEnabled)
 		} else if statusFilter == 0 {
 			baseQuery = baseQuery.Where("status != ?", common.ChannelStatusEnabled)
+		}
+		if groupFilter != "" {
+			baseQuery = baseQuery.Where("\"group\" LIKE ?", "%"+groupFilter+"%")
 		}
 
 		baseQuery.Count(&total)
@@ -153,6 +161,9 @@ func GetAllChannels(c *gin.Context) {
 		countQuery = countQuery.Where("status = ?", common.ChannelStatusEnabled)
 	} else if statusFilter == 0 {
 		countQuery = countQuery.Where("status != ?", common.ChannelStatusEnabled)
+	}
+	if groupFilter != "" {
+		countQuery = countQuery.Where("\"group\" LIKE ?", "%"+groupFilter+"%")
 	}
 	var results []struct {
 		Type  int64
@@ -2245,4 +2256,13 @@ func OllamaVersion(c *gin.Context) {
 			"version": version,
 		},
 	})
+}
+
+func channelHasGroup(groupStr, target string) bool {
+	for _, g := range strings.Split(groupStr, ",") {
+		if strings.TrimSpace(g) == target {
+			return true
+		}
+	}
+	return false
 }

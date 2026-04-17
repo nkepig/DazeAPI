@@ -239,6 +239,34 @@ func getUpstreamModelUpdateMinCheckIntervalSeconds() int64 {
 	return interval
 }
 
+func getFirstEnabledKey(channel *model.Channel) (string, error) {
+	if !channel.ChannelInfo.IsMultiKey {
+		trimmed := strings.TrimSpace(channel.Key)
+		if trimmed == "" {
+			return "", fmt.Errorf("渠道密钥为空")
+		}
+		return strings.Split(trimmed, "\n")[0], nil
+	}
+	keys := channel.GetKeys()
+	if len(keys) == 0 {
+		return "", fmt.Errorf("渠道无可用密钥")
+	}
+	statusList := channel.ChannelInfo.MultiKeyStatusList
+	for i, key := range keys {
+		if statusList == nil {
+			return strings.TrimSpace(key), nil
+		}
+		if status, ok := statusList[i]; ok {
+			if status == common.ChannelStatusEnabled {
+				return strings.TrimSpace(key), nil
+			}
+		} else {
+			return strings.TrimSpace(key), nil
+		}
+	}
+	return "", fmt.Errorf("渠道无已启用的密钥")
+}
+
 func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() != "" {
@@ -246,7 +274,10 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 	}
 
 	if channel.Type == constant.ChannelTypeOllama {
-		key := strings.TrimSpace(strings.Split(channel.Key, "\n")[0])
+		key, err := getFirstEnabledKey(channel)
+		if err != nil {
+			return nil, fmt.Errorf("获取渠道密钥失败: %w", err)
+		}
 		models, err := ollama.FetchOllamaModels(baseURL, key)
 		if err != nil {
 			return nil, err
@@ -257,9 +288,9 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 	}
 
 	if channel.Type == constant.ChannelTypeGemini {
-		key, _, apiErr := channel.GetNextEnabledKey()
-		if apiErr != nil {
-			return nil, fmt.Errorf("获取渠道密钥失败: %w", apiErr)
+		key, err := getFirstEnabledKey(channel)
+		if err != nil {
+			return nil, fmt.Errorf("获取渠道密钥失败: %w", err)
 		}
 		key = strings.TrimSpace(key)
 		models, err := gemini.FetchGeminiModels(baseURL, key, channel.GetSetting().Proxy)
@@ -295,9 +326,9 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 		url = fmt.Sprintf("%s/v1/models", baseURL)
 	}
 
-	key, _, apiErr := channel.GetNextEnabledKey()
-	if apiErr != nil {
-		return nil, fmt.Errorf("获取渠道密钥失败: %w", apiErr)
+	key, err := getFirstEnabledKey(channel)
+	if err != nil {
+		return nil, fmt.Errorf("获取渠道密钥失败: %w", err)
 	}
 	key = strings.TrimSpace(key)
 

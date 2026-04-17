@@ -39,7 +39,7 @@ export const useMessageActions = (
       if (!textToCopy) {
         Toast.warning({
           content: t(ERROR_MESSAGES.NO_TEXT_CONTENT),
-          duration: 2,
+          duration: 1,
         });
         return;
       }
@@ -50,7 +50,7 @@ export const useMessageActions = (
             await navigator.clipboard.writeText(text);
             Toast.success({
               content: t('消息已复制到剪贴板'),
-              duration: 2,
+              duration: 1,
             });
           } catch (err) {
             console.error('Clipboard API 复制失败:', err);
@@ -85,7 +85,7 @@ export const useMessageActions = (
           if (successful) {
             Toast.success({
               content: t('消息已复制到剪贴板'),
-              duration: 2,
+              duration: 1,
             });
           } else {
             throw new Error('execCommand copy failed');
@@ -105,7 +105,7 @@ export const useMessageActions = (
 
           Toast.error({
             content: errorMessage,
-            duration: 4,
+            duration: 2,
           });
         }
       };
@@ -209,7 +209,7 @@ export const useMessageActions = (
               if (nextMessage.role === 'assistant') {
                 Toast.success({
                   content: t('已删除消息及其回复'),
-                  duration: 2,
+                  duration: 1,
                 });
                 updatedMessages = prevMessages.filter(
                   (_, index) =>
@@ -218,7 +218,7 @@ export const useMessageActions = (
               } else {
                 Toast.success({
                   content: t('消息已删除'),
-                  duration: 2,
+                  duration: 1,
                 });
                 updatedMessages = prevMessages.filter(
                   (msg) => msg.id !== targetMessage.id,
@@ -227,7 +227,7 @@ export const useMessageActions = (
             } else {
               Toast.success({
                 content: t('消息已删除'),
-                duration: 2,
+                duration: 1,
               });
               updatedMessages = prevMessages.filter(
                 (msg) => msg.id !== targetMessage.id,
@@ -276,7 +276,7 @@ export const useMessageActions = (
         content: t(
           `已切换为${newRole === 'system' ? 'System' : 'Assistant'}角色`,
         ),
-        duration: 2,
+        duration: 1,
       });
     },
     [setMessage, t, saveMessages],

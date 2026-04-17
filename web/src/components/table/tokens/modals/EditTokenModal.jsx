@@ -38,6 +38,7 @@ import {
   Form,
   Col,
   Row,
+  Select,
 } from '@douyinfe/semi-ui';
 import { StatusPill } from '../../../common/ui/StatusPill';
 import {
@@ -45,6 +46,7 @@ import {
   IconSave,
   IconClose,
   IconKey,
+  IconLayers,
 } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -53,6 +55,7 @@ const { Text, Title } = Typography;
 const EditTokenModal = (props) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const [userGroups, setUserGroups] = useState([]);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
   const isEdit = props.editingToken.id !== undefined;
@@ -63,7 +66,25 @@ const EditTokenModal = (props) => {
     expired_time: -1,
     unlimited_quota: true,
     tokenCount: 1,
+    group: '',
   });
+
+  const loadUserGroups = async () => {
+    try {
+      const res = await API.get('/api/user/self/groups');
+      if (res.data.success) {
+        const groups = res.data.data || {};
+        const groupOptions = Object.entries(groups).map(([name, info]) => ({
+          label: `${name}${info.desc ? ' - ' + info.desc : ''}`,
+          value: name,
+          ...info,
+        }));
+        setUserGroups(groupOptions);
+      }
+    } catch (error) {
+      console.error('Failed to load user groups:', error);
+    }
+  };
 
   const handleCancel = () => {
     props.handleClose();
@@ -112,6 +133,7 @@ const EditTokenModal = (props) => {
 
   useEffect(() => {
     if (props.visiable) {
+      loadUserGroups();
       if (isEdit) {
         loadToken();
       } else {
@@ -277,6 +299,18 @@ const EditTokenModal = (props) => {
                       placeholder={t('请输入名称')}
                       rules={[{ required: true, message: t('请输入名称') }]}
                       showClear
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.Select
+                      field='group'
+                      label={t('分组')}
+                      placeholder={t('请选择分组')}
+                      optionList={userGroups}
+                      showClear
+                      filter
+                      style={{ width: '100%' }}
+                      extraText={t('选择分组以应用对应的分组折扣')}
                     />
                   </Col>
                   <Col xs={24} sm={24} md={24} lg={10} xl={10}>

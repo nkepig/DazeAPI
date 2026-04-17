@@ -423,10 +423,38 @@ export const getChannelsColumns = ({
       },
     },
     {
+      key: COLUMN_KEYS.GROUPS,
+      title: t('分组'),
+      dataIndex: 'group',
+      render: (text, record, index) => {
+        if (record.children !== undefined) return null;
+        const groupStr = record.group || '';
+        if (!groupStr) {
+          return <Typography.Text type='tertiary' size='small'>-</Typography.Text>;
+        }
+        const groupList = groupStr.split(',').filter(Boolean);
+        return (
+          <div className='flex flex-wrap gap-1'>
+            {groupList.slice(0, 3).map((g) => (
+              <Tag key={g} size='small' color='blue' shape='circle'>
+                {g}
+              </Tag>
+            ))}
+            {groupList.length > 3 && (
+              <Tag size='small' color='grey' shape='circle'>
+                +{groupList.length - 3}
+              </Tag>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: COLUMN_KEYS.STATUS,
       title: t('状态'),
       dataIndex: 'status',
       render: (text, record, index) => {
+        const statusElement = renderStatus(text, record.channel_info, t);
         if (text === 3) {
           if (record.other_info === '') {
             record.other_info = '{}';
@@ -434,19 +462,32 @@ export const getChannelsColumns = ({
           let otherInfo = JSON.parse(record.other_info);
           let reason = otherInfo['status_reason'];
           let time = otherInfo['status_time'];
-          return (
-            <div>
-              <Tooltip
-                content={
-                  t('原因：') + reason + t('，时间：') + timestamp2string(time)
-                }
-              >
-                {renderStatus(text, record.channel_info, t)}
-              </Tooltip>
+          const tooltipContent = (
+            <div className="max-w-[300px]">
+              <div className="font-medium mb-1">{t('自动禁用详情')}</div>
+              {reason && (
+                <div className="mb-1">
+                  <span className="text-semi-color-text-2">{t('原因：')}</span>
+                  <span className="text-semi-color-danger">{reason}</span>
+                </div>
+              )}
+              {time && (
+                <div>
+                  <span className="text-semi-color-text-2">{t('时间：')}</span>
+                  <span>{timestamp2string(time)}</span>
+                </div>
+              )}
             </div>
           );
+          return (
+            <Tooltip content={tooltipContent}>
+              <div className="cursor-help inline-block">
+                {statusElement}
+              </div>
+            </Tooltip>
+          );
         } else {
-          return renderStatus(text, record.channel_info, t);
+          return statusElement;
         }
       },
     },

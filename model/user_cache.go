@@ -15,17 +15,19 @@ import (
 
 // UserBase struct remains the same as it represents the cached data structure
 type UserBase struct {
-	Id       int    `json:"id"`
-	Group    string `json:"group"`
-	Email    string `json:"email"`
-	Quota    int    `json:"quota"`
-	Status   int    `json:"status"`
-	Username string `json:"username"`
-	Setting  string `json:"setting"`
+	Id         int    `json:"id"`
+	Group      string `json:"group"`
+	GroupRatio string `json:"group_ratio"`
+	Email      string `json:"email"`
+	Quota      int    `json:"quota"`
+	Status     int    `json:"status"`
+	Username   string `json:"username"`
+	Setting    string `json:"setting"`
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
 	common.SetContextKey(c, constant.ContextKeyUserGroup, user.Group)
+	common.SetContextKey(c, constant.ContextKeyUserGroupRatio, user.GetGroupRatioMap())
 	common.SetContextKey(c, constant.ContextKeyUserQuota, user.Quota)
 	common.SetContextKey(c, constant.ContextKeyUserStatus, user.Status)
 	common.SetContextKey(c, constant.ContextKeyUserEmail, user.Email)
@@ -42,6 +44,18 @@ func (user *UserBase) GetSetting() dto.UserSetting {
 		}
 	}
 	return setting
+}
+
+func (user *UserBase) GetGroupRatioMap() map[string]float64 {
+	result := make(map[string]float64)
+	if user.GroupRatio == "" {
+		return result
+	}
+	err := common.Unmarshal([]byte(user.GroupRatio), &result)
+	if err != nil {
+		common.SysLog("failed to unmarshal group_ratio for user " + user.Username + ": " + err.Error())
+	}
+	return result
 }
 
 // getUserCacheKey returns the key for user cache

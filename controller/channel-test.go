@@ -26,6 +26,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -477,21 +478,26 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	}
 	info.SetEstimatePromptTokens(usage.PromptTokens)
 
-	quota := 0
-	if !priceData.UsePrice {
-		quota = usage.PromptTokens + int(math.Round(float64(usage.CompletionTokens)*priceData.CompletionRatio))
-		quota = int(math.Round(float64(quota) * priceData.ModelRatio))
-		if priceData.ModelRatio != 0 && quota <= 0 {
+quota := 0
+	if !priceData.UsePerCallPricing {
+		promptTokens := usage.PromptTokens
+		completionTokens := usage.CompletionTokens
+		estimatedCostMicrodollars := pricing.ToMicrodollars(
+			float64(promptTokens)/1_000_000.0*priceData.PromptPrice +
+				float64(completionTokens)/1_000_000.0*priceData.CompletionPrice,
+		)
+		quota = int(float64(estimatedCostMicrodollars) * priceData.GroupDiscountInfo.GroupDiscount)
+		if quota <= 0 && priceData.PromptPrice > 0 {
 			quota = 1
 		}
 	} else {
-		quota = int(priceData.ModelPrice * common.QuotaPerUnit)
+		quota = int(priceData.PerCallPrice * float64(pricing.MicrodollarsPerDollar) * priceData.GroupDiscountInfo.GroupDiscount)
 	}
 	tok := time.Now()
 	milliseconds := tok.Sub(tik).Milliseconds()
 	consumedTime := float64(milliseconds) / 1000.0
-	other := service.GenerateTextOtherInfo(c, info, priceData.ModelRatio, priceData.GroupRatioInfo.GroupRatio, priceData.CompletionRatio,
-		usage.PromptTokensDetails.CachedTokens, priceData.CacheRatio, priceData.ModelPrice, priceData.GroupRatioInfo.GroupSpecialRatio)
+	other := service.GenerateTextOtherInfo(c, info, priceData.PromptPrice, priceData.GroupDiscountInfo.GroupDiscount, priceData.CompletionPrice,
+		usage.PromptTokensDetails.CachedTokens, priceData.CacheReadPrice, priceData.PerCallPrice, priceData.GroupDiscountInfo.GroupSpecialRatio)
 	model.RecordConsumeLog(c, 1, model.RecordConsumeLogParams{
 		ChannelId:        channel.Id,
 		PromptTokens:     usage.PromptTokens,

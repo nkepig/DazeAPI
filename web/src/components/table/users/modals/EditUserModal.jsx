@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   API,
@@ -47,11 +47,7 @@ import {
   Row,
   Col,
   InputNumber,
-  Input,
   Select,
-  Checkbox,
-  Banner,
-  Empty,
 } from '@douyinfe/semi-ui';
 import {
   IconUser,
@@ -59,9 +55,6 @@ import {
   IconClose,
   IconUserGroup,
   IconPlus,
-  IconSearch,
-  IconChevronDown,
-  IconChevronRight,
 } from '@douyinfe/semi-icons';
 import { DollarSign } from 'lucide-react';
 
@@ -76,19 +69,13 @@ const EditUserModal = (props) => {
   const [addAmountLocal, setAddAmountLocal] = useState('');
   const [originalQuota, setOriginalQuota] = useState(0);
   const [pendingQuotaDelta, setPendingQuotaDelta] = useState(0);
+  const [userGroup, setUserGroup] = useState('');
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
 
-  // model overrides state
-  const [globalModels, setGlobalModels] = useState([]);
-  const [modelOverrides, setModelOverrides] = useState({});
-  const [modelSearch, setModelSearch] = useState('');
-  // 批量配置弹窗状态
-  const [batchModal, setBatchModal] = useState(null); // { name, models }
-  const [batchBillingType, setBatchBillingType] = useState('ratio');
-  const [batchValue, setBatchValue] = useState(1);
-  // 分组折叠状态：vendorId -> bool (true=展开)
-  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [groupOverrides, setGroupOverrides] = useState({});
+  const [groupList, setGroupList] = useState([]);
+  const [availableGroups, setAvailableGroups] = useState([]);
 
   const isEdit = Boolean(userId);
 
@@ -101,90 +88,19 @@ const EditUserModal = (props) => {
     remark: '',
   });
 
-  const toggleModel = (modelName) => {
-    setModelOverrides((prev) => {
-      const next = { ...prev };
-      if (next[modelName]) {
-        delete next[modelName];
-      } else {
-        next[modelName] = { billing_type: 'ratio', value: 1 };
-      }
-      return next;
-    });
-  };
-
-  const updateOverride = (modelName, field, value) => {
-    setModelOverrides((prev) => ({
-      ...prev,
-      [modelName]: { ...prev[modelName], [field]: value },
-    }));
-  };
-
-  const selectAll = () => {
-    const newOverrides = { ...modelOverrides };
-    filteredModels.forEach((m) => {
-      if (!newOverrides[m.model]) {
-        newOverrides[m.model] = { billing_type: 'ratio', value: 1 };
-      }
-    });
-    setModelOverrides(newOverrides);
-  };
-
-  const deselectAll = () => {
-    const newOverrides = { ...modelOverrides };
-    filteredModels.forEach((m) => {
-      delete newOverrides[m.model];
-    });
-    setModelOverrides(newOverrides);
-  };
-
-  // 选中某分组全部模型
-  const selectGroup = (groupModels) => {
-    const newOverrides = { ...modelOverrides };
-    groupModels.forEach((m) => {
-      if (!newOverrides[m.model]) {
-        newOverrides[m.model] = { billing_type: 'ratio', value: 1 };
-      }
-    });
-    setModelOverrides(newOverrides);
-  };
-
-  // 取消选中某分组全部模型
-  const deselectGroup = (groupModels) => {
-    const newOverrides = { ...modelOverrides };
-    groupModels.forEach((m) => {
-      delete newOverrides[m.model];
-    });
-    setModelOverrides(newOverrides);
-  };
-
-  // 打开批量配置弹窗
-  const openBatchModal = (groupName, groupModels) => {
-    setBatchModal({ name: groupName, models: groupModels });
-    setBatchBillingType('ratio');
-    setBatchValue(1);
-  };
-
-  // 应用批量配置：将该分组所有模型设为指定计费方式和值
-  const applyBatch = () => {
-    if (!batchModal) return;
-    const newOverrides = { ...modelOverrides };
-    batchModal.models.forEach((m) => {
-      newOverrides[m.model] = { billing_type: batchBillingType, value: batchValue };
-    });
-    setModelOverrides(newOverrides);
-    setBatchModal(null);
-  };
-
-  // 切换分组折叠状态
-  const toggleGroup = (groupId) => {
-    setCollapsedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
-  };
-
   const handleCancel = () => props.handleClose();
 
   const loadUser = async () => {
     setLoading(true);
+    try {
+      const groupRes = await API.get('/api/group/');
+      if (groupRes.data?.success) {
+        setAvailableGroups(groupRes.data.data || []);
+      }
+    } catch (e) {
+      // non-critical
+    }
+
     const url = userId ? `/api/user/${userId}` : `/api/user/self`;
     const res = await API.get(url);
     const { success, message, data } = res.data;
@@ -192,8 +108,29 @@ const EditUserModal = (props) => {
       data.password = '';
       setOriginalQuota(data.quota || 0);
       setPendingQuotaDelta(0);
-      setGlobalModels(data?.global_models || []);
-      setModelOverrides(data?.model_overrides || {});
+      setUserGroup(data.group || data.username || '');
+      const groupEntries = [];
+      const overrides = {};
+      if (data.group_ratio) {
+        try {
+          const parsed = typeof data.group_ratio === 'string' ? JSON.parse(data.group_ratio) : data.group_ratio;
+          let idCounter = 0;
+          for (const [g, v] of Object.entries(parsed)) {
+            const ratio = typeof v === 'number' ? v : 1;
+            groupEntries.push({
+              id: `existing-${idCounter++}`,
+              name: g,
+              ratio: ratio,
+              isNew: false,
+            });
+            overrides[g] = ratio;
+          }
+        } catch (e) {
+          console.error('Failed to parse group_ratio:', e);
+        }
+      }
+      setGroupList(groupEntries);
+      setGroupOverrides(overrides);
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
@@ -203,7 +140,6 @@ const EditUserModal = (props) => {
 
   useEffect(() => {
     loadUser();
-    setModelSearch('');
   }, [props.editingUser.id]);
 
   const submit = async (values) => {
@@ -220,7 +156,13 @@ const EditUserModal = (props) => {
         payload.quota_delta = pendingQuotaDelta;
       }
       if (isRoot()) {
-        payload.model_overrides = modelOverrides;
+        const fullGroupRatio = {};
+        groupList.forEach((item) => {
+          if (item.name && item.name.trim() !== '') {
+            fullGroupRatio[item.name.trim()] = item.ratio ?? 1;
+          }
+        });
+        payload.group_ratio = JSON.stringify(fullGroupRatio);
       }
     }
     const url = userId ? `/api/user/` : `/api/user/self`;
@@ -242,53 +184,6 @@ const EditUserModal = (props) => {
     formApiRef.current?.setValue('quota', current + delta);
     setPendingQuotaDelta((prev) => prev + delta);
   };
-
-  // merge global models with user overrides for display, deduped
-  const allModels = useMemo(() => {
-    const map = new Map();
-    globalModels.forEach((m) => {
-      map.set(m.model, m);
-    });
-    // models in overrides but not in global list
-    Object.keys(modelOverrides).forEach((name) => {
-      if (!map.has(name)) {
-        const o = modelOverrides[name];
-        map.set(name, { model: name, billing_type: o.billing_type, value: o.value });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => {
-      const aEnabled = !!modelOverrides[a.model];
-      const bEnabled = !!modelOverrides[b.model];
-      if (aEnabled !== bEnabled) return aEnabled ? -1 : 1;
-      return a.model.localeCompare(b.model);
-    });
-  }, [globalModels, modelOverrides]);
-
-  const filteredModels = useMemo(() => {
-    if (!modelSearch.trim()) return allModels;
-    const q = modelSearch.toLowerCase();
-    return allModels.filter((m) => m.model.toLowerCase().includes(q));
-  }, [allModels, modelSearch]);
-
-  // 按供应商分组（搜索时保留分组结构，只过滤模型）
-  const filteredVendorGroups = useMemo(() => {
-    const groups = new Map();
-    filteredModels.forEach((m) => {
-      const key = m.vendor_id || 0;
-      const name = m.vendor_name || t('其他');
-      if (!groups.has(key)) {
-        groups.set(key, { id: key, name, models: [] });
-      }
-      groups.get(key).models.push(m);
-    });
-    return Array.from(groups.values()).sort((a, b) => {
-      if (a.id === 0 && b.id !== 0) return 1;
-      if (a.id !== 0 && b.id === 0) return -1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [filteredModels, t]);
-
-  const enabledCount = Object.keys(modelOverrides).length;
 
   return (
     <>
@@ -422,7 +317,7 @@ const EditUserModal = (props) => {
                   </Card>
                 )}
 
-                {/* 模型与计费配置 — 仅超级管理员可见 */}
+                {/* 分组倍率配置 — 仅超级管理员可见 */}
                 {userId && isRoot() && (
                   <Card className='!rounded-2xl shadow-sm border-0'>
                     <div className='flex items-center mb-2'>
@@ -430,200 +325,86 @@ const EditUserModal = (props) => {
                         <DollarSign size={16} />
                       </Avatar>
                       <div className='flex-1'>
-                        <Text className='text-lg font-medium'>{t('模型与计费')}</Text>
+                        <Text className='text-lg font-medium'>{t('分组倍率配置')}</Text>
                         <div className='text-xs text-gray-600'>
-                          {enabledCount > 0
-                            ? t(
-                                '已保存白名单：仅列表中勾选的模型可调用；未勾选不可调用，可单独设置倍率或固定价。',
-                              )
-                            : t(
-                                '当前未保存专属白名单：系统会回退到默认模型配置。新创建用户默认会预设全部模型；如果你在这里取消勾选后点击提交，未勾选模型将不可调用。',
-                              )}
+                          {Object.keys(groupOverrides).length === 0
+                            ? t('当前为测试用户状态，所有分组可用，倍率为1')
+                            : t('配置各分组的倍率，不在列表中的分组将不可用')}
                         </div>
                       </div>
-                      {enabledCount > 0 ? (
-                        <Tag color='orange' size='small' className='ml-2'>
-                          {enabledCount} {t('个已选')}
-                        </Tag>
-                      ) : (
-                        <Tag color='grey' size='small' className='ml-2'>
-                          {t('未设置专属白名单')}
-                        </Tag>
-                      )}
                     </div>
 
-                    {enabledCount === 0 && (
-                      <Banner
-                        type='info'
-                        description={t(
-                          '说明：列表来自倍率表，与渠道是否仍提供某模型可能不一致。新用户默认会写入全部模型；这里显示为空，通常表示该用户当前没有单独保存专属白名单。若要限制可用范围或覆盖计费，请勾选需要的模型后点击提交。',
-                        )}
-                        className='mb-3 !rounded-lg'
-                        closeIcon={null}
-                      />
-                    )}
-
-                    {/* 搜索 + 操作栏 */}
-                    <div className='flex items-center gap-2 mb-2'>
-                      <Input
-                        prefix={<IconSearch />}
-                        placeholder={t('搜索模型...')}
-                        value={modelSearch}
-                        onChange={setModelSearch}
-                        showClear
-                        style={{ flex: 1 }}
-                        size='small'
-                      />
-                      <Button size='small' theme='borderless' onClick={selectAll}>
-                        {t('全选')}
-                      </Button>
-                      <Button size='small' theme='borderless' onClick={deselectAll}>
-                        {t('取消全选')}
-                      </Button>
-                    </div>
-
-                    {/* 模型列表（按供应商分组） */}
-                    <div
-                      style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}
-                      className='border rounded-lg'
-                    >
-                      {filteredVendorGroups.length === 0 ? (
-                        <Empty
-                          description={t('没有匹配的模型')}
-                          style={{ padding: '24px 0' }}
+                    <div className='space-y-2'>
+                      <div className='mb-3'>
+                        <Select
+                          placeholder={t('选择渠道分组')}
+                          value=''
+                          onChange={(value) => {
+                            if (value && !groupOverrides[value]) {
+                              setGroupList((prev) => [...prev, { id: `channel-${value}`, name: value, ratio: 1, isNew: false }]);
+                              setGroupOverrides((prev) => ({ ...prev, [value]: 1 }));
+                            }
+                          }}
+                          optionList={availableGroups
+                            .filter((g) => !groupOverrides[g])
+                            .map((g) => ({ label: g, value: g }))}
+                          style={{ width: '100%' }}
+                          size='small'
                         />
-                      ) : (
-                        filteredVendorGroups.map((group) => {
-                          const isCollapsed = !!collapsedGroups[group.id];
-                          const groupEnabledCount = group.models.filter(
-                            (m) => !!modelOverrides[m.model],
-                          ).length;
-                          return (
-                            <div key={group.id} className='border-b last:border-b-0'>
-                              {/* 分组标题栏 */}
-                              <div
-                                className='flex items-center gap-1.5 px-3 py-1.5 sticky top-0 z-10'
-                                style={{
-                                  background: 'var(--semi-color-fill-0)',
-                                  borderBottom: isCollapsed ? 'none' : '1px solid var(--semi-color-border)',
-                                }}
-                              >
-                                <button
-                                  type='button'
-                                  onClick={() => toggleGroup(group.id)}
-                                  className='flex items-center gap-1 flex-1 min-w-0 text-left bg-transparent border-0 p-0 cursor-pointer'
-                                >
-                                  {isCollapsed ? (
-                                    <IconChevronRight size='small' style={{ flexShrink: 0, color: 'var(--semi-color-text-2)' }} />
-                                  ) : (
-                                    <IconChevronDown size='small' style={{ flexShrink: 0, color: 'var(--semi-color-text-2)' }} />
-                                  )}
-                                  <Text strong style={{ fontSize: 12 }}>
-                                    {group.name}
-                                  </Text>
-                                  <Tag
-                                    color={groupEnabledCount > 0 ? 'blue' : 'grey'}
-                                    size='small'
-                                    style={{ flexShrink: 0 }}
-                                  >
-                                    {groupEnabledCount}/{group.models.length}
-                                  </Tag>
-                                </button>
-                                <Button
-                                  size='small'
-                                  theme='borderless'
-                                  onClick={() => selectGroup(group.models)}
-                                  style={{ flexShrink: 0, fontSize: 11, padding: '0 4px' }}
-                                >
-                                  {t('全选')}
-                                </Button>
-                                <Button
-                                  size='small'
-                                  theme='borderless'
-                                  onClick={() => deselectGroup(group.models)}
-                                  style={{ flexShrink: 0, fontSize: 11, padding: '0 4px' }}
-                                >
-                                  {t('取消')}
-                                </Button>
-                                <Button
-                                  size='small'
-                                  theme='solid'
-                                  type='primary'
-                                  onClick={() => openBatchModal(group.name, group.models)}
-                                  style={{ flexShrink: 0, fontSize: 11, padding: '0 6px' }}
-                                >
-                                  {t('批量配置')}
-                                </Button>
-                              </div>
-                              {/* 该分组的模型行 */}
-                              {!isCollapsed &&
-                                group.models.map((m) => {
-                                  const enabled = !!modelOverrides[m.model];
-                                  const override = modelOverrides[m.model];
-                                  return (
-                                    <div
-                                      key={m.model}
-                                      className='flex items-center gap-2 px-3 py-1.5 border-b last:border-b-0'
-                                      style={{
-                                        background: enabled
-                                          ? 'var(--semi-color-primary-light-default)'
-                                          : 'transparent',
-                                      }}
-                                    >
-                                      <Checkbox
-                                        checked={enabled}
-                                        onChange={() => toggleModel(m.model)}
-                                      />
-                                      <Text
-                                        ellipsis={{ showTooltip: true }}
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 0,
-                                          fontSize: 13,
-                                          fontWeight: enabled ? 500 : 400,
-                                        }}
-                                      >
-                                        {m.model}
-                                      </Text>
-                                      {enabled && (
-                                        <>
-                                          <Select
-                                            size='small'
-                                            value={override?.billing_type || 'ratio'}
-                                            onChange={(v) =>
-                                              updateOverride(m.model, 'billing_type', v)
-                                            }
-                                            style={{ width: 90 }}
-                                            optionList={[
-                                              { label: t('倍率'), value: 'ratio' },
-                                              { label: t('固定价'), value: 'price' },
-                                            ]}
-                                          />
-                                          <InputNumber
-                                            size='small'
-                                            value={override?.value ?? 0}
-                                            onChange={(v) =>
-                                              updateOverride(m.model, 'value', v ?? 0)
-                                            }
-                                            min={0}
-                                            step={0.1}
-                                            style={{ width: 90 }}
-                                          />
-                                        </>
-                                      )}
-                                      {!enabled && (
-                                        <Text type='tertiary' size='small'>
-                                          {m.billing_type === 'price' ? t('固定价') : t('倍率')}{' '}
-                                          {m.value}
-                                        </Text>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          );
-                        })
+                      </div>
+
+                      {groupList.length === 0 && (
+                        <Text type='secondary' size='small'>
+                          {t('暂无配置，从上方下拉选择分组')}
+                        </Text>
                       )}
+
+                      {groupList.map((item, index) => (
+                        <div
+                          key={item.id || item.name}
+                          className='flex items-center gap-2 px-3 py-2 rounded-lg bg-[#fafafa] hover:bg-[#f5f5f5] transition-colors'
+                        >
+                          <Text strong style={{ minWidth: 80, fontSize: 13 }}>
+                            {item.name}
+                          </Text>
+                          <InputNumber
+                            min={0.01}
+                            max={1000}
+                            step={0.1}
+                            value={item.ratio ?? 1}
+                            onChange={(v) => {
+                              const ratio = v ?? 1;
+                              setGroupList((prev) => {
+                                const next = [...prev];
+                                next[index] = { ...next[index], ratio };
+                                return next;
+                              });
+                              if (item.name) {
+                                setGroupOverrides((prev) => ({ ...prev, [item.name]: ratio }));
+                              }
+                            }}
+                            size='small'
+                            style={{ width: 90 }}
+                          />
+                          <Button
+                            type='danger'
+                            size='small'
+                            theme='borderless'
+                            onClick={() => {
+                              setGroupList((prev) => prev.filter((_, i) => i !== index));
+                              if (item.name) {
+                                setGroupOverrides((prev) => {
+                                  const next = { ...prev };
+                                  delete next[item.name];
+                                  return next;
+                                });
+                              }
+                            }}
+                          >
+                            {t('删除')}
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </Card>
                 )}
@@ -632,59 +413,6 @@ const EditUserModal = (props) => {
           </Form>
         </Spin>
       </SideSheet>
-
-      {/* 批量配置模态框 */}
-      <Modal
-        centered
-        visible={!!batchModal}
-        onOk={applyBatch}
-        onCancel={() => setBatchModal(null)}
-        closable={null}
-        title={
-          <div className='flex items-center gap-2'>
-            <DollarSign size={16} />
-            <span>
-              {t('批量配置')}
-              {batchModal ? ` · ${batchModal.name}` : ''}
-            </span>
-          </div>
-        }
-        okText={t('应用到该分类全部模型')}
-      >
-        <div className='space-y-4 py-2'>
-          <div>
-            <Text size='small' type='secondary' className='block mb-1'>
-              {t('说明：将该分类所有模型统一启用并设置计费方式，已有单独配置的模型也会被覆盖。')}
-            </Text>
-          </div>
-          <div className='flex items-center gap-3'>
-            <Text size='small' style={{ width: 60, flexShrink: 0 }}>
-              {t('计费方式')}
-            </Text>
-            <Select
-              value={batchBillingType}
-              onChange={setBatchBillingType}
-              style={{ width: 120 }}
-              optionList={[
-                { label: t('倍率'), value: 'ratio' },
-                { label: t('固定价'), value: 'price' },
-              ]}
-            />
-          </div>
-          <div className='flex items-center gap-3'>
-            <Text size='small' style={{ width: 60, flexShrink: 0 }}>
-              {batchBillingType === 'ratio' ? t('倍率值') : t('价格值')}
-            </Text>
-            <InputNumber
-              value={batchValue}
-              onChange={(v) => setBatchValue(v ?? 0)}
-              min={0}
-              step={0.1}
-              style={{ width: 120 }}
-            />
-          </div>
-        </div>
-      </Modal>
 
       {/* 添加额度模态框 */}
       <Modal

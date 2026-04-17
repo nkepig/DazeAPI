@@ -21,7 +21,7 @@ import (
 
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+    pricing "github.com/QuantumNous/new-api/setting/pricing"
 
 	"github.com/gin-gonic/gin"
 )
@@ -366,7 +366,7 @@ func FetchUpstreamRatios(c *gin.Context) {
 	wg.Wait()
 	close(ch)
 
-	localData := ratio_setting.GetExposedData()
+    localData := pricing.GetExposedData()
 
 	var testResults []dto.TestResult
 	var successfulChannels []struct {
@@ -659,7 +659,7 @@ func convertOpenRouterToRatioData(reader io.Reader) (map[string]any, error) {
 		}
 
 		// Normal case: promptPrice > 0
-		ratio := promptPrice * 1000 * ratio_setting.USD
+        ratio := promptPrice * 1000 * pricing.USD
 		ratio = roundRatioValue(ratio)
 		modelRatioMap[m.ID] = ratio
 
@@ -842,7 +842,7 @@ func convertModelsDevToRatioData(reader io.Reader) (map[string]any, error) {
 			continue
 		}
 
-		modelRatio := candidate.Input * float64(ratio_setting.USD) / modelsDevInputCostRatioBase
+        modelRatio := candidate.Input * float64(pricing.USD) / modelsDevInputCostRatioBase
 		modelRatioMap[modelName] = roundRatioValue(modelRatio)
 
 		if candidate.Output != nil {

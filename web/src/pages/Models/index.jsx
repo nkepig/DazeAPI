@@ -33,7 +33,9 @@ const Models = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [filterVendor, setFilterVendor] = useState('all');
+  const [filterGroup, setFilterGroup] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [userGroup, setUserGroup] = useState('');
   const pageSize = 24;
 
   const [statusState] = useContext(StatusContext);
@@ -55,19 +57,34 @@ const Models = () => {
       setLoading(true);
       try {
         const res = await API.get('/api/pricing');
-        const { success, message, data, vendors, group_ratio } = res.data;
+        const { success, message, data, vendors, group_discount, user_group } = res.data;
         if (success) {
-          setGroupRatio(group_ratio || {});
+          const userGroupRatio = group_discount || {};
+          setGroupRatio(userGroupRatio);
+          setUserGroup(user_group || '');
+
           const vMap = {};
           if (Array.isArray(vendors)) {
             vendors.forEach((v) => { vMap[v.id] = v; });
           }
           setVendorsMap(vMap);
+
+          const userGroups = Object.keys(userGroupRatio);
+          const hasGroups = userGroups.length > 0;
+
           const formatted = (data || []).map((m) => ({
             ...m,
             key: m.model_name,
+            pricing_type: m.pricing_type ?? m.quota_type ?? 0,
             vendor_name: m.vendor_id && vMap[m.vendor_id] ? vMap[m.vendor_id].name : null,
-          }));
+          })).filter((m) => {
+            if (!hasGroups) return true;
+            const eg = m.enable_groups;
+            if (!Array.isArray(eg) || eg.length === 0) return true;
+            if (eg.every((x) => x === '')) return true;
+            return eg.some((g) => userGroupRatio[g] !== undefined);
+          });
+
           formatted.sort((a, b) => a.model_name.localeCompare(b.model_name));
           setModels(formatted);
         } else {
@@ -105,6 +122,14 @@ const Models = () => {
         result = result.filter((m) => m.vendor_name === filterVendor);
       }
     }
+    if (filterGroup !== 'all') {
+      result = result.filter((m) => {
+        const eg = m.enable_groups;
+        if (!Array.isArray(eg) || eg.length === 0) return true;
+        if (eg.every((x) => x === '')) return true;
+        return eg.includes(filterGroup);
+      });
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((m) =>
@@ -113,47 +138,55 @@ const Models = () => {
       );
     }
     return result;
-  }, [models, filterVendor, search]);
+  }, [models, filterVendor, filterGroup, search]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterVendor, search]);
+  }, [filterVendor, filterGroup, search]);
 
   const totalPages = Math.ceil(filteredModels.length / pageSize);
   const paginatedModels = filteredModels.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const getUsedGroupRatio = (model) => {
-    let minRatio = Infinity;
-    if (Array.isArray(model.enable_groups)) {
-      model.enable_groups.forEach((g) => {
-        if (groupRatio[g] !== undefined && groupRatio[g] < minRatio) {
-          minRatio = groupRatio[g];
-        }
-      });
+    if (filterGroup !== 'all' && groupRatio[filterGroup] !== undefined) {
+      return groupRatio[filterGroup];
     }
+    if (filterGroup === 'all' && userGroup && groupRatio[userGroup] !== undefined) {
+      return groupRatio[userGroup];
+    }
+    const eg = model.enable_groups;
+    if (!Array.isArray(eg) || eg.length === 0 || eg.every((x) => x === '')) {
+      return 1;
+    }
+    let minRatio = Infinity;
+    eg.forEach((g) => {
+      if (g !== '' && groupRatio[g] !== undefined && groupRatio[g] < minRatio) {
+        minRatio = groupRatio[g];
+      }
+    });
     return minRatio === Infinity ? 1 : minRatio;
   };
 
   const getPriceInfo = (model) => {
     const gr = model.user_multiplier != null ? model.user_multiplier : getUsedGroupRatio(model);
-    
-    const isDefaultPrice = model.model_price === 0.111 || Math.abs(model.model_price - 0.111) < 0.0001;
-    
+
+    const isDefaultPrice = model.per_call_price === 0.111 || Math.abs(model.per_call_price - 0.111) < 0.0001;
+
     if (isDefaultPrice) {
-      return { 
-        type: 'unconfigured', 
-        groupRatio: gr, 
-        hasUserMultiplier: model.user_multiplier != null 
+      return {
+        type: 'unconfigured',
+        groupRatio: gr,
+        hasUserMultiplier: model.user_multiplier != null
       };
     }
-    
-    if (model.quota_type === 1) {
-      const priceUSD = parseFloat(model.model_price) * gr;
+
+    if (model.pricing_type === 1) {
+      const priceUSD = parseFloat(model.per_call_price) * gr;
       return { type: 'fixed', price: displayPrice(priceUSD), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };
     }
-    const inputPriceUSD = model.model_ratio * 2 * gr;
-    const outputPriceUSD = inputPriceUSD * model.completion_ratio;
-    const cachePriceUSD = model.cache_ratio != null ? inputPriceUSD * model.cache_ratio : null;
+    const inputPriceUSD = model.prompt_price * gr;
+    const outputPriceUSD = model.completion_price * gr;
+    const cachePriceUSD = model.cache_read_price != null ? model.cache_read_price * gr : null;
     return {
       type: 'token',
       inputPrice: displayPrice(inputPriceUSD),
@@ -164,6 +197,8 @@ const Models = () => {
     };
   };
 
+  const userGroups = Object.keys(groupRatio);
+
   return (
     <div className='px-6 lg:px-10 py-8'>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className='mb-8'>
@@ -171,7 +206,6 @@ const Models = () => {
         <p className='text-[13px] text-[#999] mt-1'>{t('浏览所有可以通过 API 调用的模型')}</p>
       </motion.div>
 
-      {/* Search bar */}
       <div className='mb-4 relative max-w-[400px]'>
         <Search size={15} strokeWidth={1.5} className='absolute left-3 top-1/2 -translate-y-1/2 text-[#C8C8C8]' />
         <input
@@ -181,7 +215,6 @@ const Models = () => {
         />
       </div>
 
-      {/* Vendor pills */}
       {vendorOptions.length > 0 && (
         <div className='mb-5'>
           <p className='text-[11px] text-[#bbb] font-medium uppercase tracking-wider mb-2'>{t('供应商')}</p>
@@ -209,6 +242,50 @@ const Models = () => {
                   {getLobeHubIcon(opt.icon || 'Layers', 14)}
                 </span>
                 {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {userGroups.length > 0 && (
+        <div className='mb-5'>
+          <p className='text-[11px] text-[#bbb] font-medium uppercase tracking-wider mb-2'>{t('可用分组')}</p>
+          <div className='flex gap-1.5 flex-wrap'>
+            <button
+              type='button'
+              onClick={() => setFilterGroup('all')}
+              className='transition-all duration-150 cursor-pointer border-0 outline-none inline-flex items-center gap-1.5'
+              style={{
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                fontSize: '12px',
+                fontWeight: filterGroup === 'all' ? 600 : 400,
+                background: filterGroup === 'all' ? '#1A1A1A' : '#f5f5f5',
+                color: filterGroup === 'all' ? '#fff' : '#666',
+              }}
+            >
+              {t('全部')}
+            </button>
+            {userGroups.map((g) => (
+              <button
+                key={g}
+                type='button'
+                onClick={() => setFilterGroup(g)}
+                className='transition-all duration-150 cursor-pointer border-0 outline-none inline-flex items-center gap-1.5'
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '9999px',
+                  fontSize: '12px',
+                  fontWeight: filterGroup === g ? 600 : 400,
+                  background: filterGroup === g ? '#333' : '#f5f5f5',
+                  color: filterGroup === g ? '#fff' : '#666',
+                }}
+              >
+                {g}
+                {groupRatio[g] !== 1 && (
+                  <span className={filterGroup === g ? 'opacity-80' : ''}>· {groupRatio[g]}x</span>
+                )}
               </button>
             ))}
           </div>
@@ -271,7 +348,7 @@ const Models = () => {
                             </span>
                           )}
                           <span className='text-[11px] text-[#999]'>
-                            {model.quota_type === 0 ? t('按量计费') : t('按次计费')}
+                            {model.pricing_type === 0 ? t('按量计费') : t('按次计费')}
                           </span>
                         </div>
                       </div>

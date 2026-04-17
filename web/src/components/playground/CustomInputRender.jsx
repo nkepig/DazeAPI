@@ -47,7 +47,7 @@ const CustomInputRender = (props) => {
               if (!imageEnabled) {
                 Toast.warning({
                   content: t('请先在设置中启用图片功能'),
-                  duration: 3,
+                  duration: 1.5,
                 });
                 return;
               }
@@ -60,12 +60,12 @@ const CustomInputRender = (props) => {
                   onPasteImage(base64);
                   Toast.success({
                     content: t('图片已添加'),
-                    duration: 2,
+                    duration: 1,
                   });
                 } else {
                   Toast.error({
                     content: t('无法添加图片'),
-                    duration: 2,
+                    duration: 1,
                   });
                 }
               };
@@ -73,7 +73,7 @@ const CustomInputRender = (props) => {
                 console.error('Failed to read image file:', reader.error);
                 Toast.error({
                   content: t('粘贴图片失败'),
-                  duration: 2,
+                  duration: 1,
                 });
               };
               reader.readAsDataURL(file);
@@ -81,7 +81,7 @@ const CustomInputRender = (props) => {
               console.error('Failed to paste image:', error);
               Toast.error({
                 content: t('粘贴图片失败'),
-                duration: 2,
+                duration: 1,
               });
             }
           }

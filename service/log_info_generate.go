@@ -31,16 +31,16 @@ func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other
 	}
 }
 
-func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelRatio, groupRatio, completionRatio float64,
-	cacheTokens int, cacheRatio float64, modelPrice float64, userGroupRatio float64) map[string]interface{} {
+func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, promptPrice, groupDiscount, completionPrice float64,
+	cacheTokens int, cacheReadPrice, perCallPrice, userGroupDiscount float64) map[string]interface{} {
 	other := make(map[string]interface{})
-	other["model_ratio"] = modelRatio
-	other["group_ratio"] = groupRatio
-	other["completion_ratio"] = completionRatio
+	other["prompt_price"] = promptPrice
+	other["group_discount"] = groupDiscount
+	other["completion_price"] = completionPrice
 	other["cache_tokens"] = cacheTokens
-	other["cache_ratio"] = cacheRatio
-	other["model_price"] = modelPrice
-	other["user_group_ratio"] = userGroupRatio
+	other["cache_read_price"] = cacheReadPrice
+	other["per_call_price"] = perCallPrice
+	other["user_group_discount"] = userGroupDiscount
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
 	if relayInfo.ReasoningEffort != "" {
 		other["reasoning_effort"] = relayInfo.ReasoningEffort
@@ -90,7 +90,6 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	if relayInfo == nil || other == nil {
 		return
 	}
-	// billing_source: "wallet" or "subscription"
 	if relayInfo.BillingSource != "" {
 		other["billing_source"] = relayInfo.BillingSource
 	}
@@ -104,7 +103,6 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		if relayInfo.SubscriptionPreConsumed > 0 {
 			other["subscription_pre_consumed"] = relayInfo.SubscriptionPreConsumed
 		}
-		// post_delta: settlement delta applied after actual usage is known (can be negative for refund)
 		if relayInfo.SubscriptionPostDelta != 0 {
 			other["subscription_post_delta"] = relayInfo.SubscriptionPostDelta
 		}
@@ -114,7 +112,6 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		if relayInfo.SubscriptionPlanTitle != "" {
 			other["subscription_plan_title"] = relayInfo.SubscriptionPlanTitle
 		}
-		// Compute "this request" subscription consumed + remaining
 		consumed := relayInfo.SubscriptionPreConsumed + relayInfo.SubscriptionPostDelta
 		usedFinal := relayInfo.SubscriptionAmountUsedAfterPreConsume + relayInfo.SubscriptionPostDelta
 		if consumed < 0 {
@@ -135,7 +132,6 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		if consumed > 0 {
 			other["subscription_consumed"] = consumed
 		}
-		// Wallet quota is not deducted when billed from subscription.
 		other["wallet_quota_deducted"] = 0
 	}
 }
@@ -173,63 +169,66 @@ func appendFinalRequestFormat(relayInfo *relaycommon.RelayInfo, other map[string
 		return
 	}
 	if relayInfo.GetFinalRequestRelayFormat() == types.RelayFormatClaude {
-		// claude indicates the final upstream request format is Claude Messages.
-		// Frontend log rendering uses this to keep the original Claude input display.
 		other["claude"] = true
 	}
 }
 
-func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage, modelRatio, groupRatio, completionRatio, audioRatio, audioCompletionRatio, modelPrice, userGroupRatio float64) map[string]interface{} {
-	info := GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, 0, 0.0, modelPrice, userGroupRatio)
+func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage, priceData types.PriceData) map[string]interface{} {
+	info := GenerateTextOtherInfo(ctx, relayInfo, priceData.PromptPrice, priceData.GroupDiscountInfo.GroupDiscount, priceData.CompletionPrice, 0, priceData.CacheReadPrice, priceData.PerCallPrice, priceData.GroupDiscountInfo.GroupSpecialRatio)
 	info["ws"] = true
 	info["audio_input"] = usage.InputTokenDetails.AudioTokens
 	info["audio_output"] = usage.OutputTokenDetails.AudioTokens
 	info["text_input"] = usage.InputTokenDetails.TextTokens
 	info["text_output"] = usage.OutputTokenDetails.TextTokens
-	info["audio_ratio"] = audioRatio
-	info["audio_completion_ratio"] = audioCompletionRatio
+	info["audio_input_price"] = priceData.AudioInputPrice
+	info["audio_output_price"] = priceData.AudioOutputPrice
 	return info
 }
 
-func GenerateAudioOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, modelRatio, groupRatio, completionRatio, audioRatio, audioCompletionRatio, modelPrice, userGroupRatio float64) map[string]interface{} {
-	info := GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, 0, 0.0, modelPrice, userGroupRatio)
+func GenerateAudioOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, priceData types.PriceData) map[string]interface{} {
+	info := GenerateTextOtherInfo(ctx, relayInfo, priceData.PromptPrice, priceData.GroupDiscountInfo.GroupDiscount, priceData.CompletionPrice, 0, priceData.CacheReadPrice, priceData.PerCallPrice, priceData.GroupDiscountInfo.GroupSpecialRatio)
 	info["audio"] = true
 	info["audio_input"] = usage.PromptTokensDetails.AudioTokens
 	info["audio_output"] = usage.CompletionTokenDetails.AudioTokens
 	info["text_input"] = usage.PromptTokensDetails.TextTokens
 	info["text_output"] = usage.CompletionTokenDetails.TextTokens
-	info["audio_ratio"] = audioRatio
-	info["audio_completion_ratio"] = audioCompletionRatio
+	info["audio_input_price"] = priceData.AudioInputPrice
+	info["audio_output_price"] = priceData.AudioOutputPrice
 	return info
 }
 
-func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelRatio, groupRatio, completionRatio float64,
-	cacheTokens int, cacheRatio float64,
-	cacheCreationTokens int, cacheCreationRatio float64,
-	cacheCreationTokens5m int, cacheCreationRatio5m float64,
-	cacheCreationTokens1h int, cacheCreationRatio1h float64,
-	modelPrice float64, userGroupRatio float64) map[string]interface{} {
-	info := GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, cacheTokens, cacheRatio, modelPrice, userGroupRatio)
+func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, promptPrice, groupDiscount, completionPrice float64,
+	cacheTokens int, cacheReadPrice float64,
+	cacheCreationTokens int, cacheWritePrice float64,
+	cacheCreationTokens5m int, cacheWrite5mPrice float64,
+	cacheCreationTokens1h int, cacheWrite1hPrice float64,
+	perCallPrice, userGroupDiscount float64) map[string]interface{} {
+	info := GenerateTextOtherInfo(ctx, relayInfo, promptPrice, groupDiscount, completionPrice, cacheTokens, cacheReadPrice, perCallPrice, userGroupDiscount)
 	info["claude"] = true
 	info["cache_creation_tokens"] = cacheCreationTokens
-	info["cache_creation_ratio"] = cacheCreationRatio
+	info["cache_write_price"] = cacheWritePrice
 	if cacheCreationTokens5m != 0 {
 		info["cache_creation_tokens_5m"] = cacheCreationTokens5m
-		info["cache_creation_ratio_5m"] = cacheCreationRatio5m
+		info["cache_write_5m_price"] = cacheWrite5mPrice
 	}
 	if cacheCreationTokens1h != 0 {
 		info["cache_creation_tokens_1h"] = cacheCreationTokens1h
-		info["cache_creation_ratio_1h"] = cacheCreationRatio1h
+		info["cache_write_1h_price"] = cacheWrite1hPrice
 	}
 	return info
 }
 
 func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.PriceData) map[string]interface{} {
 	other := make(map[string]interface{})
-	other["model_price"] = priceData.ModelPrice
-	other["group_ratio"] = priceData.GroupRatioInfo.GroupRatio
-	if priceData.GroupRatioInfo.HasSpecialRatio {
-		other["user_group_ratio"] = priceData.GroupRatioInfo.GroupSpecialRatio
+	if priceData.UsePerCallPricing {
+		other["per_call_price"] = priceData.PerCallPrice
+	} else {
+		other["prompt_price"] = priceData.PromptPrice
+		other["completion_price"] = priceData.CompletionPrice
+	}
+	other["group_discount"] = priceData.GroupDiscountInfo.GroupDiscount
+	if priceData.GroupDiscountInfo.HasSpecialRatio {
+		other["user_group_discount"] = priceData.GroupDiscountInfo.GroupSpecialRatio
 	}
 	appendRequestPath(nil, relayInfo, other)
 	return other

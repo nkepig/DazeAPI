@@ -31,14 +31,14 @@ func TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic(t *testing.T) {
 	}
 
 	priceData := types.PriceData{
-		ModelRatio:           1,
-		CompletionRatio:      2,
-		CacheRatio:           0.1,
-		CacheCreationRatio:   1.25,
-		CacheCreation5mRatio: 1.25,
-		CacheCreation1hRatio: 2,
-		GroupRatioInfo: types.GroupRatioInfo{
-			GroupRatio: 1,
+		PromptPrice:         1,
+		CompletionPrice:     2,
+		CacheReadPrice:      0.1,
+		CacheWritePrice:     1.25,
+		CacheWrite5mPrice:   1.25,
+		CacheWrite1hPrice:   2,
+		GroupDiscountInfo: types.GroupDiscountInfo{
+			GroupDiscount: 1,
 		},
 	}
 
@@ -77,14 +77,14 @@ func TestCalculateTextQuotaSummaryUsesSplitClaudeCacheCreationRatios(t *testing.
 		FinalRequestRelayFormat: types.RelayFormatClaude,
 		OriginModelName:         "claude-3-7-sonnet",
 		PriceData: types.PriceData{
-			ModelRatio:           1,
-			CompletionRatio:      1,
-			CacheRatio:           0,
-			CacheCreationRatio:   1,
-			CacheCreation5mRatio: 2,
-			CacheCreation1hRatio: 3,
-			GroupRatioInfo: types.GroupRatioInfo{
-				GroupRatio: 1,
+			PromptPrice:         1,
+			CompletionPrice:     1,
+			CacheReadPrice:      0,
+			CacheWritePrice:     1,
+			CacheWrite5mPrice:   2,
+			CacheWrite1hPrice:   3,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
 			},
 		},
 		StartTime: time.Now(),
@@ -115,14 +115,14 @@ func TestCalculateTextQuotaSummaryUsesAnthropicUsageSemanticFromUpstreamUsage(t 
 		RelayFormat:     types.RelayFormatOpenAI,
 		OriginModelName: "claude-3-7-sonnet",
 		PriceData: types.PriceData{
-			ModelRatio:           1,
-			CompletionRatio:      2,
-			CacheRatio:           0.1,
-			CacheCreationRatio:   1.25,
-			CacheCreation5mRatio: 1.25,
-			CacheCreation1hRatio: 2,
-			GroupRatioInfo: types.GroupRatioInfo{
-				GroupRatio: 1,
+			PromptPrice:         1,
+			CompletionPrice:     2,
+			CacheReadPrice:      0.1,
+			CacheWritePrice:     1.25,
+			CacheWrite5mPrice:   1.25,
+			CacheWrite1hPrice:   2,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
 			},
 		},
 		StartTime: time.Now(),
@@ -180,13 +180,13 @@ func TestCalculateTextQuotaSummaryHandlesLegacyClaudeDerivedOpenAIUsage(t *testi
 		RelayFormat:     types.RelayFormatOpenAI,
 		OriginModelName: "claude-3-7-sonnet",
 		PriceData: types.PriceData{
-			ModelRatio:           1,
-			CompletionRatio:      5,
-			CacheRatio:           0.1,
-			CacheCreationRatio:   1.25,
-			CacheCreation5mRatio: 1.25,
-			CacheCreation1hRatio: 2,
-			GroupRatioInfo:       types.GroupRatioInfo{GroupRatio: 1},
+			PromptPrice:     1,
+			CompletionPrice: 5,
+			CacheReadPrice:  0.1,
+			CacheWritePrice: 1.25,
+			CacheWrite5mPrice: 1.25,
+			CacheWrite1hPrice: 2,
+			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
 		},
 		StartTime: time.Now(),
 	}
@@ -217,11 +217,11 @@ func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheReadFromPromptBilling(
 			ChannelType: constant.ChannelTypeOpenRouter,
 		},
 		PriceData: types.PriceData{
-			ModelRatio:         1,
-			CompletionRatio:    1,
-			CacheRatio:         0.1,
-			CacheCreationRatio: 1.25,
-			GroupRatioInfo:     types.GroupRatioInfo{GroupRatio: 1},
+			PromptPrice:     1,
+			CompletionPrice: 1,
+			CacheReadPrice:  0.1,
+			CacheWritePrice: 1.25,
+			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
 		},
 		StartTime: time.Now(),
 	}
@@ -254,10 +254,10 @@ func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheCreationFromPromptBill
 			ChannelType: constant.ChannelTypeOpenRouter,
 		},
 		PriceData: types.PriceData{
-			ModelRatio:         1,
-			CompletionRatio:    1,
-			CacheCreationRatio: 1.25,
-			GroupRatioInfo:     types.GroupRatioInfo{GroupRatio: 1},
+			PromptPrice:     1,
+			CompletionPrice: 1,
+			CacheWritePrice: 1.25,
+			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
 		},
 		StartTime: time.Now(),
 	}
@@ -290,11 +290,11 @@ func TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling(t *testing.T
 			ChannelType: constant.ChannelTypeOpenRouter,
 		},
 		PriceData: types.PriceData{
-			ModelRatio:         1,
-			CompletionRatio:    1,
-			CacheRatio:         0.1,
-			CacheCreationRatio: 1.25,
-			GroupRatioInfo:     types.GroupRatioInfo{GroupRatio: 1},
+			PromptPrice:     1,
+			CompletionPrice: 1,
+			CacheReadPrice:  0.1,
+			CacheWritePrice: 1.25,
+			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
 		},
 		StartTime: time.Now(),
 	}

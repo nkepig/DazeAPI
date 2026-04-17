@@ -41,6 +41,7 @@ type User struct {
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
 	Group            string         `json:"group" gorm:"type:varchar(64);default:''"`
+	GroupRatio       string         `json:"group_ratio" gorm:"type:text;column:groupratio"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
@@ -55,13 +56,14 @@ type User struct {
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Id:         user.Id,
+		Group:      user.Group,
+		GroupRatio: user.GroupRatio,
+		Quota:      user.Quota,
+		Status:     user.Status,
+		Username:   user.Username,
+		Setting:    user.Setting,
+		Email:      user.Email,
 	}
 	return cache
 }
@@ -144,12 +146,12 @@ func buildDefaultModelOverrides() map[string]dto.UserModelOverride {
 	overrides := make(map[string]dto.UserModelOverride, len(pricingList))
 	for _, pricing := range pricingList {
 		mult := operation_setting.VendorRatioMultiplier(pricing.VendorID)
-		// ratio 计费：Value 仅作「分组倍率」乘在系统 modelRatio 上（见 relay/helper/price.go applyUserOverride），不得写入 modelRatio 本身
-		override := dto.UserModelOverride{BillingType: "ratio", Value: mult}
-		if pricing.QuotaType == 1 {
-			override.BillingType = "price"
-			override.Value = pricing.ModelPrice * mult
-		}
+// token 计费：Value 仅作「分组倍率」乘在系统定价上（见 relay/helper/price.go applyUserOverride），不得写入定价本身
+	override := dto.UserModelOverride{BillingType: "ratio", Value: mult}
+	if pricing.PricingType == 1 {
+		override.BillingType = "price"
+		override.Value = pricing.PerCallPrice * mult
+	}
 		overrides[pricing.ModelName] = override
 	}
 	return overrides
@@ -557,6 +559,7 @@ func (user *User) Edit(updatePassword bool, includeQuota bool) error {
 		"username":     newUser.Username,
 		"display_name": newUser.DisplayName,
 		"group":        newUser.Group,
+		"groupratio":   newUser.GroupRatio,
 		"remark":       newUser.Remark,
 	}
 	if includeQuota {

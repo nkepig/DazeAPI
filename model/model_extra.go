@@ -17,15 +17,15 @@ func GetModelEnableGroups(modelName string) []string {
 	return groups
 }
 
-// GetModelQuotaTypes 返回指定模型的计费类型集合（来自缓存）
-func GetModelQuotaTypes(modelName string) []int {
+// GetModelPricingType 返回指定模型的计费类型（来自缓存）
+func GetModelPricingType(modelName string) int {
 	GetPricing()
 
 	modelEnableGroupsLock.RLock()
-	quota, ok := modelQuotaTypeMap[modelName]
+	pricingType, ok := modelPricingTypeMap[modelName]
 	modelEnableGroupsLock.RUnlock()
 	if !ok {
-		return []int{}
+		return 0
 	}
-	return []int{quota}
+	return pricingType
 }

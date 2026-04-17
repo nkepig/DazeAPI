@@ -81,16 +81,16 @@ func shouldChargeViolationFee(err *types.NewAPIError) bool {
 	return HasCSAMViolationMarker(err)
 }
 
-func calcViolationFeeQuota(amount, groupRatio float64) int {
+func calcViolationFeeQuota(amount, providerRatio float64) int {
 	if amount <= 0 {
 		return 0
 	}
-	if groupRatio <= 0 {
+	if providerRatio <= 0 {
 		return 0
 	}
 	quota := decimal.NewFromFloat(amount).
 		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
-		Mul(decimal.NewFromFloat(groupRatio)).
+		Mul(decimal.NewFromFloat(providerRatio)).
 		Round(0).
 		IntPart()
 	if quota <= 0 {
@@ -117,11 +117,12 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 		return false
 	}
 
-	groupRatio := relayInfo.PriceData.GroupRatioInfo.GroupRatio
-	feeQuota := calcViolationFeeQuota(settings.ViolationDeductionAmount, groupRatio)
+    providerRatio := relayInfo.PriceData.ProviderRatioInfo.ProviderRatio
+    // Use provider ratio for billing quota, while keeping backward-compatible group ratio in logs
+    feeQuota := calcViolationFeeQuota(settings.ViolationDeductionAmount, providerRatio)
 	if feeQuota <= 0 {
 		return false
-	}
+    } 
 
 	if err := PostConsumeQuota(relayInfo, feeQuota, 0, true); err != nil {
 		logger.LogError(ctx, fmt.Sprintf("failed to charge violation fee: %s", err.Error()))
@@ -135,17 +136,18 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 	tokenName := ctx.GetString("token_name")
 	oai := apiErr.ToOpenAIError()
 
-	other := map[string]any{
-		"violation_fee":        true,
-		"violation_fee_code":   string(types.ErrorCodeViolationFeeGrokCSAM),
-		"fee_quota":            feeQuota,
-		"base_amount":          settings.ViolationDeductionAmount,
-		"group_ratio":          groupRatio,
-		"status_code":          apiErr.StatusCode,
-		"upstream_error_type":  oai.Type,
-		"upstream_error_code":  fmt.Sprintf("%v", oai.Code),
-		"violation_fee_marker": CSAMViolationMarker,
-	}
+    other := map[string]any{
+        "violation_fee":        true,
+        "violation_fee_code":   string(types.ErrorCodeViolationFeeGrokCSAM),
+        "fee_quota":            feeQuota,
+        "base_amount":          settings.ViolationDeductionAmount,
+        "group_ratio":          relayInfo.PriceData.GroupDiscountInfo.GroupDiscount,
+        "provider_ratio":       providerRatio,
+        "status_code":          apiErr.StatusCode,
+        "upstream_error_type":  oai.Type,
+        "upstream_error_code":  fmt.Sprintf("%v", oai.Code),
+        "violation_fee_marker": CSAMViolationMarker,
+    }
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:      relayInfo.ChannelId,

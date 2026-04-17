@@ -12,7 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+    pricing "github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-contrib/sessions"
@@ -351,7 +351,7 @@ func TokenAuth() func(c *gin.Context) {
 				return
 			}
 			// check group in common.GroupRatio
-			if !ratio_setting.ContainsGroupRatio(tokenGroup) {
+    if !pricing.ContainsGroupRatio(tokenGroup) {
 				if tokenGroup != "auto" {
 					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
 					return

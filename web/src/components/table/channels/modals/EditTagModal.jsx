@@ -735,7 +735,7 @@ const EditTagModal = (props) => {
                     multiple
                     allowAdditions
                     additionLabel={t(
-                      '请在系统设置页面编辑分组倍率以添加新的分组：',
+                      '请在系统设置页面编辑分组折扣以添加新的分组：',
                     )}
                     optionList={groupOptions}
                     style={{ width: '100%' }}

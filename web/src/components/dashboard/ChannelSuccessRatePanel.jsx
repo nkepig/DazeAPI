@@ -13,7 +13,7 @@ const ChannelSuccessRatePanel = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedChannels, setExpandedChannels] = useState({});
-  const [timeRange, setTimeRange] = useState('1d');
+  const [timeRange, setTimeRange] = useState('1h');
 
   const fetchData = async (range) => {
     if (!isAdmin()) return;

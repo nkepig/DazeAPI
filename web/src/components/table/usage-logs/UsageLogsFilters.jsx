@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button, Form } from '@douyinfe/semi-ui';
+import { Button, Form, Select } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
 import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
@@ -31,6 +31,9 @@ const LogsFilters = ({
   setLogType,
   loading,
   isAdminUser,
+  groupFilter,
+  setGroupFilter,
+  groupOptions,
   t,
 }) => {
   return (
@@ -119,6 +122,25 @@ const LogsFilters = ({
           <Form.Select.Option value='5'>{t('错误')}</Form.Select.Option>
           <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
         </Form.Select>
+
+        {groupOptions.length > 0 && (
+          <Select
+            size='small'
+            value={groupFilter}
+            placeholder={t('分组')}
+            style={{ minWidth: 90 }}
+            showClear
+            onChange={(v) => {
+              setGroupFilter(v || 'all');
+              setTimeout(() => { refresh(); }, 0);
+            }}
+          >
+            <Select.Option value='all'>{t('全部分组')}</Select.Option>
+            {groupOptions.map((g) => (
+              <Select.Option key={g} value={g}>{g}</Select.Option>
+            ))}
+          </Select>
+        )}
 
         <Button
           size='small'

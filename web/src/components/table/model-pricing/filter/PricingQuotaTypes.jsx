@@ -36,7 +36,7 @@ const PricingQuotaTypes = ({
   t,
 }) => {
   const qtyCount = (type) =>
-    models.filter((m) => (type === 'all' ? true : m.quota_type === type))
+    models.filter((m) => (type === 'all' ? true : m.pricing_type === type))
       .length;
 
   const items = [

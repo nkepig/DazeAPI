@@ -72,6 +72,8 @@ export const useLogsData = () => {
   const [logCount, setLogCount] = useState(0);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
   const [logType, setLogType] = useState(0);
+  const [groupFilter, setGroupFilter] = useState('all');
+  const [groupOptions, setGroupOptions] = useState([]);
 
   // User and admin
   const isAdminUser = isAdmin();
@@ -91,6 +93,20 @@ export const useLogsData = () => {
 
   // Form state
   const [formApi, setFormApi] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get('/api/group/');
+        if (res.data?.success) {
+          setGroupOptions(res.data.data || []);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, []);
+
   let now = new Date();
   const formInitValues = {
     username: '',
@@ -454,6 +470,7 @@ export const useLogsData = () => {
                 other.file_search || false,
                 other.file_search_call_count || 0,
                 billingDisplayMode,
+                other,
               ),
         });
         if (logs[i]?.content) {
@@ -558,6 +575,7 @@ export const useLogsData = () => {
               other?.image_generation_call || false,
               other?.image_generation_call_price || 0,
               billingDisplayMode,
+              other,
             );
           }
           expandDataLocal.push({
@@ -711,9 +729,9 @@ export const useLogsData = () => {
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
     if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=&request_id=${request_id}`;
+      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
     } else {
-      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=&request_id=${request_id}`;
+      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
     }
     url = encodeURI(url);
     const res = await API.get(url);
@@ -852,6 +870,9 @@ export const useLogsData = () => {
     hasExpandableRows,
     setLogType,
     openParamOverrideModal,
+    groupFilter,
+    setGroupFilter,
+    groupOptions,
 
     // Translation
     t,

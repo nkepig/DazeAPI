@@ -8,16 +8,14 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
 
-// https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
-const claudeCacheCreation1hMultiplier = 6 / 3.75
+const claudeCacheCreation1hMultiplier = 6.0 / 3.75
 
-// getUserModelOverride 查找用户级的模型覆盖。先用 formatted name 匹配，再用原始名匹配。
 func getUserModelOverride(info *relaycommon.RelayInfo, modelName string) (dto.UserModelOverride, bool) {
 	overrides := info.UserSetting.ModelOverrides
 	if len(overrides) == 0 {
@@ -32,129 +30,121 @@ func getUserModelOverride(info *relaycommon.RelayInfo, modelName string) (dto.Us
 	return dto.UserModelOverride{}, false
 }
 
-// applyUserOverride applies user model override to pricing params.
-// ratio override: replaces group_ratio (acts as multiplier on global model price)
-// price override: sets absolute model price, group_ratio becomes 1
-func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPrice *float64, usePrice *bool, groupRatioInfo *types.GroupRatioInfo) {
+func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPricing *pricing.ModelPricing, groupDiscountInfo *types.GroupDiscountInfo) {
 	o, ok := getUserModelOverride(info, modelName)
 	if !ok {
 		return
 	}
 	if o.BillingType == "price" {
-		*modelPrice = o.Value
-		*usePrice = true
-		groupRatioInfo.GroupRatio = 1
+		modelPricing.PerCallPrice = o.Value
+		modelPricing.UsePerCallPricing = true
+		modelPricing.PromptPrice = 0
+		modelPricing.CompletionPrice = 0
+		modelPricing.CacheReadPrice = 0
+		modelPricing.CacheWritePrice = 0
+		groupDiscountInfo.GroupDiscount = 1.0
 	} else {
-		groupRatioInfo.GroupRatio = o.Value
+		groupDiscountInfo.GroupDiscount = o.Value
 	}
 }
 
-// HandleGroupRatio checks for "auto_group" in the context and updates the group ratio and relayInfo.UsingGroup if present
-func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupRatioInfo {
-	groupRatioInfo := types.GroupRatioInfo{
-		GroupRatio:        1.0, // default ratio
+func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupDiscountInfo {
+	groupDiscountInfo := types.GroupDiscountInfo{
+		GroupDiscount:     1.0,
 		GroupSpecialRatio: -1,
 	}
 
-	// check auto group
 	autoGroup, exists := ctx.Get("auto_group")
 	if exists {
 		logger.LogDebug(ctx, fmt.Sprintf("final group: %s", autoGroup))
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	// check user group special ratio
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
+	discount, ok := pricing.GetGroupModelDiscount(relayInfo.UserGroup, relayInfo.OriginModelName)
 	if ok {
-		// user group special ratio
-		groupRatioInfo.GroupSpecialRatio = userGroupRatio
-		groupRatioInfo.GroupRatio = userGroupRatio
-		groupRatioInfo.HasSpecialRatio = true
+		groupDiscountInfo.GroupSpecialRatio = discount
+		groupDiscountInfo.GroupDiscount = discount
+		groupDiscountInfo.HasSpecialRatio = true
 	} else {
-		// normal group ratio
-		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
+		userGroupRatio := relayInfo.UserGroupRatio
+		if ratio, ratioOk := userGroupRatio[relayInfo.UsingGroup]; ratioOk {
+			groupDiscountInfo.GroupDiscount = ratio
+		}
 	}
 
-	return groupRatioInfo
+	return groupDiscountInfo
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {
-	modelName := ratio_setting.FormatMatchingModelName(info.OriginModelName)
-	modelPrice, usePrice := ratio_setting.GetModelPrice(info.OriginModelName, false)
+	modelName := pricing.FormatMatchingModelName(info.OriginModelName)
 
-	groupRatioInfo := HandleGroupRatio(c, info)
+	groupDiscountInfo := HandleGroupRatio(c, info)
 
-	applyUserOverride(info, modelName, &modelPrice, &usePrice, &groupRatioInfo)
+	modelPricing, found := pricing.GetModelPricing(info.OriginModelName)
+	if !found {
+		return types.PriceData{}, fmt.Errorf("model pricing not found: %s", info.OriginModelName)
+	}
+
+	applyUserOverride(info, modelName, &modelPricing, &groupDiscountInfo)
 
 	var preConsumedQuota int
-	var modelRatio float64
-	var completionRatio float64
-	var cacheRatio float64
-	var imageRatio float64
-	var cacheCreationRatio float64
-	var cacheCreationRatio5m float64
-	var cacheCreationRatio1h float64
-	var audioRatio float64
-	var audioCompletionRatio float64
 	var freeModel bool
-	if !usePrice {
+
+	if !modelPricing.UsePerCallPricing {
 		preConsumedTokens := common.Max(promptTokens, common.PreConsumedQuota)
 		if meta.MaxTokens != 0 {
 			preConsumedTokens += meta.MaxTokens
 		}
-		modelRatio, _, _ = ratio_setting.GetModelRatio(info.OriginModelName)
-		completionRatio = ratio_setting.GetCompletionRatio(info.OriginModelName)
-		cacheRatio, _ = ratio_setting.GetCacheRatio(info.OriginModelName)
-		cacheCreationRatio, _ = ratio_setting.GetCreateCacheRatio(info.OriginModelName)
-		cacheCreationRatio5m = cacheCreationRatio
-		// 固定1h和5min缓存写入价格的比例
-		cacheCreationRatio1h = cacheCreationRatio * claudeCacheCreation1hMultiplier
-		imageRatio, _ = ratio_setting.GetImageRatio(info.OriginModelName)
-		audioRatio = ratio_setting.GetAudioRatio(info.OriginModelName)
-		audioCompletionRatio = ratio_setting.GetAudioCompletionRatio(info.OriginModelName)
-		ratio := modelRatio * groupRatioInfo.GroupRatio
-		preConsumedQuota = int(float64(preConsumedTokens) * ratio)
+		estimatedCostMicrodollars := pricing.ToMicrodollars(
+			float64(preConsumedTokens)/1_000_000.0*modelPricing.PromptPrice +
+				float64(common.Max(meta.MaxTokens, 0))/1_000_000.0*modelPricing.CompletionPrice,
+		)
+		preConsumedQuota = int(float64(estimatedCostMicrodollars) * groupDiscountInfo.GroupDiscount)
+		if meta.ImagePriceRatio != 0 && modelPricing.ImagePrice == 0 {
+			modelPricing.ImagePrice = modelPricing.PromptPrice * meta.ImagePriceRatio
+		}
 	} else {
 		if meta.ImagePriceRatio != 0 {
-			modelPrice = modelPrice * meta.ImagePriceRatio
+			modelPricing.PerCallPrice = modelPricing.PerCallPrice * meta.ImagePriceRatio
 		}
-		preConsumedQuota = int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		preConsumedQuota = int(modelPricing.PerCallPrice * float64(common.MicrodollarsPerUnit) * groupDiscountInfo.GroupDiscount)
 	}
 
-	// check if free model pre-consume is disabled
 	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume {
-		// if model price or ratio is 0, do not pre-consume quota
-		if groupRatioInfo.GroupRatio == 0 {
+		if groupDiscountInfo.GroupDiscount == 0 {
 			preConsumedQuota = 0
 			freeModel = true
-		} else if usePrice {
-			if modelPrice == 0 {
+		} else if modelPricing.UsePerCallPricing {
+			if modelPricing.PerCallPrice == 0 {
 				preConsumedQuota = 0
 				freeModel = true
 			}
 		} else {
-			if modelRatio == 0 {
+			if modelPricing.PromptPrice == 0 && modelPricing.CompletionPrice == 0 {
 				preConsumedQuota = 0
 				freeModel = true
 			}
 		}
 	}
 
+	cacheWrite5m := modelPricing.CacheWritePrice
+	cacheWrite1h := modelPricing.CacheWritePrice * claudeCacheCreation1hMultiplier
+
 	priceData := types.PriceData{
 		FreeModel:            freeModel,
-		ModelPrice:           modelPrice,
-		ModelRatio:           modelRatio,
-		CompletionRatio:      completionRatio,
-		GroupRatioInfo:       groupRatioInfo,
-		UsePrice:             usePrice,
-		CacheRatio:           cacheRatio,
-		ImageRatio:           imageRatio,
-		AudioRatio:           audioRatio,
-		AudioCompletionRatio: audioCompletionRatio,
-		CacheCreationRatio:   cacheCreationRatio,
-		CacheCreation5mRatio: cacheCreationRatio5m,
-		CacheCreation1hRatio: cacheCreationRatio1h,
-		QuotaToPreConsume:    preConsumedQuota,
+		PromptPrice:         modelPricing.PromptPrice,
+		CompletionPrice:     modelPricing.CompletionPrice,
+		CacheReadPrice:      modelPricing.CacheReadPrice,
+		CacheWritePrice:     modelPricing.CacheWritePrice,
+		CacheWrite5mPrice:   cacheWrite5m,
+		CacheWrite1hPrice:   cacheWrite1h,
+		ImagePrice:          modelPricing.ImagePrice,
+		AudioInputPrice:     modelPricing.AudioInputPrice,
+		AudioOutputPrice:    modelPricing.AudioOutputPrice,
+		PerCallPrice:        modelPricing.PerCallPrice,
+		UsePerCallPricing:   modelPricing.UsePerCallPricing,
+		GroupDiscountInfo:   groupDiscountInfo,
+		QuotaToPreConsume:   preConsumedQuota,
 	}
 
 	if common.DebugEnabled {
@@ -164,52 +154,47 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	return priceData, nil
 }
 
-// ModelPriceHelperPerCall 按次计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
-	groupRatioInfo := HandleGroupRatio(c, info)
-	modelName := ratio_setting.FormatMatchingModelName(info.OriginModelName)
+	groupDiscountInfo := HandleGroupRatio(c, info)
+	modelName := pricing.FormatMatchingModelName(info.OriginModelName)
 
-	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, false)
-
-	usePrice := success
-	applyUserOverride(info, modelName, &modelPrice, &usePrice, &groupRatioInfo)
-
-	if !usePrice && !success {
-		defaultPrice, ok := ratio_setting.GetDefaultModelPriceMap()[info.OriginModelName]
-		if ok {
-			modelPrice = defaultPrice
-		} else {
-			modelPrice = float64(common.PreConsumedQuota) / common.QuotaPerUnit
-		}
+	modelPricing, found := pricing.GetModelPricing(info.OriginModelName)
+	if !found {
+		return types.PriceData{}, fmt.Errorf("model pricing not found: %s", info.OriginModelName)
 	}
-	quota := int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
 
-	// 免费模型检测（与 ModelPriceHelper 对齐）
+	applyUserOverride(info, modelName, &modelPricing, &groupDiscountInfo)
+
+	if !modelPricing.UsePerCallPricing {
+		modelPricing.PerCallPrice = modelPricing.PromptPrice
+	}
+
+	quota := int(modelPricing.PerCallPrice * float64(common.MicrodollarsPerUnit) * groupDiscountInfo.GroupDiscount)
+
 	freeModel := false
 	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume {
-		if groupRatioInfo.GroupRatio == 0 || modelPrice == 0 {
+		if groupDiscountInfo.GroupDiscount == 0 || modelPricing.PerCallPrice == 0 {
 			quota = 0
 			freeModel = true
 		}
 	}
 
 	priceData := types.PriceData{
-		FreeModel:      freeModel,
-		ModelPrice:     modelPrice,
-		Quota:          quota,
-		GroupRatioInfo: groupRatioInfo,
+		FreeModel:          freeModel,
+		PerCallPrice:       modelPricing.PerCallPrice,
+		UsePerCallPricing:  true,
+		GroupDiscountInfo:  groupDiscountInfo,
+		Quota:             quota,
 	}
 	return priceData, nil
 }
 
 func ContainPriceOrRatio(modelName string) bool {
-	_, ok := ratio_setting.GetModelPrice(modelName, false)
-	if ok {
-		return true
+	return pricing.IsModelConfigured(modelName)
+}
+
+func HandleProviderRatio(info *relaycommon.RelayInfo) types.ProviderRatioInfo {
+	return types.ProviderRatioInfo{
+		ProviderRatio: 1.0,
 	}
-	_, ok, _ = ratio_setting.GetModelRatio(modelName)
-	if ok {
-		return true
-	}
-	return false
 }

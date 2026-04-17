@@ -6,7 +6,6 @@ import NavBar from './NavBar';
 import App from '../../App';
 import {
   API,
-  getLogo,
   getSystemName,
   showError,
   setStatusData,
@@ -50,15 +49,10 @@ const PageLayout = () => {
     try {
       const res = await API.get('/api/status');
       const { success, data } = res.data;
-      if (success) {
+if (success) {
         statusDispatch({ type: 'set', payload: data });
         setStatusData(data);
         document.title = getSystemName();
-        const logo = getLogo();
-        if (logo) {
-          const linkEl = document.querySelector("link[rel~='icon']");
-          if (linkEl) linkEl.href = logo;
-        }
       } else {
         showError('Unable to connect to server');
       }
@@ -71,11 +65,6 @@ const PageLayout = () => {
     loadUser();
     const systemName = getSystemName();
     if (systemName) document.title = systemName;
-    const logo = getLogo();
-    if (logo) {
-      const linkEl = document.querySelector("link[rel~='icon']");
-      if (linkEl) linkEl.href = logo;
-    }
     loadStatus().catch(console.error);
     refreshUser();
   }, []);

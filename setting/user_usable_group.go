@@ -7,10 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 )
 
-var userUsableGroups = map[string]string{
-	"default": "默认分组",
-	"vip":     "vip分组",
-}
+var userUsableGroups = map[string]string{}
 var userUsableGroupsMutex sync.RWMutex
 
 func GetUserUsableGroupsCopy() map[string]string {

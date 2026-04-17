@@ -158,11 +158,11 @@ export const getPricingTableColumns = ({
 
   const quotaColumn = {
     title: t('计费类型'),
-    dataIndex: 'quota_type',
+    dataIndex: 'pricing_type',
     render: (text, record, index) => {
       return renderQuotaType(parseInt(text), t);
     },
-    sorter: (a, b) => a.quota_type - b.quota_type,
+    sorter: (a, b) => a.pricing_type - b.pricing_type,
   };
 
   const descriptionColumn = {
@@ -191,59 +191,45 @@ export const getPricingTableColumns = ({
     quotaColumn,
   ];
 
-  const ratioColumn = {
-    title: () => (
-      <div className='flex items-center space-x-1'>
-        <span>{t('倍率')}</span>
-        <Tooltip content={t('倍率是为了方便换算不同价格的模型')}>
-          <IconHelpCircle
-            className='text-blue-500 cursor-pointer'
-            onClick={() => {
-              setModalImageUrl('/ratio.png');
-              setIsModalOpenurl(true);
-            }}
-          />
-        </Tooltip>
-      </div>
-    ),
-    dataIndex: 'model_ratio',
-    render: (text, record, index) => {
-      const completionRatio = parseFloat(record.completion_ratio.toFixed(3));
-      const priceData = getPriceData(record);
-
-      return (
-        <div className='space-y-1'>
-          <div className='text-gray-700'>
-            {t('模型倍率')}：{record.quota_type === 0 ? text : t('无')}
-          </div>
-          <div className='text-gray-700'>
-            {t('补全倍率')}：
-            {record.quota_type === 0 ? completionRatio : t('无')}
-          </div>
-          <div className='text-gray-700'>
-            {t('倍率')}：{priceData?.usedGroupRatio ?? '-'}
-          </div>
-        </div>
-      );
-    },
-  };
-
-  const priceColumn = {
-    title: siteDisplayType === 'TOKENS' ? t('计费摘要') : t('模型价格'),
-    dataIndex: 'model_price',
+  const pricingColumn = {
+    title: t('模型价格'),
+    dataIndex: 'prompt_price',
     ...(isMobile ? {} : { fixed: 'right' }),
     render: (text, record, index) => {
       const priceData = getPriceData(record);
-      const priceItems = getModelPriceItems(priceData, t, siteDisplayType);
-
+      if (record.pricing_type === 1) {
+        return (
+          <div className='space-y-1'>
+            <div className='text-gray-700'>
+              {t('按次计费')}：${record.per_call_price?.toFixed(4) || '-'}
+            </div>
+            <div className='text-gray-700'>
+              {t('分组折扣')}：{priceData?.usedGroupRatio ?? '-'}
+            </div>
+          </div>
+        );
+      }
       return (
         <div className='space-y-1'>
-          {priceItems.map((item) => (
-            <div key={item.key} className='text-gray-700'>
-              {item.label} {item.value}
-              {item.suffix}
+          <div className='text-gray-700'>
+            {t('输入价格')}：${record.prompt_price?.toFixed(2) || '-'} /1M tokens
+          </div>
+          <div className='text-gray-700'>
+            {t('输出价格')}：${record.completion_price?.toFixed(2) || '-'} /1M tokens
+          </div>
+          {record.cache_read_price > 0 && (
+            <div className='text-gray-700'>
+              {t('缓存读取')}：${record.cache_read_price?.toFixed(2) || '-'} /1M tokens
             </div>
-          ))}
+          )}
+          {record.cache_write_price > 0 && (
+            <div className='text-gray-700'>
+              {t('缓存写入')}：${record.cache_write_price?.toFixed(2) || '-'} /1M tokens
+            </div>
+          )}
+          <div className='text-gray-700'>
+            {t('分组折扣')}：{priceData?.usedGroupRatio ?? '-'}
+          </div>
         </div>
       );
     },
@@ -251,9 +237,6 @@ export const getPricingTableColumns = ({
 
   const columns = [...baseColumns];
   columns.push(endpointColumn);
-  if (showRatio) {
-    columns.push(ratioColumn);
-  }
-  columns.push(priceColumn);
+  columns.push(pricingColumn);
   return columns;
 };

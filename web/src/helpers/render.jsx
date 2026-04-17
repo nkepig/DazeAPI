@@ -1209,12 +1209,6 @@ function isValidGroupRatio(ratio) {
   return Number.isFinite(ratio) && ratio !== -1;
 }
 
-/**
- * Helper function to get effective ratio and label
- * @param {number} groupRatio - The default group ratio
- * @param {number} user_group_ratio - The user-specific group ratio
- * @returns {Object} - Object containing { ratio, label, useUserGroupRatio }
- */
 function getEffectiveRatio(groupRatio, user_group_ratio) {
   const useUserGroupRatio = isValidGroupRatio(user_group_ratio);
   const ratioLabel = useUserGroupRatio
@@ -1673,6 +1667,7 @@ export function renderModelPrice(
   imageGenerationCall = false,
   imageGenerationCallPrice = 0,
   displayMode = 'price',
+  pricingData = null,
 ) {
   const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
     groupRatio,
@@ -1682,6 +1677,142 @@ export function renderModelPrice(
 
   const { symbol, rate } = getCurrencyConfig();
 
+  const promptPrice = pricingData?.prompt_price;
+  const completionPrice = pricingData?.completion_price;
+  const cacheReadPrice = pricingData?.cache_read_price;
+  const perCallPrice = pricingData?.per_call_price;
+
+  if (promptPrice !== undefined || perCallPrice !== undefined) {
+    if (perCallPrice !== undefined && perCallPrice > 0) {
+      return renderBillingArticle([
+        buildBillingPriceText('按次：{{symbol}}{{price}}', {
+          symbol,
+          usdAmount: perCallPrice,
+          rate,
+        }),
+        buildBillingPriceText(
+          '按次 {{symbol}}{{price}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+          {
+            symbol,
+            usdAmount: perCallPrice,
+            rate,
+            ratioType: ratioLabel,
+            ratio: groupRatio,
+            amountKey: 'price',
+            total: formatBillingDisplayPrice(perCallPrice * groupRatio, rate),
+          },
+        ),
+      ]);
+    }
+
+    const inputP = promptPrice || 0;
+    const compP = completionPrice || 0;
+    const cacheP = cacheReadPrice || 0;
+    const effectiveInputTokens = inputTokens - cacheTokens;
+
+    const price =
+      (effectiveInputTokens / 1000000) * inputP * groupRatio +
+      (cacheTokens / 1000000) * cacheP * groupRatio +
+      (completionTokens / 1000000) * compP * groupRatio +
+      (webSearchCallCount / 1000) * webSearchPrice * groupRatio +
+      (fileSearchCallCount / 1000) * fileSearchPrice * groupRatio +
+      imageGenerationCallPrice * groupRatio;
+
+    const inputDesc = buildBillingPriceText(
+      '(输入 {{input}} tokens / 1M tokens * {{symbol}}{{price}}',
+      {
+        input: inputTokens,
+        symbol,
+        usdAmount: inputP,
+        rate,
+      },
+    );
+
+    const outputDesc = buildBillingText(
+      '输出 {{completion}} tokens / 1M tokens * {{symbol}}{{compPrice}}) * {{ratioType}} {{ratio}}',
+      {
+        completion: completionTokens,
+        symbol,
+        compPrice: formatBillingDisplayPrice(compP, rate),
+        ratio: groupRatio,
+        ratioType: ratioLabel,
+      },
+    );
+
+    const extraServices = [
+      webSearch && webSearchCallCount > 0
+        ? buildBillingPriceText(
+            ' + Web搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
+            {
+              count: webSearchCallCount,
+              symbol,
+              usdAmount: webSearchPrice,
+              rate,
+              ratio: groupRatio,
+              ratioType: ratioLabel,
+            },
+          )
+        : '',
+      fileSearch && fileSearchCallCount > 0
+        ? buildBillingPriceText(
+            ' + 文件搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
+            {
+              count: fileSearchCallCount,
+              symbol,
+              usdAmount: fileSearchPrice,
+              rate,
+              ratio: groupRatio,
+              ratioType: ratioLabel,
+            },
+          )
+        : '',
+      imageGenerationCall && imageGenerationCallPrice > 0
+        ? buildBillingPriceText(
+            ' + 图片生成调用 {{symbol}}{{price}} / 1次 * {{ratioType}} {{ratio}}',
+            {
+              symbol,
+              usdAmount: imageGenerationCallPrice,
+              rate,
+              ratio: groupRatio,
+              ratioType: ratioLabel,
+            },
+          )
+        : '',
+    ].join('');
+
+    const billingLines = [
+      buildBillingPriceText(
+        '输入价格：{{symbol}}{{price}} / 1M tokens',
+        {
+          symbol,
+          usdAmount: inputP,
+          rate,
+        },
+      ),
+      buildBillingPriceText('输出价格：{{symbol}}{{total}} / 1M tokens', {
+        symbol,
+        usdAmount: compP,
+        rate,
+        amountKey: 'total',
+      }),
+      cacheTokens > 0 && cacheP > 0
+        ? buildBillingPriceText(
+            '缓存读取价格：{{symbol}}{{total}} / 1M tokens',
+            {
+              symbol,
+              usdAmount: cacheP,
+              rate,
+              amountKey: 'total',
+            },
+          )
+        : '',
+    ].filter(Boolean);
+
+    return renderBillingArticle([
+      ...billingLines,
+      `${inputDesc} + ${outputDesc}${extraServices} = ${symbol}${formatBillingDisplayPrice(price, rate)}`,
+    ]);
+  }
   if (!shouldUseRatioBillingProcess(modelPrice)) {
     if (modelPrice !== -1) {
       return renderBillingArticle([
@@ -2104,7 +2235,7 @@ export function renderModelPrice(
       total: renderDisplayAmountFromUsd(totalAmount),
     }),
   ]);
-}
+  }
 
 export function renderLogContent(
   modelRatio,
@@ -2120,6 +2251,7 @@ export function renderLogContent(
   fileSearch = false,
   fileSearchCallCount = 0,
   displayMode = 'price',
+  pricingData = null,
 ) {
   const {
     ratio,
@@ -2127,8 +2259,61 @@ export function renderLogContent(
     useUserGroupRatio: useUserGroupRatio,
   } = getEffectiveRatio(groupRatio, user_group_ratio);
 
-  // 获取货币配置
   const { symbol, rate } = getCurrencyConfig();
+
+  const promptPrice = pricingData?.prompt_price;
+  const completionPrice = pricingData?.completion_price;
+  const perCallPrice = pricingData?.per_call_price;
+  const cacheReadPrice = pricingData?.cache_read_price;
+
+  if (promptPrice !== undefined || perCallPrice !== undefined) {
+    if (perCallPrice !== undefined && perCallPrice > 0) {
+      return joinBillingSummary([
+        i18next.t('模型价格 {{symbol}}{{price}} / 次', {
+          symbol,
+          price: (perCallPrice * rate).toFixed(6),
+        }),
+        getGroupRatioText(groupRatio, user_group_ratio),
+      ]);
+    }
+    const parts = [
+      i18next.t('输入价格 {{symbol}}{{price}} / 1M tokens', {
+        symbol,
+        price: ((promptPrice || 0) * rate).toFixed(6),
+      }),
+      i18next.t('输出价格 {{symbol}}{{price}} / 1M tokens', {
+        symbol,
+        price: ((completionPrice || 0) * rate).toFixed(6),
+      }),
+    ];
+    appendPricePart(
+      parts,
+      cacheReadPrice !== undefined && cacheReadPrice > 0,
+      '缓存读取价格 {{symbol}}{{price}} / 1M tokens',
+      {
+        symbol,
+        price: ((cacheReadPrice || 0) * rate).toFixed(6),
+      },
+    );
+    appendPricePart(
+      parts,
+      webSearch,
+      'Web 搜索调用 {{webSearchCallCount}} 次',
+      {
+        webSearchCallCount,
+      },
+    );
+    appendPricePart(
+      parts,
+      fileSearch,
+      '文件搜索调用 {{fileSearchCallCount}} 次',
+      {
+        fileSearchCallCount,
+      },
+    );
+    parts.push(getGroupRatioText(groupRatio, user_group_ratio));
+    return joinBillingSummary(parts);
+  }
 
   if (isPriceDisplayMode(displayMode, modelPrice)) {
     if (modelPrice !== -1) {

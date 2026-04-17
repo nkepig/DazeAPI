@@ -2,20 +2,48 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 )
 
-func GetGroups(c *gin.Context) {
-	groupNames := make([]string, 0)
-	for groupName := range ratio_setting.GetGroupRatioCopy() {
-		groupNames = append(groupNames, groupName)
+func splitGroups(groupStr string) []string {
+	parts := strings.Split(groupStr, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
 	}
+	return result
+}
+
+func GetAllChannelGroups() []string {
+	channels, err := model.GetAllChannels(0, 0, true, false)
+	if err != nil {
+		return []string{}
+	}
+	seen := make(map[string]bool)
+	groupNames := make([]string, 0)
+	for _, ch := range channels {
+		if ch.Group == "" {
+			continue
+		}
+		for _, g := range splitGroups(ch.Group) {
+			if g != "" && !seen[g] {
+				seen[g] = true
+				groupNames = append(groupNames, g)
+			}
+		}
+	}
+	return groupNames
+}
+
+func GetGroups(c *gin.Context) {
+	groupNames := GetAllChannelGroups()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -24,24 +52,24 @@ func GetGroups(c *gin.Context) {
 }
 
 func GetUserGroups(c *gin.Context) {
-	usableGroups := make(map[string]map[string]interface{})
-	userGroup := ""
+	channelGroups := GetAllChannelGroups()
 	userId := c.GetInt("id")
-	userGroup, _ = model.GetUserGroup(userId, false)
-	userUsableGroups := service.GetUserUsableGroups(userGroup)
-	for groupName, _ := range ratio_setting.GetGroupRatioCopy() {
-		// UserUsableGroups contains the groups that the user can use
-		if desc, ok := userUsableGroups[groupName]; ok {
-			usableGroups[groupName] = map[string]interface{}{
-				"ratio": service.GetUserGroupRatio(userGroup, groupName),
-				"desc":  desc,
-			}
+	userGroupRatio := map[string]float64{}
+	if userId > 0 {
+		user, err := model.GetUserCache(userId)
+		if err == nil {
+			userGroupRatio = user.GetGroupRatioMap()
 		}
 	}
-	if _, ok := userUsableGroups["auto"]; ok {
-		usableGroups["auto"] = map[string]interface{}{
-			"ratio": "自动",
-			"desc":  setting.GetUsableGroupDescription("auto"),
+
+	usableGroups := make(map[string]map[string]interface{})
+	for _, groupName := range channelGroups {
+		ratio := 1.0
+		if r, ok := userGroupRatio[groupName]; ok {
+			ratio = r
+		}
+		usableGroups[groupName] = map[string]interface{}{
+			"ratio": ratio,
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{

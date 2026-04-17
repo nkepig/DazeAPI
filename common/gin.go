@@ -171,6 +171,18 @@ func GetContextKeyStringMap(c *gin.Context, key constant.ContextKey) map[string]
 	return c.GetStringMap(string(key))
 }
 
+func GetContextKeyMapStringFloat64(c *gin.Context, key string) map[string]float64 {
+	val, exists := c.Get(key)
+	if !exists {
+		return nil
+	}
+	m, ok := val.(map[string]float64)
+	if !ok {
+		return nil
+	}
+	return m
+}
+
 func GetContextKeyTime(c *gin.Context, key constant.ContextKey) time.Time {
 	return c.GetTime(string(key))
 }

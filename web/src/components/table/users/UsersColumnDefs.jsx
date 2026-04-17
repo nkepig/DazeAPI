@@ -71,8 +71,16 @@ const renderUsername = (text, record) => {
   const isUserDisabled = record.status === 2 && record.DeletedAt == null;
   const nameClass = isUserDisabled ? 'text-red-600 font-semibold' : '';
   const remark = record.remark;
+  const isTestUser = !record.group_ratio || record.group_ratio === '{}' || record.group_ratio === '""';
   if (!remark) {
-    return <span className={nameClass}>{text}</span>;
+    return (
+      <Space spacing={2}>
+        <span className={nameClass}>{text}</span>
+        {isTestUser && (
+          <Tag color='orange' size='small' shape='circle'>test</Tag>
+        )}
+      </Space>
+    );
   }
   const maxLen = 10;
   const displayRemark =
@@ -80,6 +88,9 @@ const renderUsername = (text, record) => {
   return (
     <Space spacing={2}>
       <span className={nameClass}>{text}</span>
+      {isTestUser && (
+        <Tag color='orange' size='small' shape='circle'>test</Tag>
+      )}
       <Tooltip content={remark} position='top' showArrow>
         <Tag color='white' shape='circle' className='!text-xs'>
           <div className='flex items-center gap-1'>

@@ -159,13 +159,13 @@ const PricingCardView = ({
         -
       </Tag>
     );
-    if (record.quota_type === 1) {
+    if (record.pricing_type === 1) {
       billingTag = (
         <Tag key='billing' shape='circle' color='teal' size='small'>
           {t('按次计费')}
         </Tag>
       );
-    } else if (record.quota_type === 0) {
+    } else if (record.pricing_type === 0) {
       billingTag = (
         <Tag key='billing' shape='circle' color='violet' size='small'>
           {t('按量计费')}
@@ -273,6 +273,13 @@ const PricingCardView = ({
                   </div>
 
                   <div className='flex items-center space-x-2 ml-3'>
+                    {/* 分组折扣标签 */}
+                    {priceData?.usedGroupRatio !== undefined && priceData?.usedGroupRatio !== 1 && (
+                      <Tag color='blue' size='small' shape='circle'>
+                        {priceData.usedGroupRatio}x
+                      </Tag>
+                    )}
+
                     {/* 复制按钮 */}
                     <Button
                       size='small'
@@ -336,13 +343,13 @@ const PricingCardView = ({
                       </div>
                       <div className='grid grid-cols-3 gap-2 text-xs text-gray-600'>
                         <div>
-                          {t('模型')}:{' '}
-                          {model.quota_type === 0 ? model.model_ratio : t('无')}
+                          {t('输入')}:{' '}
+                          {model.pricing_type === 0 ? `$${model.prompt_price}/1M` : t('无')}
                         </div>
                         <div>
-                          {t('补全')}:{' '}
-                          {model.quota_type === 0
-                            ? parseFloat(model.completion_ratio.toFixed(3))
+                          {t('输出')}:{' '}
+                          {model.pricing_type === 0
+                            ? `$${model.completion_price}/1M`
                             : t('无')}
                         </div>
                         <div>

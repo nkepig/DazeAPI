@@ -54,12 +54,12 @@ const ConfigManager = ({
       exportConfig(currentConfig, messages);
       Toast.success({
         content: t('配置已导出到下载文件夹'),
-        duration: 3,
+        duration: 1.5,
       });
     } catch (error) {
       Toast.error({
         content: t('导出配置失败: ') + error.message,
-        duration: 3,
+        duration: 1.5,
       });
     }
   };
@@ -84,14 +84,14 @@ const ConfigManager = ({
           onConfigImport(importedConfig);
           Toast.success({
             content: t('配置导入成功'),
-            duration: 3,
+            duration: 1.5,
           });
         },
       });
     } catch (error) {
       Toast.error({
         content: t('导入配置失败: ') + error.message,
-        duration: 3,
+        duration: 1.5,
       });
     } finally {
       // 重置文件输入，允许重复选择同一文件
@@ -127,7 +127,7 @@ const ConfigManager = ({
             onConfigReset({ resetMessages: true });
             Toast.success({
               content: t('配置和消息已全部重置'),
-              duration: 3,
+              duration: 1.5,
             });
           },
           onCancel: () => {
@@ -135,7 +135,7 @@ const ConfigManager = ({
             onConfigReset({ resetMessages: false });
             Toast.success({
               content: t('配置已重置，对话消息已保留'),
-              duration: 3,
+              duration: 1.5,
             });
           },
         });

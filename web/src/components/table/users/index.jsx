@@ -81,7 +81,7 @@ const UsersPage = () => {
         type='type1'
         actionsArea={
           <div className='flex items-center gap-2 w-full flex-wrap'>
-            <UsersActions setShowAddUser={setShowAddUser} syncModels={syncModels} t={t} />
+            <UsersActions setShowAddUser={setShowAddUser} t={t} />
             <UsersFilters
               formInitValues={formInitValues}
               setFormApi={setFormApi}
