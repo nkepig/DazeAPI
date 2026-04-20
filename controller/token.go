@@ -171,6 +171,20 @@ func AddToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if strings.TrimSpace(token.Group) == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "请选择分组",
+		})
+		return
+	}
+	if strings.TrimSpace(token.Group) == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "请选择分组",
+		})
+		return
+	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return

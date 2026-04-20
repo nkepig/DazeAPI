@@ -3,8 +3,6 @@ package controller
 import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/pricing"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -76,26 +74,3 @@ func GetPricing(c *gin.Context) {
 	})
 }
 
-func ResetModelRatio(c *gin.Context) {
-	defaultStr := pricing.ModelPricing2JSONString()
-	err := model.UpdateOption("ModelPricing", defaultStr)
-	if err != nil {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	err = pricing.UpdateModelPricingByJSONString(defaultStr)
-	if err != nil {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	c.JSON(200, gin.H{
-		"success": true,
-		"message": "重置模型定价成功",
-	})
-}

@@ -46,7 +46,10 @@ export default defineConfig({
         manualChunks: {
           'react-core': ['react', 'react-dom', 'react-router-dom'],
           'semi-ui': ['@douyinfe/semi-icons', '@douyinfe/semi-ui'],
-          tools: ['axios', 'history', 'marked'],
+          tools: ['axios', 'history'],
+          markdown: ['marked', 'react-markdown', 'remark-gfm', 'remark-breaks', 'remark-math', 'rehype-katex', 'rehype-highlight', 'katex'],
+          charts: ['recharts', '@visactor/react-vchart', '@visactor/vchart', '@visactor/vchart-semi-theme'],
+          diagram: ['mermaid', 'cytoscape'],
           i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
         },
       },

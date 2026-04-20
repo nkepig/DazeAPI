@@ -91,13 +91,11 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	var freeModel bool
 
 	if !modelPricing.UsePerCallPricing {
-		preConsumedTokens := common.Max(promptTokens, common.PreConsumedQuota)
-		if meta.MaxTokens != 0 {
-			preConsumedTokens += meta.MaxTokens
-		}
+		promptTokenCount := common.Max(promptTokens, common.PreConsumedQuota)
+		completionTokenCount := common.Max(meta.MaxTokens, 0)
 		estimatedCostMicrodollars := pricing.ToMicrodollars(
-			float64(preConsumedTokens)/1_000_000.0*modelPricing.PromptPrice +
-				float64(common.Max(meta.MaxTokens, 0))/1_000_000.0*modelPricing.CompletionPrice,
+			float64(promptTokenCount)/1_000_000.0*modelPricing.PromptPrice +
+				float64(completionTokenCount)/1_000_000.0*modelPricing.CompletionPrice,
 		)
 		preConsumedQuota = int(float64(estimatedCostMicrodollars) * groupDiscountInfo.GroupDiscount)
 		if meta.ImagePriceRatio != 0 && modelPricing.ImagePrice == 0 {

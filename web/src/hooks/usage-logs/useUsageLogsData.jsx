@@ -135,7 +135,7 @@ export const useLogsData = () => {
       [COLUMN_KEYS.COMPLETION]: true,
       [COLUMN_KEYS.COST]: true,
       [COLUMN_KEYS.RETRY]: isAdminUser,
-      [COLUMN_KEYS.IP]: true,
+      [COLUMN_KEYS.IP]: false,
       [COLUMN_KEYS.DETAILS]: true,
     };
   };
@@ -390,178 +390,98 @@ export const useLogsData = () => {
       logs[i].timestamp2string = timestamp2string(logs[i].created_at);
       logs[i].key = logs[i].id;
       let other = getLogOther(logs[i].other);
-      let expandDataLocal = [];
+      const billingItems = [];
+      const errorItems = [];
 
-      if (isAdminUser && (logs[i].type === 0 || logs[i].type === 2 || logs[i].type === 6)) {
-        expandDataLocal.push({
-          key: t('渠道信息'),
-          value: `${logs[i].channel} - ${logs[i].channel_name || '[未知]'}`,
-        });
+      if (other?.request_path && logs[i].type === 2) {
+        billingItems.push({ key: t('请求路径'), value: other.request_path });
       }
-      if (logs[i].request_id) {
-        expandDataLocal.push({
-          key: t('Request ID'),
-          value: logs[i].request_id,
-        });
-      }
-      if (other?.ws || other?.audio) {
-        expandDataLocal.push({
-          key: t('语音输入'),
-          value: other.audio_input,
-        });
-        expandDataLocal.push({
-          key: t('语音输出'),
-          value: other.audio_output,
-        });
-        expandDataLocal.push({
-          key: t('文字输入'),
-          value: other.text_input,
-        });
-        expandDataLocal.push({
-          key: t('文字输出'),
-          value: other.text_output,
-        });
-      }
-      if (other?.cache_tokens > 0) {
-        expandDataLocal.push({
-          key: t('缓存 Tokens'),
-          value: other.cache_tokens,
-        });
-      }
-      if (other?.cache_creation_tokens > 0) {
-        expandDataLocal.push({
-          key: t('缓存创建 Tokens'),
-          value: other.cache_creation_tokens,
-        });
-      }
-      if (logs[i].type === 2) {
-        expandDataLocal.push({
-          key: t('日志详情'),
-          value: other?.claude
-            ? renderClaudeLogContent(
-                other?.model_ratio,
-                other.completion_ratio,
-                other.model_price,
-                other.group_ratio,
-                other?.user_group_ratio,
-                other.cache_ratio || 1.0,
-                other.cache_creation_ratio || 1.0,
-                other.cache_creation_tokens_5m || 0,
-                other.cache_creation_ratio_5m ||
-                  other.cache_creation_ratio ||
-                  1.0,
-                other.cache_creation_tokens_1h || 0,
-                other.cache_creation_ratio_1h ||
-                  other.cache_creation_ratio ||
-                  1.0,
-                billingDisplayMode,
-              )
-            : renderLogContent(
-                other?.model_ratio,
-                other.completion_ratio,
-                other.model_price,
-                other.group_ratio,
-                other?.user_group_ratio,
-                other.cache_ratio || 1.0,
-                false,
-                1.0,
-                other.web_search || false,
-                other.web_search_call_count || 0,
-                other.file_search || false,
-                other.file_search_call_count || 0,
-                billingDisplayMode,
-                other,
-              ),
-        });
-        if (logs[i]?.content) {
-          expandDataLocal.push({
-            key: t('其他详情'),
-            value: logs[i].content,
-          });
-        }
-        if (isAdminUser && other?.reject_reason) {
-          expandDataLocal.push({
-            key: t('拦截原因'),
-            value: other.reject_reason,
-          });
-        }
-      }
-      if (logs[i].type === 2) {
-        let modelMapped =
-          other?.is_model_mapped &&
-          other?.upstream_model_name &&
-          other?.upstream_model_name !== '';
-        if (modelMapped) {
-          expandDataLocal.push({
-            key: t('请求并计费模型'),
-            value: logs[i].model_name,
-          });
-          expandDataLocal.push({
-            key: t('实际模型'),
-            value: other.upstream_model_name,
-          });
-        }
 
+      if (logs[i].type === 2) {
         const isViolationFeeLog =
           other?.violation_fee === true ||
           Boolean(other?.violation_fee_code) ||
           Boolean(other?.violation_fee_marker);
 
-        let content = '';
+        const billingRule = renderModelPrice(
+            logs[i].prompt_tokens,
+            logs[i].completion_tokens,
+            0,
+            other?.model_price,
+            0,
+            other?.group_discount || 1,
+            other?.user_group_discount,
+            other?.cache_tokens || 0,
+            1.0,
+            false,
+            1.0,
+            0,
+            other?.web_search || false,
+            other?.web_search_call_count || 0,
+            other?.web_search_price || 0,
+            other?.file_search || false,
+            other?.file_search_call_count || 0,
+            other?.file_search_price || 0,
+            false,
+            other?.audio_input || 0,
+            other?.audio_input_price || 0,
+            other?.image_generation_call || false,
+            other?.image_generation_call_price || 0,
+            billingDisplayMode,
+            other,
+          );
+
         if (!isViolationFeeLog) {
+          let content = '';
           if (other?.ws || other?.audio) {
             content = renderAudioModelPrice(
               other?.text_input,
               other?.text_output,
-              other?.model_ratio,
+              0,
               other?.model_price,
-              other?.completion_ratio,
+              0,
               other?.audio_input,
               other?.audio_output,
               other?.audio_ratio,
-              other?.audio_completion_ratio,
-              other?.group_ratio,
-              other?.user_group_ratio,
+              1.0,
+              other?.group_discount,
+              other?.user_group_discount,
               other?.cache_tokens || 0,
-              other?.cache_ratio || 1.0,
+              1.0,
               billingDisplayMode,
             );
           } else if (other?.claude) {
             content = renderClaudeModelPrice(
               logs[i].prompt_tokens,
               logs[i].completion_tokens,
-              other.model_ratio,
+              0,
               other.model_price,
-              other.completion_ratio,
-              other.group_ratio,
-              other?.user_group_ratio,
+              0,
+              other.group_discount,
+              other?.user_group_discount,
               other.cache_tokens || 0,
-              other.cache_ratio || 1.0,
+              1.0,
               other.cache_creation_tokens || 0,
-              other.cache_creation_ratio || 1.0,
+              1.0,
               other.cache_creation_tokens_5m || 0,
-              other.cache_creation_ratio_5m ||
-                other.cache_creation_ratio ||
-                1.0,
+              other.cache_write_5m_price || other.cache_write_price || 1.0,
               other.cache_creation_tokens_1h || 0,
-              other.cache_creation_ratio_1h ||
-                other.cache_creation_ratio ||
-                1.0,
+              other.cache_write_1h_price || other.cache_write_price || 1.0,
               billingDisplayMode,
             );
           } else {
             content = renderModelPrice(
               logs[i].prompt_tokens,
               logs[i].completion_tokens,
-              other?.model_ratio,
+              0,
               other?.model_price,
-              other?.completion_ratio,
-              other?.group_ratio,
-              other?.user_group_ratio,
+              0,
+              other?.group_discount,
+              other?.user_group_discount,
               other?.cache_tokens || 0,
-              other?.cache_ratio || 1.0,
+              1.0,
               other?.image || false,
-              other?.image_ratio || 0,
+              other?.image_price || 0,
               other?.image_output || 0,
               other?.web_search || false,
               other?.web_search_call_count || 0,
@@ -569,8 +489,8 @@ export const useLogsData = () => {
               other?.file_search || false,
               other?.file_search_call_count || 0,
               other?.file_search_price || 0,
-              other?.audio_input_seperate_price || false,
-              other?.audio_input_token_count || 0,
+              false,
+              other?.audio_input || 0,
               other?.audio_input_price || 0,
               other?.image_generation_call || false,
               other?.image_generation_call_price || 0,
@@ -578,28 +498,21 @@ export const useLogsData = () => {
               other,
             );
           }
-          expandDataLocal.push({
-            key: t('计费过程'),
-            value: content,
-          });
-        }
-        if (other?.reasoning_effort) {
-          expandDataLocal.push({
-            key: t('Reasoning Effort'),
-            value: other.reasoning_effort,
-          });
+          billingItems.push({ key: t('计费规则'), value: content || billingRule });
         }
       }
-      if (logs[i].type === 6) {
-        if (other?.task_id) {
-          expandDataLocal.push({
-            key: t('任务ID'),
-            value: other.task_id,
-          });
+
+      if ((logs[i].type === 5 || logs[i].type === 6) && other?.request_path) {
+        errorItems.push({ key: t('请求路径'), value: other.request_path });
+      }
+
+      if (logs[i].type === 5 || logs[i].type === 6) {
+        if (logs[i]?.content && String(logs[i].content).trim() && logs[i].content !== '无') {
+          errorItems.push({ key: t('错误'), value: logs[i].content });
         }
         if (other?.reason) {
-          expandDataLocal.push({
-            key: t('失败原因'),
+          errorItems.push({
+            key: t('原因'),
             value: (
               <div style={{ maxWidth: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.6 }}>
                 {other.reason}
@@ -607,95 +520,14 @@ export const useLogsData = () => {
             ),
           });
         }
-      }
-      if (other?.request_path) {
-        expandDataLocal.push({
-          key: t('请求路径'),
-          value: other.request_path,
-        });
-      }
-      if (Array.isArray(other?.po) && other.po.length > 0) {
-        expandDataLocal.push({
-          key: t('参数覆盖'),
-          value: (
-            <ParamOverrideEntry
-              count={other.po.length}
-              t={t}
-              onOpen={(event) => {
-                event.stopPropagation();
-                openParamOverrideModal(logs[i], other);
-              }}
-            />
-          ),
-        });
-      }
-      if (other?.billing_source === 'subscription') {
-        const planId = other?.subscription_plan_id;
-        const planTitle = other?.subscription_plan_title || '';
-        const subscriptionId = other?.subscription_id;
-        const unit = t('额度');
-        const pre = other?.subscription_pre_consumed ?? 0;
-        const postDelta = other?.subscription_post_delta ?? 0;
-        const finalConsumed = other?.subscription_consumed ?? pre + postDelta;
-        const remain = other?.subscription_remain;
-        const total = other?.subscription_total;
-        // Use multiple Description items to avoid an overlong single line.
-        if (planId) {
-          expandDataLocal.push({
-            key: t('订阅套餐'),
-            value: `#${planId} ${planTitle}`.trim(),
-          });
+        if (other?.reject_reason) {
+          errorItems.push({ key: t('拦截原因'), value: other.reject_reason });
         }
-        if (subscriptionId) {
-          expandDataLocal.push({
-            key: t('订阅实例'),
-            value: `#${subscriptionId}`,
-          });
-        }
-        const settlementLines = [
-          `${t('预扣')}：${pre} ${unit}`,
-          `${t('结算差额')}：${postDelta > 0 ? '+' : ''}${postDelta} ${unit}`,
-          `${t('最终抵扣')}：${finalConsumed} ${unit}`,
-        ]
-          .filter(Boolean)
-          .join('\n');
-        expandDataLocal.push({
-          key: t('订阅结算'),
-          value: (
-            <div style={{ whiteSpace: 'pre-line' }}>{settlementLines}</div>
-          ),
-        });
-        if (remain !== undefined && total !== undefined) {
-          expandDataLocal.push({
-            key: t('订阅剩余'),
-            value: `${remain}/${total} ${unit}`,
-          });
-        }
-        expandDataLocal.push({
-          key: t('订阅说明'),
-          value: t(
-            'token 会按倍率换算成“额度/次数”，请求结束后再做差额结算（补扣/返还）。',
-          ),
-        });
       }
-      if (isAdminUser && logs[i].type !== 6) {
-        expandDataLocal.push({
-          key: t('请求转换'),
-          value: requestConversionDisplayValue(other?.request_conversion),
-        });
-      }
-      if (isAdminUser && logs[i].type !== 6) {
-        let localCountMode = '';
-        if (other?.admin_info?.local_count_tokens) {
-          localCountMode = t('本地计费');
-        } else {
-          localCountMode = t('上游返回');
-        }
-        expandDataLocal.push({
-          key: t('计费模式'),
-          value: localCountMode,
-        });
-      }
+      const expandDataLocal = [
+        ...(logs[i].type === 2 ? billingItems : []),
+        ...errorItems,
+      ].filter((item) => item && item.value !== undefined && item.value !== null && item.value !== '');
       expandDatesLocal[logs[i].key] = expandDataLocal;
     }
 
@@ -705,6 +537,9 @@ export const useLogsData = () => {
 
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null) => {
+    if (loading) {
+      return;
+    }
     setLoading(true);
 
     let url = '';
@@ -734,19 +569,28 @@ export const useLogsData = () => {
       url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
     }
     url = encodeURI(url);
-    const res = await API.get(url);
-    const { success, message, data } = res.data;
-    if (success) {
-      const newPageData = data.items;
-      setActivePage(data.page);
-      setPageSize(data.page_size);
-      setLogCount(data.total);
-
-      setLogsFormat(newPageData);
-    } else {
-      showError(message);
+    try {
+      const res = await API.get(url);
+      const { success, message, data } = res.data;
+      if (success) {
+        const newPageData = data.items;
+        setActivePage(data.page);
+        setPageSize(data.page_size);
+        setLogCount(data.total);
+        setLogsFormat(newPageData);
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 429) {
+        showError(t('日志请求过于频繁，请稍后再试'));
+      } else {
+        showError(error?.message || t('日志加载失败'));
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Page handlers

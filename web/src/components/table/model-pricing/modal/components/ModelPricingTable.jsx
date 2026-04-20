@@ -97,11 +97,11 @@ const ModelPricingTable = ({
     // 如果显示倍率，添加倍率列
     if (showRatio) {
       columns.push({
-        title: t('倍率'),
+        title: t('分组折扣'),
         dataIndex: 'ratio',
         render: (text) => (
           <Tag color='white' size='small' shape='circle'>
-            {text}x
+            {text}
           </Tag>
         ),
       });

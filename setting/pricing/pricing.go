@@ -2,9 +2,9 @@ package pricing
 
 import (
 	"fmt"
-	"math"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 )
@@ -47,18 +47,9 @@ func FormatDollars(microdollars int64) string {
 
 func FormatDollarAmount(dollars float64) string {
 	if dollars == 0 {
-		return "$0"
+		return "$0.000000"
 	}
-	if dollars >= 1 {
-		if dollars == math.Trunc(dollars) {
-			return fmt.Sprintf("$%.0f", dollars)
-		}
-		return fmt.Sprintf("$%.2f", dollars)
-	}
-	formatted := fmt.Sprintf("$%.6f", dollars)
-	formatted = strings.TrimRight(formatted, "0")
-	formatted = strings.TrimRight(formatted, ".")
-	return formatted
+	return fmt.Sprintf("$%.6f", dollars)
 }
 
 var (
@@ -97,6 +88,30 @@ func ModelPricing2JSONString() string {
 
 func UpdateModelPricingByJSONString(jsonStr string) error {
 	return types.LoadFromJsonStringWithCallback(modelPricingMap, jsonStr, func() {})
+}
+
+func UpdateExposedModelPricingByJSONString(jsonStr string) error {
+	incoming := make(map[string]ModelPricing)
+	if err := common.UnmarshalJsonStr(jsonStr, &incoming); err != nil {
+		return err
+	}
+
+	next := make(map[string]ModelPricing, len(defaultModelPricing)+len(incoming))
+	for name, value := range defaultModelPricing {
+		next[name] = value
+	}
+
+	for name, value := range incoming {
+		formattedName := FormatMatchingModelName(name)
+		if strings.TrimSpace(formattedName) == "" {
+			continue
+		}
+		next[formattedName] = value
+	}
+
+	modelPricingMap.Clear()
+	modelPricingMap.AddAll(next)
+	return nil
 }
 
 func GetGroupDiscount(group string) float64 {

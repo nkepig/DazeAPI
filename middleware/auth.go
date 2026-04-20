@@ -12,7 +12,6 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-    pricing "github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-contrib/sessions"
@@ -343,19 +342,21 @@ func TokenAuth() func(c *gin.Context) {
 		userCache.WriteContext(c)
 
 		userGroup := userCache.Group
+		userGroupRatio := userCache.GetGroupRatioMap()
 		tokenGroup := token.Group
 		if tokenGroup != "" {
-			// check common.UserUsableGroups[userGroup]
-			if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
-				return
-			}
-			// check group in common.GroupRatio
-    if !pricing.ContainsGroupRatio(tokenGroup) {
-				if tokenGroup != "auto" {
-					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
+			accessibleGroups := service.GetUserAccessibleChannelGroupsByRatio(userGroupRatio)
+			if _, ok := accessibleGroups[tokenGroup]; !ok {
+				if _, allowed := userGroupRatio[tokenGroup]; !allowed {
+					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
 					return
 				}
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 没有可用渠道", tokenGroup))
+				return
+			}
+			if tokenGroup != "auto" && !service.HasAccessibleModelInGroupByRatio(userGroupRatio, tokenGroup) {
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 没有可用模型", tokenGroup))
+				return
 			}
 			userGroup = tokenGroup
 		}

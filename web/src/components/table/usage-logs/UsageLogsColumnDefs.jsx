@@ -287,7 +287,7 @@ function getUsageLogGroupSummary(groupRatio, userGroupRatio, t) {
   if (ratio === undefined || ratio === null || ratio === '') {
     return '';
   }
-  return `${useUserGroupRatio ? t('专属倍率') : t('倍率')} ${formatRatio(ratio)}x`;
+  return `${useUserGroupRatio ? t('专属折扣') : t('分组折扣')} ${formatRatio(ratio)}`;
 }
 
 function renderCompactDetailSummary(summarySegments) {
@@ -301,7 +301,7 @@ function renderCompactDetailSummary(summarySegments) {
   return (
     <div
       style={{
-        maxWidth: 180,
+        maxWidth: 280,
         lineHeight: 1.35,
       }}
     >
@@ -327,85 +327,48 @@ function renderCompactDetailSummary(summarySegments) {
   );
 }
 
-function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
-  const other = getLogOther(record.other);
-
-  if (record.type === 6) {
-    return {
-      segments: [{ text: t('异步任务退款'), tone: 'primary' }],
-    };
-  }
-
-  if (other == null || record.type !== 2) {
+function buildUsageLogPricingData(other) {
+  if (!other || typeof other !== 'object') {
     return null;
   }
 
-  if (
-    other?.violation_fee === true ||
-    Boolean(other?.violation_fee_code) ||
-    Boolean(other?.violation_fee_marker)
-  ) {
-    const feeQuota = other?.fee_quota ?? record?.quota;
-    const groupText = getUsageLogGroupSummary(
-      other?.group_ratio,
-      other?.user_group_ratio,
-      t,
-    );
+  return {
+    prompt_price: Number(other.prompt_price ?? other.model_ratio ?? 0),
+    completion_price: Number(other.completion_price ?? other.completion_ratio_price ?? 0),
+    cache_read_price: Number(other.cache_read_price ?? 0),
+    image_price: Number(other.image_price ?? 0),
+    per_call_price: other.per_call_price,
+    cache_write_price: Number(other.cache_write_price ?? 0),
+    cache_write_5m_price: Number(other.cache_write_5m_price ?? other.cache_write_price ?? 0),
+    cache_write_1h_price: Number(other.cache_write_1h_price ?? other.cache_write_price ?? 0),
+    cache_creation_tokens: Number(other.cache_creation_tokens ?? 0),
+    cache_creation_tokens_5m: Number(other.cache_creation_tokens_5m ?? 0),
+    cache_creation_tokens_1h: Number(other.cache_creation_tokens_1h ?? 0),
+  };
+}
+
+function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
+  const other = getLogOther(record.other);
+
+  if (record.type === 6 || record.type === 5) {
+    const errorText =
+      text || other?.reason || other?.reject_reason || t('请求失败');
     return {
-      segments: [
-        groupText ? { text: groupText, tone: 'primary' } : null,
-        { text: t('违规扣费'), tone: 'primary' },
-        {
-          text: `${t('扣费')}：${renderQuota(feeQuota, 6)}`,
-          tone: 'secondary',
-        },
-        text ? { text: `${t('详情')}：${text}`, tone: 'secondary' } : null,
-      ].filter(Boolean),
+      segments: [{ text: errorText, tone: 'primary' }],
     };
   }
 
+  if (record.type !== 2) {
+    return null;
+  }
+
   return {
-    segments: other?.claude
-      ? renderModelPriceSimple(
-          other.model_ratio,
-          other.model_price,
-          other.group_ratio,
-          other?.user_group_ratio,
-          other.cache_tokens || 0,
-          other.cache_ratio || 1.0,
-          other.cache_creation_tokens || 0,
-          other.cache_creation_ratio || 1.0,
-          other.cache_creation_tokens_5m || 0,
-          other.cache_creation_ratio_5m || other.cache_creation_ratio || 1.0,
-          other.cache_creation_tokens_1h || 0,
-          other.cache_creation_ratio_1h || other.cache_creation_ratio || 1.0,
-          false,
-          1.0,
-          other?.is_system_prompt_overwritten,
-          'claude',
-          billingDisplayMode,
-          'segments',
-        )
-      : renderModelPriceSimple(
-          other.model_ratio,
-          other.model_price,
-          other.group_ratio,
-          other?.user_group_ratio,
-          other.cache_tokens || 0,
-          other.cache_ratio || 1.0,
-          0,
-          1.0,
-          0,
-          1.0,
-          0,
-          1.0,
-          false,
-          1.0,
-          other?.is_system_prompt_overwritten,
-          'openai',
-          billingDisplayMode,
-          'segments',
-        ),
+    segments: [
+      {
+        text: t('总消耗') + '：' + renderQuota(record.quota, 6),
+        tone: 'primary',
+      },
+    ],
   };
 }
 
@@ -524,7 +487,7 @@ export const getLogsColumns = ({
       dataIndex: 'username',
       render: (text, record, index) => {
         return isAdminUser ? (
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Avatar
               size='extra-small'
               color={stringToColor(text)}
@@ -545,9 +508,11 @@ export const getLogsColumns = ({
     },
     {
       key: COLUMN_KEYS.TOKEN,
-      title: t('令牌'),
+      title: t('令牌/分组'),
       dataIndex: 'token_name',
       render: (text, record, index) => {
+        const other = getLogOther(record.other);
+        const tokenGroup = record.group || other?.group || '-';
         return record.type === 0 ||
           record.type === 2 ||
           record.type === 5 ||
@@ -560,8 +525,10 @@ export const getLogsColumns = ({
                 copyText(event, text);
               }}
             >
-              {' '}
-              {t(text)}{' '}
+              {t(text)}
+            </Tag>
+            <Tag color='blue' shape='circle'>
+              {tokenGroup}
             </Tag>
           </div>
         ) : (
@@ -728,41 +695,6 @@ export const getLogsColumns = ({
       },
     },
     {
-      key: COLUMN_KEYS.IP,
-      title: (
-        <div className='flex items-center gap-1'>
-          {t('IP')}
-          <Tooltip
-            content={t(
-              '只有当用户设置开启IP记录时，才会进行请求和错误类型日志的IP记录',
-            )}
-          >
-            <IconHelpCircle className='text-gray-400 cursor-help' />
-          </Tooltip>
-        </div>
-      ),
-      dataIndex: 'ip',
-      render: (text, record, index) => {
-        return (record.type === 2 || record.type === 5) && text ? (
-          <Tooltip content={text}>
-            <span>
-              <Tag
-                color='orange'
-                shape='circle'
-                onClick={(event) => {
-                  copyText(event, text);
-                }}
-              >
-                {text}
-              </Tag>
-            </span>
-          </Tooltip>
-        ) : (
-          <></>
-        );
-      },
-    },
-    {
       key: COLUMN_KEYS.RETRY,
       title: t('重试'),
       dataIndex: 'retry',
@@ -796,7 +728,7 @@ export const getLogsColumns = ({
       title: t('详情'),
       dataIndex: 'content',
       fixed: 'right',
-      width: 200,
+      width: 300,
       render: (text, record, index) => {
         const detailSummary = getUsageLogDetailSummary(
           record,
@@ -812,10 +744,10 @@ export const getLogsColumns = ({
                 rows: 2,
                 showTooltip: {
                   type: 'popover',
-                  opts: { style: { width: 240 } },
+                  opts: { style: { width: 360 } },
                 },
               }}
-              style={{ maxWidth: 200, marginBottom: 0 }}
+              style={{ maxWidth: 300, marginBottom: 0 }}
             >
               {text}
             </Typography.Paragraph>

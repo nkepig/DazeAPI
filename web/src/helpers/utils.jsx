@@ -675,39 +675,39 @@ export const calculateModelPrice = ({
 
     if (isTokensDisplay) {
       const inputRatioDisplay = formatRatio(promptPrice);
-      const completionRatioDisplay =
+      const completionPriceReference =
         promptPrice !== 0
           ? formatRatio(completionPrice / promptPrice)
           : null;
-      const cacheRatioDisplay =
+      const cachePriceReference =
         promptPrice !== 0
           ? formatRatio(cacheReadPrice / promptPrice)
           : null;
-      const createCacheRatioDisplay =
+      const createCachePriceReference =
         promptPrice !== 0
           ? formatRatio(cacheWritePrice / promptPrice)
           : null;
-      const imageRatioDisplay =
+      const imagePriceReference =
         promptPrice !== 0
           ? formatRatio(imagePrice / promptPrice)
           : null;
-      const audioInputRatioDisplay =
+      const audioInputPriceReference =
         promptPrice !== 0
           ? formatRatio(audioInputPrice / promptPrice)
           : null;
-      const audioOutputRatioDisplay =
+      const audioOutputPriceReference =
         promptPrice !== 0
           ? formatRatio(audioOutputPrice / promptPrice)
           : null;
 
       return {
         inputRatio: inputRatioDisplay,
-        completionRatio: completionRatioDisplay,
-        cacheRatio: cacheRatioDisplay,
-        createCacheRatio: createCacheRatioDisplay,
-        imageRatio: imageRatioDisplay,
-        audioInputRatio: audioInputRatioDisplay,
-        audioOutputRatio: audioOutputRatioDisplay,
+        completionPriceReference: completionPriceReference,
+        cachePriceReference: cachePriceReference,
+        createCachePriceReference: createCachePriceReference,
+        imagePriceReference: imagePriceReference,
+        audioInputPriceReference: audioInputPriceReference,
+        audioOutputPriceReference: audioOutputPriceReference,
         isPerToken: true,
         isTokensDisplay: true,
         usedGroup,
@@ -797,44 +797,44 @@ export const getModelPriceItems = (
       return [
         {
           key: 'input-ratio',
-          label: t('输入倍率'),
+          label: t('输入价格倍数参考'),
           value: priceData.inputRatio,
           suffix: 'x',
         },
         {
           key: 'completion-ratio',
-          label: t('输出倍率'),
-          value: priceData.completionRatio,
+          label: t('输出价格倍数参考'),
+          value: priceData.completionPriceReference,
           suffix: 'x',
         },
         {
           key: 'cache-ratio',
-          label: t('缓存读取倍率'),
-          value: priceData.cacheRatio,
+          label: t('缓存读取价格参考'),
+          value: priceData.cachePriceReference,
           suffix: 'x',
         },
         {
           key: 'create-cache-ratio',
-          label: t('缓存写入倍率'),
-          value: priceData.createCacheRatio,
+          label: t('缓存写入价格参考'),
+          value: priceData.createCachePriceReference,
           suffix: 'x',
         },
         {
           key: 'image-ratio',
-          label: t('图片倍率'),
-          value: priceData.imageRatio,
+          label: t('图片价格参考'),
+          value: priceData.imagePriceReference,
           suffix: 'x',
         },
         {
           key: 'audio-input-ratio',
-          label: t('音频输入倍率'),
-          value: priceData.audioInputRatio,
+          label: t('音频输入价格参考'),
+          value: priceData.audioInputPriceReference,
           suffix: 'x',
         },
         {
           key: 'audio-output-ratio',
-          label: t('音频输出倍率'),
-          value: priceData.audioOutputRatio,
+          label: t('音频输出价格参考'),
+          value: priceData.audioOutputPriceReference,
           suffix: 'x',
         },
       ].filter(

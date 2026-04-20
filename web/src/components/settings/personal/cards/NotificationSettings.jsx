@@ -164,20 +164,7 @@ const NotificationSettings = ({
                   ]}
                 />
 
-                {isAdminOrRoot && (
-                  <Form.Switch
-                    field='upstreamModelUpdateNotifyEnabled'
-                    label={t('接收上游模型更新通知')}
-                    checkedText={t('开')}
-                    uncheckedText={t('关')}
-                    onChange={(value) =>
-                      handleFormChange('upstreamModelUpdateNotifyEnabled', value)
-                    }
-                    extraText={t(
-                      '仅管理员可用。开启后，当系统定时检测全部渠道发现上游模型变更或检测异常时，将按你选择的通知方式发送汇总通知；渠道或模型过多时会自动省略部分明细。',
-                    )}
-                  />
-                )}
+                {isAdminOrRoot && null}
 
                 {notificationSettings.warningType === 'email' && (
                   <Form.Input
@@ -446,19 +433,7 @@ const NotificationSettings = ({
               itemKey='pricing'
             >
               <div className='py-4'>
-                <Form.Switch
-                  field='acceptUnsetModelRatioModel'
-                  label={t('接受未设置价格模型')}
-                  checkedText={t('开')}
-                  uncheckedText={t('关')}
-                  onChange={(value) =>
-                    handleFormChange('acceptUnsetModelRatioModel', value)
-                  }
-                  extraText={t(
-                    '当模型没有设置价格时仍接受调用，仅当您信任该网站时使用，可能会产生高额费用',
-                  )}
-                />
-              </div>
+                              </div>
             </TabPane>
 
             <TabPane

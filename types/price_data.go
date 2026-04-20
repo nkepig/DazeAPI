@@ -45,7 +45,6 @@ type PriceData struct {
 	// Deprecated: use GroupDiscountInfo.GroupDiscount instead
 	// Kept for backward compatibility during migration
 	ModelPrice           float64
-	ModelRatio           float64
 	CompletionRatio      float64
 	CacheRatio           float64
 	CacheCreationRatio   float64

@@ -180,10 +180,10 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 	totalTokens := usage.TotalTokens
 	var logContent string
 	if !modelPricing.UsePerCallPricing {
-		logContent = fmt.Sprintf("输入价格 %.2f，输出价格 %.2f，音频输入价格 %.2f，音频输出价格 %.2f，分组折扣 %.2f",
+		logContent = fmt.Sprintf("输入价格 %.6f，输出价格 %.6f，音频输入价格 %.6f，音频输出价格 %.6f，分组折扣 %.6f",
 			modelPricing.PromptPrice, modelPricing.CompletionPrice, modelPricing.AudioInputPrice, modelPricing.AudioOutputPrice, groupDiscount)
 	} else {
-		logContent = fmt.Sprintf("按次价格 %.2f，分组折扣 %.2f", modelPricing.PerCallPrice, groupDiscount)
+		logContent = fmt.Sprintf("按次价格 %.6f，分组折扣 %.6f", modelPricing.PerCallPrice, groupDiscount)
 	}
 
 	if totalTokens == 0 {
@@ -281,10 +281,10 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	totalTokens := usage.TotalTokens
 	var logContent string
 	if !modelPricing.UsePerCallPricing {
-		logContent = fmt.Sprintf("输入价格 %.2f，输出价格 %.2f，音频输入价格 %.2f，音频输出价格 %.2f，分组折扣 %.2f",
+		logContent = fmt.Sprintf("输入价格 %.6f，输出价格 %.6f，音频输入价格 %.6f，音频输出价格 %.6f，分组折扣 %.6f",
 			modelPricing.PromptPrice, modelPricing.CompletionPrice, modelPricing.AudioInputPrice, modelPricing.AudioOutputPrice, groupDiscount)
 	} else {
-		logContent = fmt.Sprintf("按次价格 %.2f，分组折扣 %.2f", modelPricing.PerCallPrice, groupDiscount)
+		logContent = fmt.Sprintf("按次价格 %.6f，分组折扣 %.6f", modelPricing.PerCallPrice, groupDiscount)
 	}
 
 	if totalTokens == 0 {

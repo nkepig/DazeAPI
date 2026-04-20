@@ -22,23 +22,14 @@ import { Card, Spin, Tabs } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import ModelSettingsVisualEditor from '../../pages/Setting/Ratio/ModelSettingsVisualEditor';
-import ModelRatioNotSetEditor from '../../pages/Setting/Ratio/ModelRationNotSetEditor';
 
-import { API, showError, toBoolean } from '../../helpers';
+import { API, showError } from '../../helpers';
 
 const RatioSetting = () => {
   const { t } = useTranslation();
 
   let [inputs, setInputs] = useState({
     ModelPrice: '',
-    ModelRatio: '',
-    CacheRatio: '',
-    CreateCacheRatio: '',
-    CompletionRatio: '',
-    ImageRatio: '',
-    AudioRatio: '',
-    AudioCompletionRatio: '',
-    ExposeRatioEnabled: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -47,7 +38,9 @@ const RatioSetting = () => {
     const res = await API.get('/api/option/');
     const { success, message, data } = res.data;
     if (success) {
-      let newInputs = {};
+      const newInputs = {
+        ModelPrice: '',
+      };
       data.forEach((item) => {
         if (item.value.startsWith('{') || item.value.startsWith('[')) {
           try {
@@ -56,11 +49,7 @@ const RatioSetting = () => {
             // 如果后端返回的不是合法 JSON，直接展示
           }
         }
-        if (['ExposeRatioEnabled'].includes(item.key)) {
-          newInputs[item.key] = toBoolean(item.value);
-        } else {
-          newInputs[item.key] = item.value;
-        }
+        newInputs[item.key] = item.value;
       });
       setInputs(newInputs);
     } else {
@@ -86,16 +75,9 @@ const RatioSetting = () => {
 
   return (
     <Spin spinning={loading} size='large'>
-      {/* 模型倍率设置以及价格编辑器 */}
+      {/* ModelPrice-first editor: simplified to a single visual editor */}
       <Card style={{ marginTop: '10px' }}>
-        <Tabs type='card' defaultActiveKey='visual'>
-          <Tabs.TabPane tab={t('价格设置')} itemKey='visual'>
-            <ModelSettingsVisualEditor options={inputs} refresh={onRefresh} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab={t('未设置价格模型')} itemKey='unset_models'>
-            <ModelRatioNotSetEditor options={inputs} refresh={onRefresh} />
-          </Tabs.TabPane>
-        </Tabs>
+        <ModelSettingsVisualEditor options={inputs} refresh={onRefresh} />
       </Card>
     </Spin>
   );

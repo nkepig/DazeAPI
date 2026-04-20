@@ -27,7 +27,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 			var contents []string
 			for key, ra := range info.PriceData.OtherRatios {
 				if 1.0 != ra {
-					contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+					contents = append(contents, fmt.Sprintf("%s: %.6f", key, ra))
 				}
 			}
 			if len(contents) > 0 {
@@ -261,6 +261,6 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 	costDollars := float64(promptTokens)/1_000_000*modelPricing.PromptPrice + float64(completionTokens)/1_000_000*modelPricing.CompletionPrice
 	actualQuota := int(costDollars * float64(pricing.MicrodollarsPerDollar) * groupDiscount)
 
-	reason := fmt.Sprintf("token重算：totalTokens=%d, promptPrice=%.4f, completionPrice=%.4f, groupDiscount=%.2f", totalTokens, modelPricing.PromptPrice, modelPricing.CompletionPrice, groupDiscount)
+	reason := fmt.Sprintf("token重算：totalTokens=%d, promptPrice=%.6f, completionPrice=%.6f, groupDiscount=%.6f", totalTokens, modelPricing.PromptPrice, modelPricing.CompletionPrice, groupDiscount)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason)
 }

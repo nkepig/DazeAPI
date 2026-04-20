@@ -2,7 +2,7 @@
 Copyright (C) 2025 QuantumNous
 */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Collapsible } from '@douyinfe/semi-ui';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -24,13 +24,11 @@ const sections = [
   { key: 'performance', icon: Activity, label: '性能设置', Component: PerformanceSetting },
 ];
 
-function SectionBlock({ sectionKey, icon: Icon, label, children, defaultOpen, t }) {
-  const [open, setOpen] = useState(defaultOpen);
-
+function SectionBlock({ sectionKey, icon: Icon, label, children, open, onToggle, t }) {
   return (
     <div id={`section-${sectionKey}`} className='mb-8'>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={onToggle}
         className='w-full flex items-center justify-between py-3 bg-transparent border-0 cursor-pointer transition-colors'
       >
         <span className='flex items-center gap-2.5 text-[15px] font-medium text-[#1A1A1A]'>
@@ -70,7 +68,7 @@ const Setting = () => {
       setActiveSection(section);
       setTimeout(() => {
         const el = document.getElementById(`section-${section}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (el) { window.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' }); }
       }, 100);
     }
   }, [location.search]);
@@ -99,7 +97,7 @@ const Setting = () => {
               setActiveSection(key);
               navigate(`?section=${key}`);
               const el = document.getElementById(`section-${key}`);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              if (el) { window.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' }); }
             }}
             className={`px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all border ${
               activeSection === key
@@ -118,10 +116,16 @@ const Setting = () => {
           sectionKey={key}
           icon={icon}
           label={label}
-          defaultOpen={activeSection === key}
+          open={activeSection === key}
           t={t}
+          onToggle={() => {
+            const nextKey = activeSection === key ? '' : key;
+            setActiveSection(nextKey || key);
+            navigate(nextKey ? `?section=${nextKey}` : '?section=operation');
+            window.scrollTo({ top: 0, behavior: 'auto' });
+          }}
         >
-          <Component />
+          {activeSection === key ? <Component /> : null}
         </SectionBlock>
       ))}
     </div>

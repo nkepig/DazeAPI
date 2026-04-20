@@ -263,30 +263,12 @@ export const getTokensColumns = ({
       title: t('密钥'),
       key: 'token_key',
       render: (text, record) =>
-        renderTokenKey(
-          text,
-          record,
-          loadingTokenKeys,
-          copyTokenKey,
-        ),
+        renderTokenKey(text, record, loadingTokenKeys, copyTokenKey),
     },
     {
-      title: t('创建时间'),
-      dataIndex: 'created_time',
-      render: (text, record, index) => {
-        return <div>{renderTimestamp(text)}</div>;
-      },
-    },
-    {
-      title: t('过期时间'),
-      dataIndex: 'expired_time',
-      render: (text, record, index) => {
-        return (
-          <div>
-            {record.expired_time === -1 ? t('永不过期') : renderTimestamp(text)}
-          </div>
-        );
-      },
+      title: t('分组'),
+      dataIndex: 'group',
+      render: (text) => <Tag color='blue' shape='circle'>{text || '-'}</Tag>,
     },
     {
       title: '',
