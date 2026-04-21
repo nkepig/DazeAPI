@@ -280,3 +280,20 @@ func CacheUpdateChannel(channel *Channel) {
 
 	channelsIDM[channel.Id] = channel
 }
+
+// GetAllChannelsFromCache returns all channels from memory cache.
+// If memory cache is disabled, it falls back to database query.
+func GetAllChannelsFromCache() ([]*Channel, error) {
+	if !common.MemoryCacheEnabled {
+		return GetAllChannels(0, 0, true, false)
+	}
+
+	channelSyncLock.RLock()
+	defer channelSyncLock.RUnlock()
+
+	channels := make([]*Channel, 0, len(channelsIDM))
+	for _, channel := range channelsIDM {
+		channels = append(channels, channel)
+	}
+	return channels, nil
+}

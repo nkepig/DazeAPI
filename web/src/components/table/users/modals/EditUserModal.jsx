@@ -116,11 +116,11 @@ const EditUserModal = (props) => {
           const parsed = typeof data.group_ratio === 'string' ? JSON.parse(data.group_ratio) : data.group_ratio;
           let idCounter = 0;
           for (const [g, v] of Object.entries(parsed)) {
-            const ratio = typeof v === 'number' ? v : 1;
-            groupEntries.push({
-              id: `existing-${idCounter++}`,
-              name: g,
-              ratio: ratio,
+            const ratio = typeof v === 'number' ? Number(v.toFixed(1)) : 1;
+              groupEntries.push({
+                id: `existing-${idCounter++}`,
+                name: g,
+                ratio: ratio,
               isNew: false,
             });
             overrides[g] = ratio;
@@ -159,7 +159,7 @@ const EditUserModal = (props) => {
         const fullGroupRatio = {};
         groupList.forEach((item) => {
           if (item.name && item.name.trim() !== '') {
-            fullGroupRatio[item.name.trim()] = item.ratio ?? 1;
+            fullGroupRatio[item.name.trim()] = Number((item.ratio ?? 1).toFixed(1));
           }
         });
         payload.group_ratio = JSON.stringify(fullGroupRatio);
@@ -341,8 +341,8 @@ const EditUserModal = (props) => {
                           value=''
                           onChange={(value) => {
                             if (value && !groupOverrides[value]) {
-                              setGroupList((prev) => [...prev, { id: `channel-${value}`, name: value, ratio: 1, isNew: false }]);
-                              setGroupOverrides((prev) => ({ ...prev, [value]: 1 }));
+                              setGroupList((prev) => [...prev, { id: `channel-${value}`, name: value, ratio: 1.0, isNew: false }]);
+                              setGroupOverrides((prev) => ({ ...prev, [value]: 1.0 }));
                             }
                           }}
                           optionList={availableGroups
@@ -371,9 +371,10 @@ const EditUserModal = (props) => {
                             min={0.01}
                             max={1000}
                             step={0.1}
+                            precision={1}
                             value={item.ratio ?? 1}
                             onChange={(v) => {
-                              const ratio = v ?? 1;
+                              const ratio = v == null ? 1 : Number(v.toFixed(1));
                               setGroupList((prev) => {
                                 const next = [...prev];
                                 next[index] = { ...next[index], ratio };

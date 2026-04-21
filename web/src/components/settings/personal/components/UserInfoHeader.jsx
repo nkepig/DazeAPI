@@ -121,7 +121,7 @@ const UserInfoHeader = ({ t, userState }) => {
         {/* 当前余额显示 */}
         <Badge count={t('当前余额')} position='rightTop' type='danger'>
           <div className='text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide'>
-            {renderQuota(userState?.user?.quota)}
+            {renderQuota(userState?.user?.quota, 2)}
           </div>
         </Badge>
 
@@ -139,7 +139,7 @@ const UserInfoHeader = ({ t, userState }) => {
                   {t('历史消耗')}
                 </Typography.Text>
                 <Typography.Text size='small' type='tertiary' strong>
-                  {renderQuota(userState?.user?.used_quota)}
+                  {renderQuota(userState?.user?.used_quota, 2)}
                 </Typography.Text>
               </div>
               <Divider layout='vertical' />
@@ -183,7 +183,7 @@ const UserInfoHeader = ({ t, userState }) => {
                 </Typography.Text>
               </div>
               <Typography.Text size='small' type='tertiary' strong>
-                {renderQuota(userState?.user?.used_quota)}
+                {renderQuota(userState?.user?.used_quota, 2)}
               </Typography.Text>
             </div>
             <Divider margin='8px' />

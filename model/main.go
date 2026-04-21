@@ -168,6 +168,7 @@ func migrateDB() error {
 		&Task{},
 		&Vendor{},
 		&Setup{},
+		&Model{},
 	)
 	if err != nil {
 		return err
@@ -195,6 +196,7 @@ func migrateDBFast() error {
 		{&Task{}, "Task"},
 		{&Vendor{}, "Vendor"},
 		{&Setup{}, "Setup"},
+		{&Model{}, "Model"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))

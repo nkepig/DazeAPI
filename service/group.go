@@ -81,7 +81,7 @@ func GroupExistsInChannels(groupName string) bool {
 func GetUserAccessibleChannelGroups(userGroup string) map[string]string {
 	usable := GetUserUsableGroups(userGroup)
 	filtered := make(map[string]string)
-	channels, err := model.GetAllChannels(0, 0, true, false)
+	channels, err := model.GetAllChannelsFromCache()
 	if err != nil {
 		return filtered
 	}
@@ -108,10 +108,22 @@ func HasAccessibleModelInGroup(userGroup, tokenGroup string) bool {
 
 func GetUserAccessibleChannelGroupsByRatio(groupRatio map[string]float64) map[string]string {
 	filtered := make(map[string]string)
-	channels, err := model.GetAllChannels(0, 0, true, false)
+	channels, err := model.GetAllChannelsFromCache()
 	if err != nil {
 		return filtered
 	}
+	
+	// If groupRatio is empty, allow all groups that have channels
+	// This matches the behavior in controller/pricing.go line 37-40
+	if len(groupRatio) == 0 {
+		for _, ch := range channels {
+			for _, g := range splitChannelGroups(ch.Group) {
+				filtered[g] = g
+			}
+		}
+		return filtered
+	}
+	
 	for _, ch := range channels {
 		for _, g := range splitChannelGroups(ch.Group) {
 			if _, ok := groupRatio[g]; ok {

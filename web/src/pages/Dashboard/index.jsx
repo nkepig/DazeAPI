@@ -211,7 +211,7 @@ const Dashboard = () => {
   const statItems = [
     { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v) },
     { icon: Activity, label: t('今日请求次数'), value: stats.requests },
-    { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v) },
+    { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2) },
     { icon: Building2, label: t('支持模型'), value: stats.models },
   ];
 

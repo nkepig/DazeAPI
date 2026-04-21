@@ -81,7 +81,7 @@ const RechargeCard = ({
       <div className='grid grid-cols-3 gap-3 mb-6'>
         <div className='text-center rounded-xl bg-[var(--semi-color-fill-0)] py-3 px-2'>
           <div className='text-base font-bold mb-1'>
-            {renderQuota(userState?.user?.quota)}
+            {renderQuota(userState?.user?.quota, 2)}
           </div>
           <div className='flex items-center justify-center gap-1 text-xs text-[var(--semi-color-text-2)]'>
             <Wallet size={12} />
@@ -90,7 +90,7 @@ const RechargeCard = ({
         </div>
         <div className='text-center rounded-xl bg-[var(--semi-color-fill-0)] py-3 px-2'>
           <div className='text-base font-bold mb-1'>
-            {renderQuota(userState?.user?.used_quota)}
+            {renderQuota(userState?.user?.used_quota, 2)}
           </div>
           <div className='flex items-center justify-center gap-1 text-xs text-[var(--semi-color-text-2)]'>
             <TrendingUp size={12} />

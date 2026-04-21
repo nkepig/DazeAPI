@@ -151,14 +151,14 @@ const renderQuotaUsage = (text, record, t) => {
   const percent = total > 0 ? (remain / total) * 100 : 0;
   const popoverContent = (
     <div className='text-xs p-2'>
-      <Paragraph copyable={{ content: renderQuota(used) }}>
-        {t('已用额度')}: {renderQuota(used)}
+      <Paragraph copyable={{ content: renderQuota(used, 2) }}>
+        {t('已用额度')}: {renderQuota(used, 2)}
       </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(remain) }}>
-        {t('剩余额度')}: {renderQuota(remain)} ({percent.toFixed(0)}%)
+      <Paragraph copyable={{ content: renderQuota(remain, 2) }}>
+        {t('剩余额度')}: {renderQuota(remain, 2)} ({percent.toFixed(0)}%)
       </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(total) }}>
-        {t('总额度')}: {renderQuota(total)}
+      <Paragraph copyable={{ content: renderQuota(total, 2) }}>
+        {t('总额度')}: {renderQuota(total, 2)}
       </Paragraph>
     </div>
   );
@@ -166,7 +166,7 @@ const renderQuotaUsage = (text, record, t) => {
     <Popover content={popoverContent} position='top'>
       <Tag color='white' shape='circle'>
         <div className='flex flex-col items-end'>
-          <span className='text-xs leading-none'>{`${renderQuota(remain)} / ${renderQuota(total)}`}</span>
+          <span className='text-xs leading-none'>{`${renderQuota(remain, 2)} / ${renderQuota(total, 2)}`}</span>
           <Progress
             percent={percent}
             aria-label='quota usage'

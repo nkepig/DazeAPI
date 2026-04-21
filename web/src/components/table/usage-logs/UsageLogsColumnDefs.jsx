@@ -287,7 +287,7 @@ function getUsageLogGroupSummary(groupRatio, userGroupRatio, t) {
   if (ratio === undefined || ratio === null || ratio === '') {
     return '';
   }
-  return `${useUserGroupRatio ? t('专属折扣') : t('分组折扣')} ${formatRatio(ratio)}`;
+  return `${useUserGroupRatio ? t('专属倍率') : t('倍率')}：x${formatRatio(ratio)}`;
 }
 
 function renderCompactDetailSummary(summarySegments) {
@@ -367,6 +367,14 @@ function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
       {
         text: t('总消耗') + '：' + renderQuota(record.quota, 6),
         tone: 'primary',
+      },
+      {
+        text: getUsageLogGroupSummary(
+          other?.group_discount,
+          other?.user_group_discount,
+          t,
+        ),
+        tone: 'secondary',
       },
     ],
   };
