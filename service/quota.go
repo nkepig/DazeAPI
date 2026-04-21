@@ -58,17 +58,13 @@ func calculateAudioQuota(info QuotaInfo) int64 {
 	inputAudioTokens := decimal.NewFromInt(int64(info.InputDetails.AudioTokens))
 	outputAudioTokens := decimal.NewFromInt(int64(info.OutputDetails.AudioTokens))
 
-	textInputCost := inputTextTokens.Mul(dPromptPrice).Div(microdollarsPerMillion)
-	textOutputCost := outputTextTokens.Mul(dCompletionPrice).Div(microdollarsPerMillion)
-	audioInputCost := inputAudioTokens.Mul(dAudioInputPrice).Div(microdollarsPerMillion)
-	audioOutputCost := outputAudioTokens.Mul(dAudioOutputPrice).Div(microdollarsPerMillion)
+	textInputCost := inputTextTokens.Mul(dPromptPrice)
+	textOutputCost := outputTextTokens.Mul(dCompletionPrice)
+	audioInputCost := inputAudioTokens.Mul(dAudioInputPrice)
+	audioOutputCost := outputAudioTokens.Mul(dAudioOutputPrice)
 
 	totalCost := textInputCost.Add(textOutputCost).Add(audioInputCost).Add(audioOutputCost)
 	totalCost = totalCost.Mul(groupDiscount)
-
-	if !groupDiscount.IsZero() && totalCost.LessThanOrEqual(decimal.Zero) {
-		totalCost = decimal.NewFromInt(1)
-	}
 
 	return totalCost.Round(0).IntPart()
 }
@@ -233,7 +229,7 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData)
 
 	return int((cost*1_000_000 -
 		totalPromptTokens*promptPricePerM +
-		promptCacheReadTokens*(promptPricePerM-promptCacheReadPricePerM) -
+		promptCacheReadTokens*promptCacheReadPricePerM -
 		completionTokens*completionPricePerM) /
 		(promptCacheWritePricePerM - promptPricePerM))
 }

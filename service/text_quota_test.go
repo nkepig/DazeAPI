@@ -60,11 +60,11 @@ func TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic(t *testing.T) {
 	chatSummary := calculateTextQuotaSummary(ctx, chatRelayInfo, usage)
 	messageSummary := calculateTextQuotaSummary(ctx, messageRelayInfo, usage)
 
-	require.Equal(t, messageSummary.Quota, chatSummary.Quota)
+	require.Equal(t, messageSummary.QuotaMicrodollars, chatSummary.QuotaMicrodollars)
 	require.Equal(t, messageSummary.CacheCreationTokens5m, chatSummary.CacheCreationTokens5m)
 	require.Equal(t, messageSummary.CacheCreationTokens1h, chatSummary.CacheCreationTokens1h)
 	require.True(t, chatSummary.IsClaudeUsageSemantic)
-	require.Equal(t, 1488, chatSummary.Quota)
+	require.Equal(t, int64(1488), chatSummary.QuotaMicrodollars)
 }
 
 func TestCalculateTextQuotaSummaryUsesSplitClaudeCacheCreationRatios(t *testing.T) {
@@ -103,7 +103,7 @@ func TestCalculateTextQuotaSummaryUsesSplitClaudeCacheCreationRatios(t *testing.
 	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
 
 	// 100 + remaining(5)*1 + 2*2 + 3*3 = 118
-	require.Equal(t, 118, summary.Quota)
+	require.Equal(t, int64(118), summary.QuotaMicrodollars)
 }
 
 func TestCalculateTextQuotaSummaryUsesAnthropicUsageSemanticFromUpstreamUsage(t *testing.T) {
@@ -144,7 +144,7 @@ func TestCalculateTextQuotaSummaryUsesAnthropicUsageSemanticFromUpstreamUsage(t 
 
 	require.True(t, summary.IsClaudeUsageSemantic)
 	require.Equal(t, "anthropic", summary.UsageSemantic)
-	require.Equal(t, 1488, summary.Quota)
+	require.Equal(t, int64(1488), summary.QuotaMicrodollars)
 }
 
 func TestCacheWriteTokensTotal(t *testing.T) {
@@ -202,45 +202,7 @@ func TestCalculateTextQuotaSummaryHandlesLegacyClaudeDerivedOpenAIUsage(t *testi
 
 	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
 
-	// 62 + 3544*0.1 + 586*1.25 + 95*5 = 1624.9 => 1624
-	require.Equal(t, 1624, summary.Quota)
-}
-
-func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheReadFromPromptBilling(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-
-	relayInfo := &relaycommon.RelayInfo{
-		OriginModelName: "openai/gpt-4.1",
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType: constant.ChannelTypeOpenRouter,
-		},
-		PriceData: types.PriceData{
-			PromptPrice:     1,
-			CompletionPrice: 1,
-			CacheReadPrice:  0.1,
-			CacheWritePrice: 1.25,
-			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
-		},
-		StartTime: time.Now(),
-	}
-
-	usage := &dto.Usage{
-		PromptTokens:     2604,
-		CompletionTokens: 383,
-		PromptTokensDetails: dto.InputTokenDetails{
-			CachedTokens: 2432,
-		},
-	}
-
-	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
-
-	// OpenRouter OpenAI-format display keeps prompt_tokens as total input,
-	// but billing still separates normal input from cache read tokens.
-	// quota = (2604 - 2432) + 2432*0.1 + 383 = 798.2 => 798
-	require.Equal(t, 2604, summary.PromptTokens)
-	require.Equal(t, 798, summary.Quota)
+	require.Equal(t, int64(1624), summary.QuotaMicrodollars)
 }
 
 func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheCreationFromPromptBilling(t *testing.T) {
@@ -275,7 +237,7 @@ func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheCreationFromPromptBill
 	// prompt_tokens is still logged as total input, but cache creation is billed separately.
 	// quota = (2604 - 100) + 100*1.25 + 383 = 3012
 	require.Equal(t, 2604, summary.PromptTokens)
-	require.Equal(t, 3012, summary.Quota)
+	require.Equal(t, int64(3012), summary.QuotaMicrodollars)
 }
 
 func TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling(t *testing.T) {
@@ -314,5 +276,67 @@ func TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling(t *testing.T
 	// quota = 172 + 2432*0.1 + 383 = 798.2 => 798
 	require.True(t, summary.IsClaudeUsageSemantic)
 	require.Equal(t, 172, summary.PromptTokens)
-	require.Equal(t, 798, summary.Quota)
+	require.Equal(t, int64(798), summary.QuotaMicrodollars)
+}
+
+func TestTinyOpenRouterTextQuotaDoesNotFallToOne(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "test-model",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenRouter,
+		},
+		PriceData: types.PriceData{
+			PromptPrice:     0.000001,
+			CompletionPrice: 0.000001,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+	}
+
+	usage := &dto.Usage{
+		PromptTokens:     1,
+		CompletionTokens: 1,
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, int64(0), summary.QuotaMicrodollars)
+}
+
+func TestCalculateTextQuotaSummaryOpenRouterKimiBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "moonshotai/kimi-k2.5",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenRouter,
+		},
+		PriceData: types.PriceData{
+			PromptPrice:     0.6,
+			CompletionPrice: 3,
+			CacheReadPrice:  0.1,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+	}
+
+	usage := &dto.Usage{
+		PromptTokens:     167846,
+		CompletionTokens: 468,
+		PromptTokensDetails: dto.InputTokenDetails{
+			CachedTokens: 167680,
+		},
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, int64(18272), summary.QuotaMicrodollars)
 }

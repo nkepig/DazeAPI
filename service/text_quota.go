@@ -206,7 +206,8 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 			if !summary.IsClaudeUsageSemantic && !legacyClaudeDerived {
 				baseTokens = baseTokens.Sub(dCacheTokens)
 			}
-			cachedTokensCost = dCacheTokens.Mul(dPromptPrice.Sub(dCacheReadPrice))
+			// 缓存读的实际成本 = cacheTokens × cacheReadPrice
+			cachedTokensCost = dCacheTokens.Mul(dCacheReadPrice)
 		}
 
 		var cacheWriteCost decimal.Decimal
@@ -238,9 +239,9 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 			audioInputCost = dAudioTokens.Mul(dAudioInputPrice).Div(decimal.NewFromInt(1000000))
 		}
 
-		promptCost := baseTokens.Mul(dPromptPrice).Div(microdollarsPerMillion)
-		completionCost := dCompletionTokens.Mul(dCompletionPrice).Div(microdollarsPerMillion)
-		totalCost := promptCost.Add(completionCost).Add(cachedTokensCost.Div(microdollarsPerMillion)).Add(cacheWriteCost.Div(microdollarsPerMillion)).Add(imageCost.Div(microdollarsPerMillion)).Add(audioInputCost)
+		promptCost := baseTokens.Mul(dPromptPrice)
+		completionCost := dCompletionTokens.Mul(dCompletionPrice)
+		totalCost := promptCost.Add(completionCost).Add(cachedTokensCost).Add(cacheWriteCost).Add(imageCost).Add(audioInputCost)
 		totalCost = totalCost.Mul(groupDiscount)
 
 		totalCost = totalCost.Add(dWebSearchQuota)
@@ -254,9 +255,6 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 			}
 		}
 
-		if !groupDiscount.IsZero() && totalCost.LessThanOrEqual(decimal.Zero) {
-			totalCost = decimal.NewFromInt(1)
-		}
 		summary.QuotaMicrodollars = totalCost.Round(0).IntPart()
 	} else {
 		totalCost := decimal.NewFromFloat(summary.PerCallPrice).Mul(microdollarsPerMillion).Mul(groupDiscount)
@@ -274,8 +272,6 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 
 	if summary.TotalTokens == 0 {
 		summary.QuotaMicrodollars = 0
-	} else if !groupDiscount.IsZero() && summary.QuotaMicrodollars == 0 {
-		summary.QuotaMicrodollars = 1
 	}
 
 	return summary
@@ -429,5 +425,3 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		Other:            other,
 	})
 }
-
-
