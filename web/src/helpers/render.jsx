@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import i18next from 'i18next';
 import { Modal, Tag, Typography, Avatar } from '@douyinfe/semi-ui';
 import { copy, showSuccess } from './utils';
+import { quotaToDisplayAmount } from './quota';
 import { MOBILE_BREAKPOINT } from '../hooks/common/useIsMobile';
 import { visit } from 'unist-util-visit';
 import * as LobeIcons from '@lobehub/icons';
@@ -1073,22 +1074,17 @@ export function renderNumberWithPoint(num) {
 }
 
 export function getQuotaPerUnit() {
-  let quotaPerUnit = cachedGetItem('quota_per_unit');
-  quotaPerUnit = parseFloat(quotaPerUnit);
-  return quotaPerUnit;
+  return 1;
 }
 
 export function renderUnitWithQuota(quota) {
-  let quotaPerUnit = cachedGetItem('quota_per_unit');
-  quotaPerUnit = parseFloat(quotaPerUnit);
-  quota = parseFloat(quota);
-  return quotaPerUnit * quota;
+  const amount = quotaToDisplayAmount(quota);
+  return amount;
 }
 
 export function getQuotaWithUnit(quota, digits = 6) {
-  let quotaPerUnit = cachedGetItem('quota_per_unit');
-  quotaPerUnit = parseFloat(quotaPerUnit);
-  return (quota / quotaPerUnit).toFixed(digits);
+  const amount = quotaToDisplayAmount(quota);
+  return amount.toFixed(digits);
 }
 
 export function renderQuotaWithAmount(amount) {
@@ -1099,7 +1095,7 @@ export function renderQuotaWithAmount(amount) {
 
   const numericAmount = Number(amount);
   const formattedAmount = Number.isFinite(numericAmount)
-    ? numericAmount.toFixed(2)
+    ? numericAmount.toFixed(6)
     : amount;
 
   if (quotaDisplayType === 'CNY') {
@@ -1157,46 +1153,19 @@ export function getCurrencyConfig() {
  * @returns {string} - 格式化后的货币字符串
  */
 export function convertUSDToCurrency(usdAmount, digits = 2) {
-  const { symbol, rate } = getCurrencyConfig();
+  const { symbol } = getCurrencyConfig();
   const convertedAmount = usdAmount * rate;
   return symbol + convertedAmount.toFixed(digits);
 }
 
-export function renderQuota(quota, digits = 2) {
-  let quotaPerUnit = cachedGetItem('quota_per_unit');
+export function renderQuota(quota, digits = 6) {
   const quotaDisplayType = cachedGetItem('quota_display_type') || 'USD';
-  quotaPerUnit = parseFloat(quotaPerUnit);
   if (quotaDisplayType === 'TOKENS') {
     return renderNumber(quota);
   }
-  const resultUSD = quota / quotaPerUnit;
-  let symbol = '$';
-  let value = resultUSD;
-  if (quotaDisplayType === 'CNY') {
-    const statusStr = cachedGetItem('status');
-    let usdRate = 1;
-    try {
-      if (statusStr) {
-        const s = JSON.parse(statusStr);
-        usdRate = s?.usd_exchange_rate || 1;
-      }
-    } catch (e) { /* invalid status JSON, use defaults */ }
-    value = resultUSD * usdRate;
-    symbol = '¥';
-  } else if (quotaDisplayType === 'CUSTOM') {
-    const statusStr = cachedGetItem('status');
-    let symbolCustom = '¤';
-    let rate = 1;
-    try {
-      if (statusStr) {
-        const s = JSON.parse(statusStr);
-        symbolCustom = s?.custom_currency_symbol || symbolCustom;
-        rate = s?.custom_currency_exchange_rate || rate;
-      }
-    } catch (e) { /* invalid status JSON, use defaults */ }
-    value = resultUSD * rate;
-    symbol = symbolCustom;
-  }
+  const amount = quotaToDisplayAmount(quota);
+  const { symbol, rate } = getCurrencyConfig();
+  const value = quotaDisplayType === 'USD' ? amount : amount;
   const fixedResult = value.toFixed(digits);
   if (parseFloat(fixedResult) === 0 && quota > 0 && value > 0) {
     const minValue = Math.pow(10, -digits);
@@ -1388,11 +1357,17 @@ export function renderModelPrice(
   const totalAmount = inputAmount + outputAmount;
 
   const inputTerms = [];
+  const cacheInputTerms = [];
+  const cacheWriteTerms = [];
+  const imageInputTerms = [];
+  const audioInputTerms = [];
   if (normalInputTokens > 0 && promptPrice > 0) inputTerms.push(String(normalInputTokens) + '×' + symbol + formatBillingDisplayPrice(promptPrice, rate, 8));
-  if (cacheInputTokens > 0 && cacheReadPrice > 0) inputTerms.push(String(cacheInputTokens) + '缓存读×' + symbol + formatBillingDisplayPrice(cacheReadPrice, rate, 8));
-  if (cacheWriteTokens > 0 && cacheWritePrice > 0) inputTerms.push(String(cacheWriteTokens) + '缓存写×' + symbol + formatBillingDisplayPrice(cacheWritePrice, rate, 8));
-  if (imageInputTokens > 0 && imageInputPrice > 0) inputTerms.push(String(imageInputTokens) + '图片输入×' + symbol + formatBillingDisplayPrice(imageInputPrice, rate, 8));
-  if (audioPromptTokens > 0 && (audioInputPrice > 0 || promptPrice > 0)) inputTerms.push(String(audioPromptTokens) + '音频输入×' + symbol + formatBillingDisplayPrice(audioInputPrice || promptPrice, rate, 8));
+  if (cacheInputTokens > 0 && cacheReadPrice > 0) cacheInputTerms.push(String(cacheInputTokens) + '×' + symbol + formatBillingDisplayPrice(cacheReadPrice, rate, 8));
+  if (cacheWriteTokens > 0 && cacheWritePrice > 0) cacheWriteTerms.push(String(cacheWriteTokens) + '×' + symbol + formatBillingDisplayPrice(cacheWritePrice, rate, 8));
+  if (cacheWrite5mTokens > 0 && cacheWrite5mPrice > 0 && cacheWrite5mPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite5mTokens) + '×' + symbol + formatBillingDisplayPrice(cacheWrite5mPrice, rate, 8));
+  if (cacheWrite1hTokens > 0 && cacheWrite1hPrice > 0 && cacheWrite1hPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite1hTokens) + '×' + symbol + formatBillingDisplayPrice(cacheWrite1hPrice, rate, 8));
+  if (imageInputTokens > 0 && imageInputPrice > 0) imageInputTerms.push(String(imageInputTokens) + '×' + symbol + formatBillingDisplayPrice(imageInputPrice, rate, 8));
+  if (audioPromptTokens > 0 && (audioInputPrice > 0 || promptPrice > 0)) audioInputTerms.push(String(audioPromptTokens) + '×' + symbol + formatBillingDisplayPrice(audioInputPrice || promptPrice, rate, 8));
 
   const outputTerms = [];
   if (textOutputTokens > 0 && completionPrice > 0) outputTerms.push(String(textOutputTokens) + '×' + symbol + formatBillingDisplayPrice(completionPrice, rate, 8));
@@ -1401,7 +1376,11 @@ export function renderModelPrice(
   if (imageGenerationCall && imageGenerationCallPrice > 0) outputTerms.push('图片生成1×' + symbol + formatBillingDisplayPrice(imageGenerationCallPrice, rate, 8));
 
   const lines = [];
-  if (inputTerms.length > 0) lines.push('输入  : ' + inputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd(inputAmount));
+  if (inputTerms.length > 0) lines.push('输入  : ' + inputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((normalInputTokens / 1_000_000) * promptPrice * groupRatio));
+  if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1_000_000) * cacheReadPrice * groupRatio));
+  if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1_000_000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1_000_000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1_000_000) * cacheWrite1hPrice * groupRatio));
+  if (imageInputTerms.length > 0) lines.push('图片入: ' + imageInputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((imageInputTokens / 1_000_000) * imageInputPrice * groupRatio));
+  if (audioInputTerms.length > 0) lines.push('音频入: ' + audioInputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio));
   if (outputTerms.length > 0) lines.push('输出  : ' + outputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd(outputAmount));
   lines.push('结果  : ' + renderDisplayAmountFromUsd(totalAmount));
 

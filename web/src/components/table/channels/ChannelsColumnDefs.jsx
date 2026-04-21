@@ -37,8 +37,8 @@ import {
   showSuccess,
   showError,
   showInfo,
-  getQuotaPerUnit,
 } from '../../../helpers';
+import { quotaToDisplayAmount } from '../../../helpers/quota';
 import {
   CHANNEL_OPTIONS,
   MODEL_FETCHABLE_CHANNEL_TYPES,
@@ -511,7 +511,7 @@ export const getChannelsColumns = ({
                 </Tag>
               ) : (
                 <Tag color='white' type='ghost' shape='circle'>
-                  {renderQuotaWithAmount(record.used_quota / getQuotaPerUnit())}
+                  {renderQuotaWithAmount(quotaToDisplayAmount(record.used_quota))}
                 </Tag>
               )}
             </div>
@@ -519,7 +519,7 @@ export const getChannelsColumns = ({
         } else {
           return (
             <Tag color='white' type='ghost' shape='circle'>
-              {renderQuotaWithAmount(record.used_quota / getQuotaPerUnit())}
+              {renderQuotaWithAmount(quotaToDisplayAmount(record.used_quota))}
             </Tag>
           );
         }

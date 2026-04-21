@@ -1,11 +1,13 @@
-import { getCurrencyConfig, cachedGetItem } from './render';
-
-export const getQuotaPerUnit = () => {
-  const raw = parseFloat(cachedGetItem('quota_per_unit') || '1');
-  return Number.isFinite(raw) && raw > 0 ? raw : 1;
-};
+import { getCurrencyConfig } from './render';
 
 export const getMicrodollarsPerDollar = () => 1_000_000;
+
+export const getQuotaPerUnit = () => {
+  // QuotaPerUnit was 500000; all DB values are now microdollars (1USD=1M).
+  // Returning 1 makes existing `x / getQuotaPerUnit()` a no-op.
+  // Use quotaToDisplayAmount() for proper conversion.
+  return 1;
+};
 
 export const quotaToDisplayAmount = (quota) => {
   const q = Number(quota || 0);
@@ -28,12 +30,10 @@ export const displayAmountToQuota = (amount) => {
 
 export const formatDollarAmount = (quota) => {
   const amount = quotaToDisplayAmount(quota);
-  if (amount === 0) return '$0';
-  if (amount >= 1) {
-    if (amount === Math.floor(amount)) return `$${amount.toFixed(0)}`;
-    return `$${amount.toFixed(2)}`;
-  }
-  let formatted = `$${amount.toFixed(6)}`;
-  formatted = formatted.replace(/0+$/, '').replace(/\.$/, '');
-  return formatted;
+  if (amount === 0) return '$0.000000';
+  const { type, symbol } = getCurrencyConfig();
+  if (type === 'TOKENS') return `${amount}`;
+  if (type === 'CNY') return `¥${amount.toFixed(6)}`;
+  if (type === 'CUSTOM') return `${symbol}${amount.toFixed(6)}`;
+  return `$${amount.toFixed(6)}`;
 };
