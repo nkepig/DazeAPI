@@ -42,6 +42,25 @@ import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
 import ParamOverrideEntry from '../../components/table/usage-logs/components/ParamOverrideEntry';
 
+const normalizeUsageLogPricingData = (other) => {
+  if (!other || typeof other !== 'object') {
+    return null;
+  }
+  return {
+    prompt_price: Number(other.prompt_price ?? other.model_ratio ?? 0),
+    completion_price: Number(other.completion_price ?? other.completion_ratio_price ?? 0),
+    cache_read_price: Number(other.cache_read_price ?? 0),
+    image_price: Number(other.image_price ?? 0),
+    per_call_price: other.per_call_price,
+    cache_write_price: Number(other.cache_write_price ?? 0),
+    cache_write_5m_price: Number(other.cache_write_5m_price ?? other.cache_write_price ?? 0),
+    cache_write_1h_price: Number(other.cache_write_1h_price ?? other.cache_write_price ?? 0),
+    cache_creation_tokens: Number(other.cache_creation_tokens ?? 0),
+    cache_creation_tokens_5m: Number(other.cache_creation_tokens_5m ?? 0),
+    cache_creation_tokens_1h: Number(other.cache_creation_tokens_1h ?? 0),
+  };
+};
+
 export const useLogsData = () => {
   const { t } = useTranslation();
 
@@ -403,6 +422,7 @@ export const useLogsData = () => {
           Boolean(other?.violation_fee_code) ||
           Boolean(other?.violation_fee_marker);
 
+        const pricingDataForRender = normalizeUsageLogPricingData(other) ?? other;
         const billingRule = renderModelPrice(
             logs[i].prompt_tokens,
             logs[i].completion_tokens,
@@ -428,7 +448,7 @@ export const useLogsData = () => {
             other?.image_generation_call || false,
             other?.image_generation_call_price || 0,
             billingDisplayMode,
-            other,
+            pricingDataForRender,
           );
 
         if (!isViolationFeeLog) {
