@@ -57,7 +57,7 @@ const Models = () => {
       setLoading(true);
       try {
         const res = await API.get('/api/pricing');
-        const { success, message, data, vendors, group_discount, user_group } = res.data;
+        const { success, message, data, vendors, group_discount, user_group, auto_groups } = res.data;
         if (success) {
           const userGroupRatio = group_discount || {};
           setGroupRatio(userGroupRatio);
@@ -70,7 +70,26 @@ const Models = () => {
           setVendorsMap(vMap);
 
           const userGroups = Object.keys(userGroupRatio);
-          const hasGroups = userGroups.length > 0;
+
+          // When user has no group_ratio configured, derive available groups from model data and auto_groups
+          if (userGroups.length === 0) {
+            const groupSet = new Set();
+            if (Array.isArray(auto_groups)) {
+              auto_groups.forEach((g) => groupSet.add(g));
+            }
+            (data || []).forEach((m) => {
+              if (Array.isArray(m.enable_groups)) {
+                m.enable_groups.forEach((g) => {
+                  if (g !== '') groupSet.add(g);
+                });
+              }
+            });
+            groupSet.forEach((g) => {
+              userGroupRatio[g] = 1;
+            });
+          }
+
+          const hasGroups = Object.keys(userGroupRatio).length > 0;
 
           const formatted = (data || []).map((m) => ({
             ...m,
