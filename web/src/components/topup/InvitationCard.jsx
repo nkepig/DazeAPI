@@ -100,7 +100,7 @@ const InvitationCard = ({
                       className='text-base sm:text-2xl font-bold mb-2'
                       style={{ color: 'white' }}
                     >
-                      {renderQuota(userState?.user?.aff_quota || 0)}
+                      {renderQuota(userState?.user?.aff_quota || 0, 2)}
                     </div>
                     <div className='flex items-center justify-center text-sm'>
                       <TrendingUp
@@ -125,7 +125,7 @@ const InvitationCard = ({
                       className='text-base sm:text-2xl font-bold mb-2'
                       style={{ color: 'white' }}
                     >
-                      {renderQuota(userState?.user?.aff_history_quota || 0)}
+                      {renderQuota(userState?.user?.aff_history_quota || 0, 2)}
                     </div>
                     <div className='flex items-center justify-center text-sm'>
                       <BarChart2

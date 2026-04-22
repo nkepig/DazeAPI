@@ -25,7 +25,7 @@ import UsageLogsTable from '../../components/table/usage-logs';
 const Log = () => {
   const { t } = useTranslation();
   return (
-    <div className='px-6 lg:px-10 py-8'>
+    <div className='px-4 lg:px-8 xl:px-12 py-8'>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

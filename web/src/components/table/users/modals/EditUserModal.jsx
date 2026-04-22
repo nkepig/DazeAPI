@@ -439,7 +439,7 @@ const EditUserModal = (props) => {
             const current = formApiRef.current?.getValue('quota') || 0;
             return (
               <Text type='secondary' className='block mb-2'>
-                {`${t('新额度：')}${renderQuota(current)} + ${renderQuota(addQuotaLocal)} = ${renderQuota(current + parseInt(addQuotaLocal || 0))}`}
+                {`${t('新额度：')}${renderQuota(current, 2)} + ${renderQuota(addQuotaLocal, 2)} = ${renderQuota(current + parseInt(addQuotaLocal || 0), 2)}`}
               </Text>
             );
           })()}

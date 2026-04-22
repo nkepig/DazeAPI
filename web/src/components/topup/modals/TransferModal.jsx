@@ -54,14 +54,14 @@ const TransferModal = ({
             {t('可用邀请额度')}
           </Typography.Text>
           <Input
-            value={renderQuota(userState?.user?.aff_quota)}
+            value={renderQuota(userState?.user?.aff_quota, 2)}
             disabled
             className='!rounded-lg'
           />
         </div>
         <div>
           <Typography.Text strong className='block mb-2'>
-            {t('划转额度')} · {t('最低') + renderQuota(minQuota)}
+            {t('划转额度')} · {t('最低') + renderQuota(minQuota, 2)}
           </Typography.Text>
           <InputNumber
             min={minQuota}

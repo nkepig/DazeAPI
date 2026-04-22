@@ -96,12 +96,12 @@ const UserInfoModal = ({
           <div style={rowStyle}>
             <div style={colStyle}>
               {renderLabel(t('余额'), 'success')}
-              <div style={valueStyle}>{renderQuota(userInfoData.quota)}</div>
+              <div style={valueStyle}>{renderQuota(userInfoData.quota, 2)}</div>
             </div>
             <div style={colStyle}>
               {renderLabel(t('已用额度'), 'warning')}
               <div style={valueStyle}>
-                {renderQuota(userInfoData.used_quota)}
+                {renderQuota(userInfoData.used_quota, 2)}
               </div>
             </div>
           </div>
@@ -142,7 +142,7 @@ const UserInfoModal = ({
               <div style={infoItemStyle}>
                 {renderLabel(t('邀请获得额度'), 'success')}
                 <div style={valueStyle}>
-                  {renderQuota(userInfoData.aff_quota)}
+                  {renderQuota(userInfoData.aff_quota, 2)}
                 </div>
               </div>
             )}

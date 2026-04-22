@@ -301,7 +301,6 @@ function renderCompactDetailSummary(summarySegments) {
   return (
     <div
       style={{
-        maxWidth: 280,
         lineHeight: 1.35,
       }}
     >
@@ -516,7 +515,7 @@ export const getLogsColumns = ({
     },
     {
       key: COLUMN_KEYS.TOKEN,
-      title: t('令牌/分组'),
+      title: t('分组'),
       dataIndex: 'token_name',
       render: (text, record, index) => {
         const other = getLogOther(record.other);
@@ -526,15 +525,6 @@ export const getLogsColumns = ({
           record.type === 5 ||
           record.type === 6 ? (
           <div>
-            <Tag
-              color='grey'
-              shape='circle'
-              onClick={(event) => {
-                copyText(event, text);
-              }}
-            >
-              {t(text)}
-            </Tag>
             <Tag color='blue' shape='circle'>
               {tokenGroup}
             </Tag>
@@ -736,7 +726,7 @@ export const getLogsColumns = ({
       title: t('详情'),
       dataIndex: 'content',
       fixed: 'right',
-      width: 300,
+      minWidth: 260,
       render: (text, record, index) => {
         const detailSummary = getUsageLogDetailSummary(
           record,
@@ -752,10 +742,10 @@ export const getLogsColumns = ({
                 rows: 2,
                 showTooltip: {
                   type: 'popover',
-                  opts: { style: { width: 360 } },
+                  opts: { style: { width: 480 } },
                 },
               }}
-              style={{ maxWidth: 300, marginBottom: 0 }}
+              style={{ maxWidth: '100%', marginBottom: 0 }}
             >
               {text}
             </Typography.Paragraph>

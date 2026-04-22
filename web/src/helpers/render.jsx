@@ -1087,7 +1087,7 @@ export function getQuotaWithUnit(quota, digits = 6) {
   return amount.toFixed(digits);
 }
 
-export function renderQuotaWithAmount(amount) {
+export function renderQuotaWithAmount(amount, digits = 6) {
   const quotaDisplayType = cachedGetItem('quota_display_type') || 'USD';
   if (quotaDisplayType === 'TOKENS') {
     return renderNumber(renderUnitWithQuota(amount));
@@ -1095,7 +1095,7 @@ export function renderQuotaWithAmount(amount) {
 
   const numericAmount = Number(amount);
   const formattedAmount = Number.isFinite(numericAmount)
-    ? numericAmount.toFixed(6)
+    ? numericAmount.toFixed(digits)
     : amount;
 
   if (quotaDisplayType === 'CNY') {

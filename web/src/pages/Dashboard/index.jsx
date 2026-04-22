@@ -45,7 +45,7 @@ function getGreeting() {
 function ChartTooltip({ active, payload, label, metric: metricType }) {
   if (!active || !payload?.length) return null;
   const val = payload[0].value;
-  const display = metricType === 'quota' ? renderQuota(val) : `${val?.toLocaleString()} 次`;
+  const display = metricType === 'quota' ? renderQuota(val, 2) : `${val?.toLocaleString()} 次`;
   return (
     <div className='bg-white border border-[#EBEBEB] rounded-lg shadow-sm px-3 py-2'>
       <p className='text-[11px] text-[#999] mb-0.5'>{label}</p>
@@ -209,7 +209,7 @@ const Dashboard = () => {
   );
 
   const statItems = [
-    { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v) },
+    { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v, 2) },
     { icon: Activity, label: t('今日请求次数'), value: stats.requests },
     { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2) },
     { icon: Building2, label: t('支持模型'), value: stats.models },
@@ -412,7 +412,7 @@ const Dashboard = () => {
                   axisLine={false}
                   tickLine={false}
                   tickCount={8}
-                  tickFormatter={metric === 'quota' ? (v) => renderQuota(v) : undefined}
+                  tickFormatter={metric === 'quota' ? (v) => renderQuota(v, 2) : undefined}
                   allowDecimals={true}
                   minTickGap={10}
                 />

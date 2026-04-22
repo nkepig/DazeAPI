@@ -511,7 +511,10 @@ export const getChannelsColumns = ({
                 </Tag>
               ) : (
                 <Tag color='white' type='ghost' shape='circle'>
-                  {renderQuotaWithAmount(quotaToDisplayAmount(record.used_quota))}
+                  {renderQuotaWithAmount(
+                    quotaToDisplayAmount(record.used_quota),
+                    2,
+                  )}
                 </Tag>
               )}
             </div>
@@ -519,7 +522,10 @@ export const getChannelsColumns = ({
         } else {
           return (
             <Tag color='white' type='ghost' shape='circle'>
-              {renderQuotaWithAmount(quotaToDisplayAmount(record.used_quota))}
+              {renderQuotaWithAmount(
+                quotaToDisplayAmount(record.used_quota),
+                2,
+              )}
             </Tag>
           );
         }
