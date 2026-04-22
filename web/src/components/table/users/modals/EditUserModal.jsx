@@ -23,8 +23,6 @@ import {
   API,
   showError,
   showSuccess,
-  renderQuota,
-  renderQuotaWithPrompt,
   getCurrencyConfig,
   isRoot,
 } from '../../../../helpers';
@@ -106,6 +104,7 @@ const EditUserModal = (props) => {
     const { success, message, data } = res.data;
     if (success) {
       data.password = '';
+      data.quota = quotaToDisplayAmount(data.quota || 0);
       setOriginalQuota(data.quota || 0);
       setPendingQuotaDelta(0);
       setUserGroup(data.group || data.username || '');
@@ -145,15 +144,14 @@ const EditUserModal = (props) => {
   const submit = async (values) => {
     setLoading(true);
     let payload = { ...values };
-    if (typeof payload.quota === 'string')
-      payload.quota = parseInt(payload.quota) || 0;
+    payload.quota = displayAmountToQuota(payload.quota || 0);
     if (userId) {
       payload.id = parseInt(userId);
       if (
         pendingQuotaDelta !== 0 &&
-        Number(payload.quota || 0) === originalQuota + pendingQuotaDelta
+        Number(quotaToDisplayAmount(payload.quota) || 0) === originalQuota + pendingQuotaDelta
       ) {
-        payload.quota_delta = pendingQuotaDelta;
+        payload.quota_delta = displayAmountToQuota(pendingQuotaDelta);
       }
       if (isRoot()) {
         const fullGroupRatio = {};
@@ -179,9 +177,9 @@ const EditUserModal = (props) => {
   };
 
   const addLocalQuota = () => {
-    const current = parseInt(formApiRef.current?.getValue('quota') || 0);
-    const delta = parseInt(addQuotaLocal) || 0;
-    formApiRef.current?.setValue('quota', current + delta);
+    const current = formApiRef.current?.getValue('quota') || 0;
+    const delta = parseFloat(addAmountLocal) || 0;
+    formApiRef.current?.setValue('quota', Number((current + delta).toFixed(2)));
     setPendingQuotaDelta((prev) => prev + delta);
   };
 
@@ -302,8 +300,9 @@ const EditUserModal = (props) => {
                           field='quota'
                           label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('剩余额度')}</span>}
                           placeholder={t('剩余额度')}
-                          step={500000}
-                          extraText={renderQuotaWithPrompt(values.quota || 0)}
+                          step={1}
+                          precision={2}
+                          extraText={`${getCurrencyConfig().symbol}${(values.quota || 0).toFixed(2)}`}
                           rules={[{ required: true, message: t('请输入额度') }]}
                           style={{ width: '100%' }}
                         />
@@ -437,59 +436,28 @@ const EditUserModal = (props) => {
         <div className='mb-4'>
           {(() => {
             const current = formApiRef.current?.getValue('quota') || 0;
+            const addVal = parseFloat(addAmountLocal) || 0;
             return (
               <Text type='secondary' className='block mb-2'>
-                {`${t('新额度：')}${renderQuota(current, 2)} + ${renderQuota(addQuotaLocal, 2)} = ${renderQuota(current + parseInt(addQuotaLocal || 0), 2)}`}
+                {`${t('新额度：')}${getCurrencyConfig().symbol}${(current + addVal).toFixed(2)}`}
               </Text>
             );
           })()}
         </div>
-        {getCurrencyConfig().type !== 'TOKENS' && (
-          <div className='mb-3'>
-            <div className='mb-1'>
-              <Text size='small'>{t('金额')}</Text>
-              <Text size='small' type='tertiary'>
-                {' '}({t('仅用于换算，实际保存的是额度')})
-              </Text>
-            </div>
-            <InputNumber
-              prefix={getCurrencyConfig().symbol}
-              placeholder={t('输入金额')}
-              value={addAmountLocal}
-              precision={2}
-              onChange={(val) => {
-                setAddAmountLocal(val);
-                setAddQuotaLocal(
-                  val != null && val !== ''
-                    ? displayAmountToQuota(Math.abs(val)) * Math.sign(val)
-                    : '',
-                );
-              }}
-              style={{ width: '100%' }}
-              showClear
-            />
-          </div>
-        )}
-        <div>
+        <div className='mb-3'>
           <div className='mb-1'>
-            <Text size='small'>{t('额度')}</Text>
+            <Text size='small' style={{ fontWeight: 600 }}>{t('金额')}</Text>
           </div>
           <InputNumber
-            placeholder={t('输入额度')}
-            value={addQuotaLocal}
+            prefix={getCurrencyConfig().symbol}
+            placeholder={t('输入金额')}
+            value={addAmountLocal}
+            precision={2}
             onChange={(val) => {
-              setAddQuotaLocal(val);
-              setAddAmountLocal(
-                val != null && val !== ''
-                  ? Number(
-                      (quotaToDisplayAmount(Math.abs(val)) * Math.sign(val)).toFixed(2),
-                    )
-                  : '',
-              );
+              setAddAmountLocal(val ?? '');
             }}
             style={{ width: '100%' }}
             showClear
-            step={500000}
           />
         </div>
       </Modal>

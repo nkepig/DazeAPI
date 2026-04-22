@@ -23,8 +23,9 @@ import {
   showError,
   showSuccess,
   timestamp2string,
-  renderQuotaWithPrompt,
+  getCurrencyConfig,
 } from '../../../../helpers';
+import { quotaToDisplayAmount, displayAmountToQuota } from '../../../../helpers/quota';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import {
   Button,
@@ -68,6 +69,8 @@ const EditTokenModal = (props) => {
     tokenCount: 1,
     group: '',
   });
+
+  const { symbol } = getCurrencyConfig();
 
   const loadUserGroups = async () => {
     try {
@@ -114,6 +117,7 @@ const EditTokenModal = (props) => {
       if (data.expired_time !== -1) {
         data.expired_time = timestamp2string(data.expired_time);
       }
+      data.remain_quota = quotaToDisplayAmount(data.remain_quota || 0);
       if (formApiRef.current) {
         formApiRef.current.setValues({ ...getInitValues(), ...data });
       }
@@ -160,7 +164,7 @@ const EditTokenModal = (props) => {
     setLoading(true);
     if (isEdit) {
       let { tokenCount: _tc, ...localInputs } = values;
-      localInputs.remain_quota = parseInt(localInputs.remain_quota);
+      localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
       if (localInputs.expired_time !== -1) {
         let time = Date.parse(localInputs.expired_time);
         if (isNaN(time)) {
@@ -194,7 +198,7 @@ const EditTokenModal = (props) => {
         } else {
           localInputs.name = baseName;
         }
-        localInputs.remain_quota = parseInt(localInputs.remain_quota);
+        localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
 
         if (localInputs.expired_time !== -1) {
           let time = Date.parse(localInputs.expired_time);
@@ -409,26 +413,20 @@ const EditTokenModal = (props) => {
                 </div>
                 <Row gutter={12}>
                   <Col span={24}>
-                    <Form.AutoComplete
+                    <Form.InputNumber
                       field='remain_quota'
                       label={t('额度')}
                       placeholder={t('请输入额度')}
                       type='number'
                       disabled={values.unlimited_quota}
-                      extraText={renderQuotaWithPrompt(values.remain_quota)}
+                      extraText={values.unlimited_quota ? '' : `${symbol}${(values.remain_quota || 0).toFixed(2)}`}
+                      step={1}
+                      precision={2}
                       rules={
                         values.unlimited_quota
                           ? []
                           : [{ required: true, message: t('请输入额度') }]
                       }
-                      data={[
-                        { value: 500000, label: '1$' },
-                        { value: 5000000, label: '10$' },
-                        { value: 25000000, label: '50$' },
-                        { value: 50000000, label: '100$' },
-                        { value: 250000000, label: '500$' },
-                        { value: 500000000, label: '1000$' },
-                      ]}
                     />
                   </Col>
                   <Col span={24}>
