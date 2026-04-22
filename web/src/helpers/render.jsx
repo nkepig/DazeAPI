@@ -1324,7 +1324,7 @@ export function renderModelPrice(
   if (perCallPrice !== undefined && perCallPrice > 0) {
     const total = perCallPrice * groupRatio;
     return renderBillingArticle([
-      '按次  : 1×' + symbol + formatBillingDisplayPrice(perCallPrice, rate, 8) + '×' + groupRatio + ' = ' + renderDisplayAmountFromUsd(total),
+      '按次  : 1 × ' + symbol + formatBillingDisplayPrice(perCallPrice, rate, 8) + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(total),
       '结果  : ' + renderDisplayAmountFromUsd(total),
     ]);
   }
@@ -1361,27 +1361,27 @@ export function renderModelPrice(
   const cacheWriteTerms = [];
   const imageInputTerms = [];
   const audioInputTerms = [];
-  if (normalInputTokens > 0 && promptPrice > 0) inputTerms.push(String(normalInputTokens) + '×' + symbol + formatBillingDisplayPrice(promptPrice, rate, 8));
-  if (cacheInputTokens > 0 && cacheReadPrice > 0) cacheInputTerms.push(String(cacheInputTokens) + '×' + symbol + formatBillingDisplayPrice(cacheReadPrice, rate, 8));
-  if (cacheWriteTokens > 0 && cacheWritePrice > 0) cacheWriteTerms.push(String(cacheWriteTokens) + '×' + symbol + formatBillingDisplayPrice(cacheWritePrice, rate, 8));
-  if (cacheWrite5mTokens > 0 && cacheWrite5mPrice > 0 && cacheWrite5mPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite5mTokens) + '×' + symbol + formatBillingDisplayPrice(cacheWrite5mPrice, rate, 8));
-  if (cacheWrite1hTokens > 0 && cacheWrite1hPrice > 0 && cacheWrite1hPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite1hTokens) + '×' + symbol + formatBillingDisplayPrice(cacheWrite1hPrice, rate, 8));
-  if (imageInputTokens > 0 && imageInputPrice > 0) imageInputTerms.push(String(imageInputTokens) + '×' + symbol + formatBillingDisplayPrice(imageInputPrice, rate, 8));
-  if (audioPromptTokens > 0 && (audioInputPrice > 0 || promptPrice > 0)) audioInputTerms.push(String(audioPromptTokens) + '×' + symbol + formatBillingDisplayPrice(audioInputPrice || promptPrice, rate, 8));
+  if (normalInputTokens > 0 && promptPrice > 0) inputTerms.push(String(normalInputTokens) + ' × ' + symbol + formatBillingDisplayPrice(promptPrice, rate, 8) + '/m');
+  if (cacheInputTokens > 0 && cacheReadPrice > 0) cacheInputTerms.push(String(cacheInputTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheReadPrice, rate, 8) + '/m');
+  if (cacheWriteTokens > 0 && cacheWritePrice > 0) cacheWriteTerms.push(String(cacheWriteTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheWritePrice, rate, 8) + '/m');
+  if (cacheWrite5mTokens > 0 && cacheWrite5mPrice > 0 && cacheWrite5mPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite5mTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheWrite5mPrice, rate, 8) + '/m');
+  if (cacheWrite1hTokens > 0 && cacheWrite1hPrice > 0 && cacheWrite1hPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite1hTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheWrite1hPrice, rate, 8) + '/m');
+  if (imageInputTokens > 0 && imageInputPrice > 0) imageInputTerms.push(String(imageInputTokens) + ' × ' + symbol + formatBillingDisplayPrice(imageInputPrice, rate, 8) + '/m');
+  if (audioPromptTokens > 0 && (audioInputPrice > 0 || promptPrice > 0)) audioInputTerms.push(String(audioPromptTokens) + ' × ' + symbol + formatBillingDisplayPrice(audioInputPrice || promptPrice, rate, 8) + '/m');
 
   const outputTerms = [];
-  if (textOutputTokens > 0 && completionPrice > 0) outputTerms.push(String(textOutputTokens) + '×' + symbol + formatBillingDisplayPrice(completionPrice, rate, 8));
-  if (webSearchCallCount > 0 && webSearchPrice > 0) outputTerms.push('搜索' + String(webSearchCallCount) + '×' + symbol + formatBillingDisplayPrice(webSearchPrice, rate, 8));
-  if (fileSearchCallCount > 0 && fileSearchPrice > 0) outputTerms.push('文件' + String(fileSearchCallCount) + '×' + symbol + formatBillingDisplayPrice(fileSearchPrice, rate, 8));
-  if (imageGenerationCall && imageGenerationCallPrice > 0) outputTerms.push('图片生成1×' + symbol + formatBillingDisplayPrice(imageGenerationCallPrice, rate, 8));
+  if (textOutputTokens > 0 && completionPrice > 0) outputTerms.push(String(textOutputTokens) + ' × ' + symbol + formatBillingDisplayPrice(completionPrice, rate, 8) + '/m');
+  if (webSearchCallCount > 0 && webSearchPrice > 0) outputTerms.push('搜索' + String(webSearchCallCount) + ' × ' + symbol + formatBillingDisplayPrice(webSearchPrice, rate, 8) + '/K');
+  if (fileSearchCallCount > 0 && fileSearchPrice > 0) outputTerms.push('文件' + String(fileSearchCallCount) + ' × ' + symbol + formatBillingDisplayPrice(fileSearchPrice, rate, 8) + '/K');
+  if (imageGenerationCall && imageGenerationCallPrice > 0) outputTerms.push('图片生成1 × ' + symbol + formatBillingDisplayPrice(imageGenerationCallPrice, rate, 8));
 
   const lines = [];
-  if (inputTerms.length > 0) lines.push('输入  : ' + inputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((normalInputTokens / 1_000_000) * promptPrice * groupRatio));
-  if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1_000_000) * cacheReadPrice * groupRatio));
-  if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1_000_000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1_000_000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1_000_000) * cacheWrite1hPrice * groupRatio));
-  if (imageInputTerms.length > 0) lines.push('图片入: ' + imageInputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((imageInputTokens / 1_000_000) * imageInputPrice * groupRatio));
-  if (audioInputTerms.length > 0) lines.push('音频入: ' + audioInputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio));
-  if (outputTerms.length > 0) lines.push('输出  : ' + outputTerms.join(' + ') + ' × ' + groupRatio + ' = ' + renderDisplayAmountFromUsd(outputAmount));
+  if (inputTerms.length > 0) lines.push('输入  : ' + inputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((normalInputTokens / 1_000_000) * promptPrice * groupRatio));
+  if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1_000_000) * cacheReadPrice * groupRatio));
+  if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1_000_000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1_000_000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1_000_000) * cacheWrite1hPrice * groupRatio));
+  if (imageInputTerms.length > 0) lines.push('图片入: ' + imageInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((imageInputTokens / 1_000_000) * imageInputPrice * groupRatio));
+  if (audioInputTerms.length > 0) lines.push('音频入: ' + audioInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio));
+  if (outputTerms.length > 0) lines.push('输出  : ' + outputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(outputAmount));
   lines.push('结果  : ' + renderDisplayAmountFromUsd(totalAmount));
 
   return renderBillingArticle(lines);
