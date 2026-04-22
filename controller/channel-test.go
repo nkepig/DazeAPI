@@ -272,12 +272,27 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 
 	priceData, err := helper.ModelPriceHelper(c, info, 0, request.GetTokenCountMeta())
 	if err != nil {
-		return testResult{
-			context:     c,
-			localErr:    err,
-			newAPIError: types.NewError(err, types.ErrorCodeModelPriceError),
+		// For channel test, allow testing even if model pricing is not configured
+		// Use zero price (free) for testing purposes
+		priceData = types.PriceData{
+			FreeModel:         true,
+			PromptPrice:       0,
+			CompletionPrice:   0,
+			CacheReadPrice:    0,
+			CacheWritePrice:   0,
+			ImagePrice:        0,
+			AudioInputPrice:   0,
+			AudioOutputPrice:  0,
+			PerCallPrice:      0,
+			UsePerCallPricing: false,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+			QuotaToPreConsume: 0,
 		}
+		common.SysLog(fmt.Sprintf("channel test: model pricing not found for %s, using free pricing for test", info.OriginModelName))
 	}
+	info.PriceData = priceData
 
 	adaptor.Init(info)
 
