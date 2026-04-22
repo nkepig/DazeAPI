@@ -133,7 +133,27 @@ const Dashboard = () => {
     }
   }, [chartRange, userState?.user?.quota]);
 
+  // Initial load
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Auto refresh every 5 minutes
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      loadData();
+    }, 300000);
+    return () => clearInterval(intervalId);
+  }, [loadData]);
+
+  // Refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadData]);
 
   const modelNames = useMemo(() => {
     const totals = {};
