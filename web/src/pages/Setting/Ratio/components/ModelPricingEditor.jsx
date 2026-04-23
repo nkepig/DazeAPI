@@ -133,6 +133,8 @@ export default function ModelPricingEditor({
         title: t('模型名称'),
         dataIndex: 'name',
         key: 'name',
+        width: 220,
+        ellipsis: true,
         render: (text, record) => (
           <Space>
             <Button
@@ -161,6 +163,7 @@ export default function ModelPricingEditor({
         title: t('计费方式'),
         dataIndex: 'billingMode',
         key: 'billingMode',
+        width: 120,
         render: (_, record) => (
           <Tag color={record.billingMode === 'per-request' ? 'teal' : 'violet'}>
             {record.billingMode === 'per-request'
@@ -173,6 +176,7 @@ export default function ModelPricingEditor({
         title: t('配置状态'),
         dataIndex: 'hasConfiguration',
         key: 'configurationStatus',
+        width: 100,
         render: (_, record) => (
           <Tag color={record.hasConfiguration ? 'green' : 'grey'}>
             {record.hasConfiguration ? t('已配置') : t('未配置')}
@@ -183,11 +187,25 @@ export default function ModelPricingEditor({
         title: t('价格摘要'),
         dataIndex: 'summary',
         key: 'summary',
-        render: (_, record) => buildSummaryText(record, t),
+        width: 240,
+        render: (_, record) => (
+          <div
+            style={{
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={buildSummaryText(record, t)}
+          >
+            {buildSummaryText(record, t)}
+          </div>
+        ),
       },
       {
         title: t('操作'),
         key: 'action',
+        width: 80,
         render: (_, record) => (
           <Space>
             {allowDeleteModel ? (
@@ -296,7 +314,14 @@ export default function ModelPricingEditor({
               : 'minmax(360px, 1.1fr) minmax(420px, 1fr)',
           }}
         >
-          <Card bodyStyle={{ padding: 0 }} style={isMobile ? { order: 2 } : undefined}>
+          <Card
+            bodyStyle={{ padding: 0 }}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              ...(isMobile ? { order: 2 } : {}),
+            }}
+          >
             <div style={{ overflowX: 'auto' }}>
               <Table
                 columns={columns}
@@ -332,13 +357,17 @@ export default function ModelPricingEditor({
                   },
                   onClick: () => setSelectedModelName(record.name),
                 })}
-                scroll={isMobile ? { x: 720 } : undefined}
+                scroll={isMobile ? { x: 760 } : { x: 760 }}
               />
             </div>
           </Card>
 
           <Card
-            style={isMobile ? { order: 1 } : undefined}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              ...(isMobile ? { order: 1 } : {}),
+            }}
             title={selectedModel ? selectedModel.name : t('模型计费编辑器')}
             headerExtraContent={
               selectedModel ? (

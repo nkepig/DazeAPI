@@ -220,8 +220,23 @@ export function useModelPricingEditorState({
       base = base.filter((model) => !model.hasConfiguration);
     }
 
+    // Ensure the currently selected/edited model remains visible even if its
+    // transient hasConfiguration state does not match the current filter.
+    // This prevents the selected model from disappearing or jumping while
+    // typing in its fields (a bug reported when statusFilter is
+    // configured/unset).
+    if (selectedModelName) {
+      const isInBase = base.some((m) => m.name === selectedModelName);
+      if (!isInBase) {
+        const selectedFromModels = models.find((m) => m.name === selectedModelName);
+        if (selectedFromModels) {
+          base = [selectedFromModels, ...base];
+        }
+      }
+    }
+
     return base;
-  }, [filterMode, initialVisibleModelNames, models, statusFilter]);
+  }, [filterMode, initialVisibleModelNames, models, statusFilter, selectedModelName]);
 
   const filteredModels = useMemo(() => {
     return visibleModels.filter((model) => {
