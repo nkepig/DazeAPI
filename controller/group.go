@@ -52,7 +52,6 @@ func GetGroups(c *gin.Context) {
 }
 
 func GetUserGroups(c *gin.Context) {
-	channelGroups := GetAllChannelGroups()
 	userId := c.GetInt("id")
 	userGroupRatio := map[string]float64{}
 	if userId > 0 {
@@ -62,8 +61,17 @@ func GetUserGroups(c *gin.Context) {
 		}
 	}
 
-	usableGroups := make(map[string]map[string]interface{})
-	for _, groupName := range channelGroups {
+	groups := make([]string, 0)
+	if len(userGroupRatio) == 0 {
+		groups = GetAllChannelGroups()
+	} else {
+		for g := range userGroupRatio {
+			groups = append(groups, g)
+		}
+	}
+
+	usableGroups := make(map[string]map[string]interface{}, len(groups))
+	for _, groupName := range groups {
 		ratio := 1.0
 		if r, ok := userGroupRatio[groupName]; ok {
 			ratio = r

@@ -55,6 +55,8 @@ const OperationSetting = () => {
 
     'token_setting.max_user_tokens': 1000,
 
+    RegisterEnabled: true,
+
     // SMTP Settings
     SMTPServer: '',
     SMTPPort: '',

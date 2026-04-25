@@ -164,6 +164,26 @@ func GetTokenUsage(c *gin.Context) {
 	})
 }
 
+func checkTokenGroupAccess(c *gin.Context, group string) bool {
+	userId := c.GetInt("id")
+	if userId > 0 {
+		user, err := model.GetUserCache(userId)
+		if err == nil {
+			groupRatio := user.GetGroupRatioMap()
+			if len(groupRatio) > 0 {
+				if _, ok := groupRatio[group]; !ok {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "该分组不在您的可用分组中",
+					})
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
 func AddToken(c *gin.Context) {
 	token := model.Token{}
 	err := c.ShouldBindJSON(&token)
@@ -178,11 +198,7 @@ func AddToken(c *gin.Context) {
 		})
 		return
 	}
-	if strings.TrimSpace(token.Group) == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "请选择分组",
-		})
+	if !checkTokenGroupAccess(c, token.Group) {
 		return
 	}
 	if len(token.Name) > 50 {
@@ -311,6 +327,9 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
+		if !checkTokenGroupAccess(c, token.Group) {
+			return
+		}
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
 	}

@@ -73,8 +73,9 @@ export default function GeneralSettings(props) {
 
   const formFieldKeys = [
     'RetryTimes',
-    'global.pass_through_request_enabled',
     'SystemName',
+    'RegisterEnabled',
+    'global.pass_through_request_enabled',
     'SMTPServer',
     'SMTPPort',
     'SMTPAccount',
@@ -91,7 +92,8 @@ export default function GeneralSettings(props) {
       } else {
         currentInputs[key] =
           key === 'global.pass_through_request_enabled' ||
-          key === 'SMTPSSLEnabled'
+          key === 'SMTPSSLEnabled' ||
+          key === 'RegisterEnabled'
             ? false
             : '';
       }
@@ -128,6 +130,16 @@ export default function GeneralSettings(props) {
                 placeholder={t('例如：API、MyAPI')}
                 onChange={handleFieldChange('SystemName')}
                 showClear
+              />
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Form.Switch
+                field={'RegisterEnabled'}
+                label={t('允许用户注册')}
+                size='default'
+                checkedText='｜'
+                uncheckedText='〇'
+                onChange={handleFieldChange('RegisterEnabled')}
               />
             </Col>
             <Col xs={24} sm={12} md={8} lg={8} xl={8}>
