@@ -1979,14 +1979,20 @@ func ManageMultiKeys(c *gin.Context) {
 		result := testChannel(&testCh, testModel, "", false)
 		if result.localErr != nil {
 			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": fmt.Sprintf("密钥 #%d 测试失败: %s", keyIndex, result.localErr.Error()),
+				"success":     false,
+				"message":     fmt.Sprintf("密钥 #%d 测试失败: %s", keyIndex, result.localErr.Error()),
+				"headers":     result.responseHeaders,
+				"body":        string(result.responseBody),
+				"status_code": result.statusCode,
 			})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": fmt.Sprintf("密钥 #%d 测试成功", keyIndex),
+			"success":     true,
+			"message":     fmt.Sprintf("密钥 #%d 测试成功", keyIndex),
+			"headers":     result.responseHeaders,
+			"body":        string(result.responseBody),
+			"status_code": result.statusCode,
 		})
 		return
 

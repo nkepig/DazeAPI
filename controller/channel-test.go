@@ -38,9 +38,12 @@ import (
 )
 
 type testResult struct {
-	context     *gin.Context
-	localErr    error
-	newAPIError *types.NewAPIError
+	context         *gin.Context
+	localErr        error
+	newAPIError     *types.NewAPIError
+	responseBody    []byte
+	responseHeaders http.Header
+	statusCode      int
 }
 
 func normalizeChannelTestEndpoint(channel *model.Channel, modelName, endpointType string) string {
@@ -432,6 +435,11 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	if resp != nil {
 		httpResp = resp.(*http.Response)
 		if httpResp.StatusCode != http.StatusOK {
+			var rawBody []byte
+			if httpResp.Body != nil {
+				rawBody, _ = io.ReadAll(httpResp.Body)
+				httpResp.Body = io.NopCloser(bytes.NewReader(rawBody))
+			}
 			err := service.RelayErrorHandler(c.Request.Context(), httpResp, true)
 			common.SysError(fmt.Sprintf(
 				"channel test bad response: channel_id=%d name=%s type=%d model=%s endpoint_type=%s status=%d err=%v",
@@ -453,9 +461,12 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 				model.RecordErrorLog(c, 1, channel.Id, testModel, "模型测试", err.Error(), 0, 0, false, group, other)
 			}
 			return testResult{
-				context:     c,
-				localErr:    err,
-				newAPIError: types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError),
+				context:         c,
+				localErr:        err,
+				newAPIError:     types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError),
+				responseBody:    rawBody,
+				responseHeaders: httpResp.Header,
+				statusCode:      httpResp.StatusCode,
 			}
 		}
 	}
@@ -527,10 +538,14 @@ quota := 0
 		Other:            other,
 	})
 	common.SysLog(fmt.Sprintf("testing channel #%d, response: \n%s", channel.Id, string(respBody)))
+	finalResult := w.Result()
 	return testResult{
-		context:     c,
-		localErr:    nil,
-		newAPIError: nil,
+		context:         c,
+		localErr:        nil,
+		newAPIError:     nil,
+		responseBody:    w.Body.Bytes(),
+		responseHeaders: finalResult.Header,
+		statusCode:      finalResult.StatusCode,
 	}
 }
 
@@ -787,9 +802,12 @@ func TestChannel(c *gin.Context) {
 	result := testChannel(channel, testModel, endpointType, isStream)
 	if result.localErr != nil {
 		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": result.localErr.Error(),
-			"time":    0.0,
+			"success":     false,
+			"message":     result.localErr.Error(),
+			"time":        0.0,
+			"headers":     result.responseHeaders,
+			"body":        string(result.responseBody),
+			"status_code": result.statusCode,
 		})
 		return
 	}
@@ -799,16 +817,22 @@ func TestChannel(c *gin.Context) {
 	consumedTime := float64(milliseconds) / 1000.0
 	if result.newAPIError != nil {
 		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": result.newAPIError.Error(),
-			"time":    consumedTime,
+			"success":     false,
+			"message":     result.newAPIError.Error(),
+			"time":        consumedTime,
+			"headers":     result.responseHeaders,
+			"body":        string(result.responseBody),
+			"status_code": result.statusCode,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"time":    consumedTime,
+		"success":     true,
+		"message":     "",
+		"time":        consumedTime,
+		"headers":     result.responseHeaders,
+		"body":        string(result.responseBody),
+		"status_code": result.statusCode,
 	})
 }
 

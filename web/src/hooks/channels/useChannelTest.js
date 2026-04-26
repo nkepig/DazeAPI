@@ -81,7 +81,7 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
           key_index: keyIndex,
           test_model: model,
         });
-        const { success, message } = res.data;
+        const { success, message, headers, body, status_code } = res.data;
         setModelTestResults((prev) => ({
           ...prev,
           [testKey]: {
@@ -89,6 +89,9 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
             message,
             time: 0,
             timestamp: Date.now(),
+            headers,
+            body,
+            statusCode: status_code ?? null,
           },
         }));
         if (success) {
@@ -114,7 +117,7 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
           return Promise.resolve();
         }
 
-        const { success, message, time } = res.data;
+        const { success, message, time, headers, body, status_code } = res.data;
 
         setModelTestResults((prev) => ({
           ...prev,
@@ -123,6 +126,9 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
             message,
             time: time || 0,
             timestamp: Date.now(),
+            headers,
+            body,
+            statusCode: status_code ?? null,
           },
         }));
 

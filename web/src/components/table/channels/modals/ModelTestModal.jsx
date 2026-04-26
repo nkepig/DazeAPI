@@ -179,6 +179,17 @@ const ModelTestModal = ({
                 )}
               </Typography.Text>
             )}
+            {testResult && (
+              <Typography.Text
+                link
+                onClick={() => {
+                  setDetailResult(testResult);
+                  setDetailVisible(true);
+                }}
+              >
+                {t('查看详情')}
+              </Typography.Text>
+            )}
           </div>
         );
       },
@@ -216,6 +227,18 @@ const ModelTestModal = ({
     },
   ];
 
+  const [detailVisible, setDetailVisible] = React.useState(false);
+  const [detailResult, setDetailResult] = React.useState(null);
+
+  const formatBody = (bodyStr) => {
+    if (!bodyStr) return '';
+    try {
+      return JSON.stringify(JSON.parse(bodyStr), null, 2);
+    } catch {
+      return bodyStr;
+    }
+  };
+
   const dataSource = (() => {
     if (!hasChannel) return [];
     const start = (modelTablePage - 1) * MODEL_TABLE_PAGE_SIZE;
@@ -227,7 +250,8 @@ const ModelTestModal = ({
   })();
 
   return (
-    <Modal
+    <>
+      <Modal
       title={
         hasChannel ? (
           <div className='flex flex-col gap-2 w-full'>
@@ -374,6 +398,41 @@ const ModelTestModal = ({
         </div>
       )}
     </Modal>
+    <Modal
+      title={t('测试详情')}
+      visible={detailVisible}
+      onCancel={() => setDetailVisible(false)}
+      footer={
+        <Button type='tertiary' onClick={() => setDetailVisible(false)}>
+          {t('关闭')}
+        </Button>
+      }
+      maskClosable
+      className='!rounded-lg'
+      size={isMobile ? 'full-width' : 'large'}
+    >
+      {detailResult && (
+        <div className='space-y-3'>
+          <div>
+            <Typography.Text strong>Status Code: </Typography.Text>
+            <Typography.Text>{detailResult.statusCode ?? '-'}</Typography.Text>
+          </div>
+          <div>
+            <Typography.Text strong>{t('响应头')}</Typography.Text>
+            <pre className='bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto text-xs'>
+              {JSON.stringify(detailResult.headers ?? {}, null, 2)}
+            </pre>
+          </div>
+          <div>
+            <Typography.Text strong>{t('响应体')}</Typography.Text>
+            <pre className='bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto text-xs'>
+              {formatBody(detailResult.body)}
+            </pre>
+          </div>
+        </div>
+      )}
+    </Modal>
+  </>
   );
 };
 

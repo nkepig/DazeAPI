@@ -3,6 +3,8 @@ package controller
 import (
 	"net/http"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 )
@@ -27,9 +29,17 @@ func buildModelList(modelNames []string) []openAIModelObject {
 	return result
 }
 
+func getTokenGroupModels(c *gin.Context) []string {
+	group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	if group == "" {
+		return model.GetEnabledModels()
+	}
+	return model.GetGroupEnabledModels(group)
+}
+
 // ListModels returns available models for the given channel type.
 func ListModels(c *gin.Context, channelType int) {
-	models := buildModelList(model.GetEnabledModels())
+	models := buildModelList(getTokenGroupModels(c))
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
 		"data":   models,
@@ -39,8 +49,7 @@ func ListModels(c *gin.Context, channelType int) {
 // RetrieveModel retrieves a specific model's information.
 func RetrieveModel(c *gin.Context, channelType int) {
 	modelId := c.Param("model")
-	models := model.GetEnabledModels()
-	for _, name := range models {
+	for _, name := range getTokenGroupModels(c) {
 		if name == modelId {
 			c.JSON(http.StatusOK, openAIModelObject{
 				Id:      name,

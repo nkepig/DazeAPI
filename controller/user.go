@@ -622,7 +622,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	updatePassword := updatedUser.Password != ""
-	includeQuota := req.QuotaDelta == nil
+	includeQuota := false
 	if err := updatedUser.Edit(updatePassword, includeQuota); err != nil {
 		common.ApiError(c, err)
 		return
