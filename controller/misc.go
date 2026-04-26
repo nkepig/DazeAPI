@@ -83,6 +83,8 @@ func GetStatus(c *gin.Context) {
 		"default_collapse_sidebar":      common.DefaultCollapseSidebar,
 		"demo_site_enabled":             operation_setting.DemoSiteEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
+		"register_enabled":              common.RegisterEnabled,
+		"password_register_enabled":     common.PasswordRegisterEnabled,
 
 		"usd_exchange_rate": operation_setting.USDExchangeRate,
 		"price":             operation_setting.Price,

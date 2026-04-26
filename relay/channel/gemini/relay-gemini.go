@@ -1509,7 +1509,7 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		break
 	}
 
-	service.IOCopyBytesGracefully(c, resp, responseBody)
+	service.WriteResponseWithConvert(c, resp, responseBody, info)
 
 	return &usage, nil
 }

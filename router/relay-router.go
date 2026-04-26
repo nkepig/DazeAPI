@@ -176,4 +176,6 @@ func SetRelayRouter(router *gin.Engine) {
 			controller.Relay(c, types.RelayFormatGemini)
 		})
 	}
+
+	router.GET("/v1/images/:hash", controller.ImageProxy)
 }

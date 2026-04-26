@@ -162,6 +162,7 @@ const EditChannelModal = (props) => {
     // 渠道 setting 字段（ChannelSettings）
     pass_through_body_enabled: false,
     proxy: '',
+    image_convert_mode: 'disabled',
   };
   const [autoBan, setAutoBan] = useState(true);
   const [inputs, setInputs] = useState(originInputs);
@@ -460,14 +461,23 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled =
             parsedSetting.pass_through_body_enabled === true;
           data.proxy = parsedSetting.proxy || '';
+          if (parsedSetting.convert_image_base64_to_url === true) {
+            data.image_convert_mode = 'base64_to_url';
+          } else if (parsedSetting.convert_image_url_to_base64 === true) {
+            data.image_convert_mode = 'url_to_base64';
+          } else {
+            data.image_convert_mode = 'disabled';
+          }
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.pass_through_body_enabled = false;
           data.proxy = '';
+          data.image_convert_mode = 'disabled';
         }
       } else {
         data.pass_through_body_enabled = false;
         data.proxy = '';
+        data.image_convert_mode = 'disabled';
       }
 
       if (
@@ -1036,12 +1046,24 @@ const EditChannelModal = (props) => {
     } else {
       delete channelSetting.proxy;
     }
+    const mode = localInputs.image_convert_mode || 'disabled';
+    if (mode === 'base64_to_url') {
+      channelSetting.convert_image_base64_to_url = true;
+      delete channelSetting.convert_image_url_to_base64;
+    } else if (mode === 'url_to_base64') {
+      delete channelSetting.convert_image_base64_to_url;
+      channelSetting.convert_image_url_to_base64 = true;
+    } else {
+      delete channelSetting.convert_image_base64_to_url;
+      delete channelSetting.convert_image_url_to_base64;
+    }
     localInputs.setting = JSON.stringify(channelSetting);
 
     // 清理不需要发送到后端的字段
     delete localInputs.is_enterprise_account;
     delete localInputs.pass_through_body_enabled;
     delete localInputs.proxy;
+    delete localInputs.image_convert_mode;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -1976,6 +1998,20 @@ const EditChannelModal = (props) => {
                       handleInputChange('test_model', value)
                     }
                     showClear
+                  />
+
+                  <Form.Select
+                    field='image_convert_mode'
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('图片响应自动转换')}</span>}
+                    placeholder={t('请选择转换模式')}
+                    optionList={[
+                      { label: t('默认（不转换）'), value: 'disabled' },
+                      { label: t('Base64 转 URL'), value: 'base64_to_url' },
+                      { label: t('URL 转 Base64'), value: 'url_to_base64' },
+                    ]}
+                    initValue={inputs.image_convert_mode}
+                    onChange={(value) => handleInputChange('image_convert_mode', value)}
+                    style={{ width: '100%', marginTop: 12 }}
                   />
                 </Card>
 

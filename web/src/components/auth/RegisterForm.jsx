@@ -25,7 +25,7 @@ import {
   onGitHubOAuthClicked, onLinuxDOOAuthClicked, onOIDCClicked,
 } from '../../helpers';
 import Turnstile from 'react-turnstile';
-import { Button, Checkbox, Divider, Form, Icon, Modal } from '@douyinfe/semi-ui';
+import { Button, Checkbox, Divider, Form, Icon, Modal, Spin, Banner } from '@douyinfe/semi-ui';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import { IconGithubLogo, IconMail, IconUser, IconLock, IconKey } from '@douyinfe/semi-icons';
 import OIDCIcon from '../common/logo/OIDCIcon';
@@ -205,6 +205,43 @@ const RegisterForm = () => {
   const handleLinuxDOClick = requireTerms(() => { setLinuxdoLoading(true); try { onLinuxDOOAuthClicked(status.linuxdo_client_id, { shouldLogout: true }); } finally { setTimeout(() => setLinuxdoLoading(false), 3000); } });
 
   const oauthBtnClass = 'w-full h-11 flex items-center justify-center !rounded-lg !border-[#E0E0E0] hover:!bg-[#F8F8F8] transition-colors';
+
+  const statusLoading = !status || !status.version;
+
+  if (statusLoading || status?.register_enabled === false) {
+    return (
+      <div className='auth-terminal-root' style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <canvas ref={canvasRef} className='auth-data-canvas' />
+        <div className='auth-content-overlay'>
+          <div className='auth-dialog-card' style={{ maxWidth: 420 }}>
+            {statusLoading ? (
+              <div className='text-center mb-6'>
+                <Spin size='large' tip={t('加载中...')} />
+              </div>
+            ) : (
+              <div className='text-center mb-6'>
+                <Banner
+                  type='warning'
+                  closeIcon={null}
+                  className='!rounded-lg mb-4'
+                  description={t('管理员已关闭新用户注册')}
+                />
+                <Link to='/login'>
+                  <Button
+                    theme='solid'
+                    type='primary'
+                    className='mt-2'
+                  >
+                    {t('返回登录')}
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='auth-terminal-root' style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>

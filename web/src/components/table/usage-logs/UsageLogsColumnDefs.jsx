@@ -279,6 +279,14 @@ function normalizeDetailText(detail) {
     .replace(/\r\n/g, '\n');
 }
 
+function truncateText(text, maxLen = 200) {
+  const str = String(text || '');
+  if (str.length > maxLen) {
+    return str.slice(0, maxLen) + '...';
+  }
+  return str;
+}
+
 function getUsageLogGroupSummary(groupRatio, userGroupRatio, t) {
   const parsedUserGroupRatio = Number(userGroupRatio);
   const useUserGroupRatio =
@@ -726,7 +734,7 @@ export const getLogsColumns = ({
       title: t('详情'),
       dataIndex: 'content',
       fixed: 'right',
-      minWidth: 260,
+      minWidth: 200,
       render: (text, record, index) => {
         const detailSummary = getUsageLogDetailSummary(
           record,
@@ -736,19 +744,33 @@ export const getLogsColumns = ({
         );
 
         if (!detailSummary) {
+          const fullText = normalizeDetailText(text);
+          const displayText = truncateText(fullText, 200);
+          const tooltipText =
+            fullText.length > 500 ? fullText.slice(0, 500) + '...' : fullText;
           return (
-            <Typography.Paragraph
-              ellipsis={{
-                rows: 2,
-                showTooltip: {
-                  type: 'popover',
-                  opts: { style: { width: 480 } },
-                },
-              }}
-              style={{ maxWidth: '100%', marginBottom: 0 }}
+            <Tooltip
+              content={
+                <div
+                  style={{
+                    maxWidth: 480,
+                    maxHeight: 300,
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {tooltipText}
+                </div>
+              }
             >
-              {text}
-            </Typography.Paragraph>
+              <Typography.Paragraph
+                ellipsis={{ rows: 2, showTooltip: false }}
+                style={{ maxWidth: '100%', marginBottom: 0 }}
+              >
+                {displayText}
+              </Typography.Paragraph>
+            </Tooltip>
           );
         }
 

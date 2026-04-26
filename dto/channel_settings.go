@@ -7,6 +7,8 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	ConvertImageBase64ToURL bool  `json:"convert_image_base64_to_url,omitempty"`
+	ConvertImageURLToBase64 bool  `json:"convert_image_url_to_base64,omitempty"`
 }
 
 type VertexKeyType string

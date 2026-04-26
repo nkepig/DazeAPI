@@ -295,7 +295,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		responseBody = geminiRespStr
 	}
 
-	service.IOCopyBytesGracefully(c, resp, responseBody)
+	service.WriteResponseWithConvert(c, resp, responseBody, info)
 
 	return &simpleResponse.Usage, nil
 }
