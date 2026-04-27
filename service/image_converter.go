@@ -31,7 +31,7 @@ var imageBase64Regex = regexp.MustCompile(`^data:image/([a-zA-Z0-9]+);base64,([A
 const imageProxyRetention = 24 * time.Hour
 
 func getImageCacheDir() string {
-	return "/data/new-api-image-cache"
+	return "/data/tmp/image"
 }
 
 // TransformResponseImages recursively scans a JSON response body and replaces image references.
@@ -195,6 +195,9 @@ func cleanupExpiredImageProxyFiles(maxAge time.Duration) error {
 }
 
 func StartImageProxyCleanupTask() {
+	if err := os.MkdirAll(getImageCacheDir(), 0755); err != nil {
+		common.SysError("image proxy cache dir create error: " + err.Error())
+	}
 	gopool.Go(func() {
 		_ = cleanupExpiredImageProxyFiles(imageProxyRetention)
 		ticker := time.NewTicker(time.Hour)
