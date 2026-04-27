@@ -35,6 +35,7 @@ export default function GeneralSettings(props) {
     RetryTimes: '',
     'global.pass_through_request_enabled': false,
     SystemName: 'API',
+    ServerAddress: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -74,6 +75,7 @@ export default function GeneralSettings(props) {
   const formFieldKeys = [
     'RetryTimes',
     'SystemName',
+    'ServerAddress',
     'RegisterEnabled',
     'global.pass_through_request_enabled',
     'SMTPServer',
@@ -129,6 +131,17 @@ export default function GeneralSettings(props) {
                 initValue={'API'}
                 placeholder={t('例如：API、MyAPI')}
                 onChange={handleFieldChange('SystemName')}
+                showClear
+              />
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Form.Input
+                field={'ServerAddress'}
+                label={t('站点地址')}
+                initValue={''}
+                placeholder={'https://yourdomain.com'}
+                extraText={t('站点完整地址，用于图片代理等功能的URL生成，请确保正确配置')}
+                onChange={handleFieldChange('ServerAddress')}
                 showClear
               />
             </Col>

@@ -539,11 +539,21 @@ quota := 0
 	})
 	common.SysLog(fmt.Sprintf("testing channel #%d, response: \n%s", channel.Id, string(respBody)))
 	finalResult := w.Result()
+	body := w.Body.Bytes()
+	if info.ChannelSetting.ConvertImageBase64ToURL || info.ChannelSetting.ConvertImageURLToBase64 {
+		baseURL := service.GetRequestBaseURL(c)
+		if info.ChannelSetting.ConvertImageBase64ToURL {
+			body = service.TransformResponseImages(body, service.ConvertBase64ToURL, baseURL)
+		}
+		if info.ChannelSetting.ConvertImageURLToBase64 {
+			body = service.TransformResponseImages(body, service.ConvertURLToBase64, baseURL)
+		}
+	}
 	return testResult{
 		context:         c,
 		localErr:        nil,
 		newAPIError:     nil,
-		responseBody:    w.Body.Bytes(),
+		responseBody:    body,
 		responseHeaders: finalResult.Header,
 		statusCode:      finalResult.StatusCode,
 	}

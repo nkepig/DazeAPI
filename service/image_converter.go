@@ -10,8 +10,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,6 +27,8 @@ const (
 )
 
 var imageBase64Regex = regexp.MustCompile(`^data:image/([a-zA-Z0-9]+);base64,([A-Za-z0-9+/=]+)$`)
+
+const imageProxyRetention = 24 * time.Hour
 
 // TransformResponseImages recursively scans a JSON response body and replaces image references.
 func TransformResponseImages(body []byte, mode ImageConvertMode, baseURL string) []byte {
@@ -48,9 +53,8 @@ func transformValue(v interface{}, mode ImageConvertMode, baseURL string) {
 		keyReplacements := make(map[string]string)
 		for k, item := range val {
 			if s, ok := item.(string); ok {
-				if replaced := convertString(s, mode, baseURL); replaced != s {
+				if replaced := convertString(s, k, mode, baseURL); replaced != s {
 					val[k] = replaced
-					// 若键名需要跟随格式转换则记录
 					if mode == ConvertBase64ToURL && k == "b64_json" {
 						keyReplacements[k] = "url"
 					} else if mode == ConvertURLToBase64 && k == "url" {
@@ -70,7 +74,7 @@ func transformValue(v interface{}, mode ImageConvertMode, baseURL string) {
 	case []interface{}:
 		for i, item := range val {
 			if s, ok := item.(string); ok {
-				if replaced := convertString(s, mode, baseURL); replaced != s {
+				if replaced := convertString(s, "", mode, baseURL); replaced != s {
 					val[i] = replaced
 					continue
 				}
@@ -80,18 +84,32 @@ func transformValue(v interface{}, mode ImageConvertMode, baseURL string) {
 	}
 }
 
-func convertString(str string, mode ImageConvertMode, baseURL string) string {
+func convertString(str string, key string, mode ImageConvertMode, baseURL string) string {
 	if mode == ConvertBase64ToURL {
+		// First try data URI format: data:image/png;base64,iVBOR...
 		matches := imageBase64Regex.FindStringSubmatch(str)
-		if len(matches) != 3 {
-			return str
+		if len(matches) == 3 {
+			mime := "image/" + matches[1]
+			b64Data := matches[2]
+			hash := hashBase64(b64Data)
+			_ = saveBase64ToDisk(hash, b64Data, mime)
+			url := baseURL + "/v1/images/" + hash
+			return url
 		}
-		mime := "image/" + matches[1]
-		b64Data := matches[2]
-		hash := hashBase64(b64Data)
-		_ = saveBase64ToDisk(hash, b64Data, mime)
-		url := baseURL + "/v1/images/" + hash
-		return url
+		// Raw base64 under "b64_json" key: decode, detect MIME, save, return URL
+		if key == "b64_json" {
+			decoded, err := base64.StdEncoding.DecodeString(str)
+			if err == nil {
+				contentType := http.DetectContentType(decoded)
+				if strings.HasPrefix(contentType, "image/") {
+					b64Data := str
+					hash := hashBase64(b64Data)
+					_ = saveBase64ToDisk(hash, b64Data, contentType)
+					return baseURL + "/v1/images/" + hash
+				}
+			}
+		}
+		return str
 	}
 	if mode == ConvertURLToBase64 {
 		if !strings.HasPrefix(str, "http") {
@@ -107,6 +125,9 @@ func convertString(str string, mode ImageConvertMode, baseURL string) string {
 }
 
 func GetRequestBaseURL(c *gin.Context) string {
+	if configured := system_setting.ServerAddress; configured != "" && configured != "http://localhost:3000" {
+		return strings.TrimSuffix(configured, "/")
+	}
 	req := c.Request
 	scheme := req.URL.Scheme
 	if scheme == "" {
@@ -142,6 +163,44 @@ func saveBase64ToDisk(hash, b64Data, mime string) error {
 		return err
 	}
 	return os.WriteFile(filePath, decoded, 0644)
+}
+
+func cleanupExpiredImageProxyFiles(maxAge time.Duration) error {
+	dir := common.GetDiskCacheDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	now := time.Now()
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".img" {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if now.Sub(info.ModTime()) > maxAge {
+			_ = os.Remove(filepath.Join(dir, entry.Name()))
+		}
+	}
+	return nil
+}
+
+func StartImageProxyCleanupTask() {
+	gopool.Go(func() {
+		_ = cleanupExpiredImageProxyFiles(imageProxyRetention)
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := cleanupExpiredImageProxyFiles(imageProxyRetention); err != nil {
+				common.SysError("image proxy cleanup error: " + err.Error())
+			}
+		}
+	})
 }
 
 var imageHashRegex = regexp.MustCompile(`^[a-fA-F0-9]{32}$`)
