@@ -30,6 +30,10 @@ var imageBase64Regex = regexp.MustCompile(`^data:image/([a-zA-Z0-9]+);base64,([A
 
 const imageProxyRetention = 24 * time.Hour
 
+func getImageCacheDir() string {
+	return "/data/new-api-image-cache"
+}
+
 // TransformResponseImages recursively scans a JSON response body and replaces image references.
 func TransformResponseImages(body []byte, mode ImageConvertMode, baseURL string) []byte {
 	if mode == ConvertImageDisabled || baseURL == "" {
@@ -152,7 +156,7 @@ func hashBase64(data string) string {
 }
 
 func saveBase64ToDisk(hash, b64Data, mime string) error {
-	dir := common.GetDiskCacheDir()
+	dir := getImageCacheDir()
 	_ = os.MkdirAll(dir, 0755)
 	filePath := filepath.Join(dir, hash+".img")
 	if _, err := os.Stat(filePath); err == nil {
@@ -166,7 +170,7 @@ func saveBase64ToDisk(hash, b64Data, mime string) error {
 }
 
 func cleanupExpiredImageProxyFiles(maxAge time.Duration) error {
-	dir := common.GetDiskCacheDir()
+	dir := getImageCacheDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -211,7 +215,7 @@ func ServeImageProxy(c http.ResponseWriter, hash string) {
 		http.Error(c, "invalid hash", http.StatusBadRequest)
 		return
 	}
-	filePath := filepath.Join(common.GetDiskCacheDir(), hash+".img")
+	filePath := filepath.Join(getImageCacheDir(), hash+".img")
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		http.Error(c, "image not found", http.StatusNotFound)
