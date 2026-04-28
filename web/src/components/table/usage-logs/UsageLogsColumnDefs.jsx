@@ -312,24 +312,46 @@ function renderCompactDetailSummary(summarySegments) {
         lineHeight: 1.35,
       }}
     >
-      {segments.map((segment, index) => (
-        <Typography.Text
-          key={`${segment.text}-${index}`}
-          type={segment.tone === 'secondary' ? 'tertiary' : undefined}
-          size={segment.tone === 'secondary' ? 'small' : undefined}
-          style={{
-            display: 'block',
-            maxWidth: '100%',
-            fontSize: 12,
-            marginTop: index === 0 ? 0 : 2,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {segment.text}
-        </Typography.Text>
-      ))}
+      {segments.map((segment, index) => {
+        const fullText = normalizeDetailText(segment.text);
+        const displayText = truncateText(fullText, 30);
+        const tooltipText =
+          fullText.length > 500 ? fullText.slice(0, 500) + '...' : fullText;
+        return (
+          <Tooltip
+            key={`${segment.text}-${index}`}
+            content={
+              <div
+                style={{
+                  maxWidth: 480,
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {tooltipText}
+              </div>
+            }
+          >
+            <Typography.Text
+              type={segment.tone === 'secondary' ? 'tertiary' : undefined}
+              size={segment.tone === 'secondary' ? 'small' : undefined}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                fontSize: 12,
+                marginTop: index === 0 ? 0 : 2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {displayText}
+            </Typography.Text>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }
@@ -745,7 +767,7 @@ export const getLogsColumns = ({
 
         if (!detailSummary) {
           const fullText = normalizeDetailText(text);
-          const displayText = truncateText(fullText, 200);
+          const displayText = truncateText(fullText, 30);
           const tooltipText =
             fullText.length > 500 ? fullText.slice(0, 500) + '...' : fullText;
           return (
@@ -765,7 +787,7 @@ export const getLogsColumns = ({
               }
             >
               <Typography.Paragraph
-                ellipsis={{ rows: 2, showTooltip: false }}
+                ellipsis={{ rows: 1, showTooltip: false }}
                 style={{ maxWidth: '100%', marginBottom: 0 }}
               >
                 {displayText}

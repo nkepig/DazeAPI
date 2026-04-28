@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button, Form, Select } from '@douyinfe/semi-ui';
+import { Button, Form, Select, Space, TagInput } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
 import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
@@ -37,7 +37,7 @@ const LogsFilters = ({
   t,
 }) => {
   return (
-    <div className='usage-logs-filters'>
+    <div className='usage-logs-filters mb-4'>
       <Form
         initValues={formInitValues}
         getFormApi={(api) => setFormApi(api)}
@@ -49,106 +49,105 @@ const LogsFilters = ({
         stopValidateWithError={false}
         className='!bg-transparent'
       >
-        <div className='flex items-center gap-2 flex-wrap'>
-        <div className='w-full md:w-auto md:min-w-[280px]'>
-          <Form.DatePicker
-            field='dateRange'
-            className='w-full'
-            type='dateTimeRange'
-            placeholder={[t('开始时间'), t('结束时间')]}
-            showClear
-            pure
-            size='small'
-            presets={DATE_RANGE_PRESETS.map((preset) => ({
-              text: t(preset.text),
-              start: preset.start(),
-              end: preset.end(),
-            }))}
-          />
-        </div>
-
-        <div className='w-28'>
-          <Form.Input
-            field='model_name'
-            prefix={<IconSearch />}
-            placeholder={t('模型名称')}
-            showClear
-            pure
-            size='small'
-          />
-        </div>
-
-        {isAdminUser && (
-          <>
-            <div className='w-24'>
-              <Form.Input
-                field='channel'
-                prefix={<IconSearch />}
-                placeholder={t('渠道 ID')}
+        <div className='flex flex-col gap-3'>
+          <div className='flex flex-wrap items-end gap-3'>
+            <div className='flex-1 min-w-[260px] max-w-lg'>
+              <Form.DatePicker
+                field='dateRange'
+                className='w-full'
+                type='dateTimeRange'
+                placeholder={[t('开始时间'), t('结束时间')]}
                 showClear
                 pure
-                size='small'
+                presets={DATE_RANGE_PRESETS.map((preset) => ({
+                  text: t(preset.text),
+                  start: preset.start(),
+                  end: preset.end(),
+                }))}
               />
             </div>
-            <div className='w-24'>
+
+            <Form.Select
+              field='logType'
+              placeholder={t('类型')}
+              style={{ width: 120 }}
+              showClear
+              pure
+              onChange={() => {
+                setTimeout(() => { refresh(); }, 0);
+              }}
+            >
+              <Form.Select.Option value='0'>{t('全部')}</Form.Select.Option>
+              <Form.Select.Option value='1'>{t('充值')}</Form.Select.Option>
+              <Form.Select.Option value='2'>{t('消费')}</Form.Select.Option>
+              <Form.Select.Option value='3'>{t('管理')}</Form.Select.Option>
+              <Form.Select.Option value='4'>{t('系统')}</Form.Select.Option>
+              <Form.Select.Option value='5'>{t('错误')}</Form.Select.Option>
+              <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
+            </Form.Select>
+
+            {groupOptions.length > 0 && (
+              <Select
+                value={groupFilter}
+                placeholder={t('分组')}
+                style={{ width: 130 }}
+                showClear
+                onChange={(v) => {
+                  setGroupFilter(v || 'all');
+                  setTimeout(() => { refresh(); }, 0);
+                }}
+              >
+                <Select.Option value='all'>{t('全部分组')}</Select.Option>
+                {groupOptions.map((g) => (
+                  <Select.Option key={g} value={g}>{g}</Select.Option>
+                ))}
+              </Select>
+            )}
+
+            <Button
+              htmlType='submit'
+              loading={loading}
+              theme='solid'
+              type='primary'
+            >
+              {t('查询')}
+            </Button>
+          </div>
+
+          <div className='flex flex-wrap items-center gap-3'>
+            <div className='flex-1 min-w-[180px] max-w-xs'>
               <Form.Input
-                field='username'
+                field='model_name'
                 prefix={<IconSearch />}
-                placeholder={t('用户名称')}
+                placeholder={t('模型名称')}
                 showClear
                 pure
-                size='small'
               />
             </div>
-          </>
-        )}
 
-        <Form.Select
-          field='logType'
-          placeholder={t('类型')}
-          style={{ minWidth: 80 }}
-          showClear
-          pure
-          onChange={() => {
-            setTimeout(() => { refresh(); }, 0);
-          }}
-          size='small'
-        >
-          <Form.Select.Option value='0'>{t('全部')}</Form.Select.Option>
-          <Form.Select.Option value='1'>{t('充值')}</Form.Select.Option>
-          <Form.Select.Option value='2'>{t('消费')}</Form.Select.Option>
-          <Form.Select.Option value='3'>{t('管理')}</Form.Select.Option>
-          <Form.Select.Option value='4'>{t('系统')}</Form.Select.Option>
-          <Form.Select.Option value='5'>{t('错误')}</Form.Select.Option>
-          <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
-        </Form.Select>
-
-        {groupOptions.length > 0 && (
-          <Select
-            size='small'
-            value={groupFilter}
-            placeholder={t('分组')}
-            style={{ minWidth: 90 }}
-            showClear
-            onChange={(v) => {
-              setGroupFilter(v || 'all');
-              setTimeout(() => { refresh(); }, 0);
-            }}
-          >
-            <Select.Option value='all'>{t('全部分组')}</Select.Option>
-            {groupOptions.map((g) => (
-              <Select.Option key={g} value={g}>{g}</Select.Option>
-            ))}
-          </Select>
-        )}
-
-        <Button
-          size='small'
-          htmlType='submit'
-          loading={loading}
-        >
-          {t('查询')}
-        </Button>
+            {isAdminUser && (
+              <>
+                <div className='flex-1 min-w-[160px] max-w-xs'>
+                  <Form.Input
+                    field='channel'
+                    prefix={<IconSearch />}
+                    placeholder={t('渠道 ID')}
+                    showClear
+                    pure
+                  />
+                </div>
+                <div className='flex-1 min-w-[180px] max-w-xs'>
+                  <Form.Input
+                    field='username'
+                    prefix={<IconSearch />}
+                    placeholder={t('用户名称')}
+                    showClear
+                    pure
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </Form>
     </div>
