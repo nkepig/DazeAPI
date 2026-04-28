@@ -6,7 +6,7 @@ import { Zap, Activity, Wallet, Building2 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { API, isAdmin, renderQuota, goToRecharge } from '../../helpers';
+import { API, isAdmin, renderQuota, goToRecharge, getTodayStartTimestamp } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import ChannelSuccessRatePanel from '../../components/dashboard/ChannelSuccessRatePanel';
@@ -80,7 +80,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const now = Math.floor(Date.now() / 1000);
-      const todayStart = now - (now % 86400);
+      const todayStart = getTodayStartTimestamp();
       const rangeStart = chartRange === 1 ? todayStart : todayStart - chartRange * 86400;
 
       const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
@@ -178,7 +178,7 @@ const Dashboard = () => {
 
   const chartData = useMemo(() => {
     const now = Math.floor(Date.now() / 1000);
-    const todayStart = now - (now % 86400);
+    const todayStart = getTodayStartTimestamp();
     const filtered = selectedModel === 'all' ? rawData : rawData.filter((r) => r.model_name === selectedModel);
 
     if (chartRange === 1) {
