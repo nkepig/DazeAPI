@@ -1,9 +1,12 @@
 package router
 
 import (
+	"bytes"
 	"embed"
+	"html"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/controller"
@@ -13,10 +16,66 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var indexPageCache struct {
+	sync.RWMutex
+	title string
+	data  []byte
+}
+
+func resolveIndexTitle() string {
+	title := strings.TrimSpace(common.SystemName)
+	if title == "" {
+		return "API"
+	}
+	return title
+}
+
+func renderIndexPage(indexPage []byte) []byte {
+	title := resolveIndexTitle()
+
+	indexPageCache.RLock()
+	if indexPageCache.title == title && indexPageCache.data != nil {
+		cached := indexPageCache.data
+		indexPageCache.RUnlock()
+		return cached
+	}
+	indexPageCache.RUnlock()
+
+	escapedTitle := []byte("<title>" + html.EscapeString(title) + "</title>")
+	start := bytes.Index(indexPage, []byte("<title>"))
+	if start == -1 {
+		return indexPage
+	}
+	end := bytes.Index(indexPage[start:], []byte("</title>"))
+	if end == -1 {
+		return indexPage
+	}
+	end += start + len("</title>")
+	rendered := make([]byte, 0, len(indexPage)-((end-start)-len(escapedTitle)))
+	rendered = append(rendered, indexPage[:start]...)
+	rendered = append(rendered, escapedTitle...)
+	rendered = append(rendered, indexPage[end:]...)
+
+	indexPageCache.Lock()
+	indexPageCache.title = title
+	indexPageCache.data = rendered
+	indexPageCache.Unlock()
+
+	return rendered
+}
+
 func SetWebRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.GlobalWebRateLimit())
 	router.Use(middleware.Cache())
+
+	indexHandler := func(c *gin.Context) {
+		c.Set(middleware.RouteTagKey, "web")
+		c.Header("Cache-Control", "no-cache")
+		c.Data(http.StatusOK, "text/html; charset=utf-8", renderIndexPage(indexPage))
+	}
+	router.GET("/", indexHandler)
+	router.GET("/index.html", indexHandler)
 
 	// Explicitly serve /docs to avoid redirect loops caused by gin-contrib/static
 	// directory detection on embedded FS (it would 301 /docs ↔ /docs/ indefinitely).
@@ -40,6 +99,6 @@ func SetWebRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 			return
 		}
 		c.Header("Cache-Control", "no-cache")
-		c.Data(http.StatusOK, "text/html; charset=utf-8", indexPage)
+		c.Data(http.StatusOK, "text/html; charset=utf-8", renderIndexPage(indexPage))
 	})
 }
