@@ -152,6 +152,12 @@ const EditUserModal = (props) => {
         Number(quotaToDisplayAmount(payload.quota) || 0) === originalQuota + pendingQuotaDelta
       ) {
         payload.quota_delta = displayAmountToQuota(pendingQuotaDelta);
+      } else {
+        const displayQuota = Number(quotaToDisplayAmount(payload.quota) || 0);
+        const delta = Number((displayQuota - originalQuota).toFixed(2));
+        if (delta !== 0) {
+          payload.quota_delta = displayAmountToQuota(delta);
+        }
       }
       if (isRoot()) {
         const fullGroupRatio = {};
