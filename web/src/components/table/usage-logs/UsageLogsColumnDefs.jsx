@@ -435,6 +435,10 @@ export const getLogsColumns = ({
         let affinity = null;
         let showMarker = false;
         let other = getLogOther(record.other);
+        if (other?.is_multi_key) {
+          isMultiKey = true;
+          multiKeyIndex = other.multi_key_index;
+        }
         if (other?.admin_info) {
           let adminInfo = other.admin_info;
           if (adminInfo?.is_multi_key) {
@@ -509,10 +513,12 @@ export const getLogsColumns = ({
                 </Tooltip>
               )}
             </span>
-            {isMultiKey && (
-              <Tag color='white' shape='circle'>
-                {multiKeyIndex}
-              </Tag>
+            {isMultiKey && multiKeyIndex >= 0 && (
+              <Tooltip content={t('子密钥 #{{index}}', { index: multiKeyIndex })}>
+                <Tag color='white' shape='circle'>
+                  {`K${multiKeyIndex}`}
+                </Tag>
+              </Tooltip>
             )}
           </Space>
         ) : null;
@@ -555,7 +561,7 @@ export const getLogsColumns = ({
           record.type === 5 ||
           record.type === 6 ? (
           <div>
-            <Tag color='blue' shape='circle'>
+            <Tag color={stringToColor(tokenGroup)} shape='circle'>
               {tokenGroup}
             </Tag>
           </div>

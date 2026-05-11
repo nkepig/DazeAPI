@@ -34,7 +34,6 @@ const chatCompletionsToResponsesPolicyAllChannelsExample = JSON.stringify({
   model_patterns: ['^gpt-4o.*$', '^gpt-5.*$']
 }, null, 2);
 const defaultGlobalSettingInputs = {
-  'global.pass_through_request_enabled': false,
   'global.thinking_model_blacklist': '[]',
   'global.chat_completions_to_responses_policy': '{}',
   'general_setting.ping_interval_enabled': false,
@@ -129,15 +128,6 @@ export default function SettingGlobalModel(props) {
       }}>
 
           <Form.Section text={"全局设置"}>
-            <Row>
-              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
-                <Form.Switch label={"启用请求透传"} field={'global.pass_through_request_enabled'} onChange={value => setInputs({
-                ...inputs,
-                'global.pass_through_request_enabled': value
-              })} extraText={"开启后，所有请求将直接透传给上游，不会进行任何处理（重定向和渠道适配也将失效）,请谨慎开启"} />
-
-              </Col>
-            </Row>
             <Row>
               <Col span={24}>
                 <Form.TextArea label={"禁用思考处理的模型列表"} field={'global.thinking_model_blacklist'} placeholder={"例如：" + '\n' + thinkingExample} rows={4} rules={[{

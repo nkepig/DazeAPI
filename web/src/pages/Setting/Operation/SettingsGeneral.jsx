@@ -33,7 +33,6 @@ export default function GeneralSettings(props) {
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState({
     RetryTimes: '',
-    'global.pass_through_request_enabled': false,
     SystemName: 'API',
     ServerAddress: '',
   });
@@ -77,7 +76,6 @@ export default function GeneralSettings(props) {
     'SystemName',
     'ServerAddress',
     'RegisterEnabled',
-    'global.pass_through_request_enabled',
     'SMTPServer',
     'SMTPPort',
     'SMTPAccount',
@@ -93,7 +91,6 @@ export default function GeneralSettings(props) {
         currentInputs[key] = props.options[key];
       } else {
         currentInputs[key] =
-          key === 'global.pass_through_request_enabled' ||
           key === 'SMTPSSLEnabled' ||
           key === 'RegisterEnabled'
             ? false
@@ -153,17 +150,6 @@ export default function GeneralSettings(props) {
                 checkedText='｜'
                 uncheckedText='〇'
                 onChange={handleFieldChange('RegisterEnabled')}
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
-              <Form.Switch
-                field={'global.pass_through_request_enabled'}
-                label={t('全局透传')}
-                extraText={t('开启后，所有请求将直接透传给上游渠道，NewAPI 内置功能将失效')}
-                size='default'
-                checkedText='｜'
-                uncheckedText='〇'
-                onChange={handleFieldChange('global.pass_through_request_enabled')}
               />
             </Col>
           </Row>

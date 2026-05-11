@@ -345,12 +345,12 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh, onOpenMode
     }
     setEditKeyLoading(true);
     try {
-      const res = await API.post('/api/channel/multi_key/manage', {
-        channel_id: channel.id,
-        action: 'update_key',
-        key_index: editKeyIndex,
-        new_key_value: trimmed,
-      });
+        const res = await API.post('/api/channel/multi_key/manage', {
+          channel_id: channel.id,
+          action: 'update_key',
+          key_index: editKeyIndex,
+          new_key_value: trimmed,
+        });
       if (res.data.success) {
         showSuccess(t('密钥已更新'));
         setEditKeyVisible(false);

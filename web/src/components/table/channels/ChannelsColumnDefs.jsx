@@ -34,6 +34,7 @@ import {
   renderQuota,
   getChannelIcon,
   renderQuotaWithAmount,
+  groupToColor,
   showSuccess,
   showError,
   showInfo,
@@ -281,7 +282,6 @@ export const getChannelsColumns = ({
   setCurrentMultiKeyChannel,
   openUpstreamUpdateModal,
   detectChannelUpstreamUpdates,
-  globalPassThroughEnabled,
 }) => {
   return [
     {
@@ -338,14 +338,14 @@ export const getChannelsColumns = ({
             <span>{text}</span>
           );
 
-        if ((!passThroughEnabled || globalPassThroughEnabled) && !showUpstreamUpdateTag) {
+        if (!passThroughEnabled && !showUpstreamUpdateTag) {
           return nameNode;
         }
 
         return (
           <Space spacing={6} align='center'>
             {nameNode}
-            {passThroughEnabled && !globalPassThroughEnabled && (
+            {passThroughEnabled && (
               <Tooltip
                 content={t(
                   '该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
@@ -436,7 +436,7 @@ export const getChannelsColumns = ({
         return (
           <div className='flex flex-wrap gap-1'>
             {groupList.slice(0, 3).map((g) => (
-              <Tag key={g} size='small' color='blue' shape='circle'>
+              <Tag key={g} size='small' color={groupToColor(g)} shape='circle'>
                 {g}
               </Tag>
             ))}

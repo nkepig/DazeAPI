@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useState, useRef } from 'react';
-import { API, showError, showInfo, showSuccess, copy, toBoolean } from '../../helpers';
+import { API, showError, showInfo, showSuccess, copy } from '../../helpers';
 import { Modal, Button } from '@douyinfe/semi-ui';
 import { openCodexUsageModal } from '../../components/table/channels/modals/CodexUsageModal';
 
@@ -33,29 +33,10 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
   const [modelTablePage, setModelTablePage] = useState(1);
   const [selectedEndpointType, setSelectedEndpointType] = useState('');
   const [isStreamTest, setIsStreamTest] = useState(false);
-  const [globalPassThroughEnabled, setGlobalPassThroughEnabled] = useState(false);
   const [showMultiKeyManageModal, setShowMultiKeyManageModal] = useState(false);
   const [currentMultiKeyChannel, setCurrentMultiKeyChannel] = useState(null);
 
   const shouldStopBatchTestingRef = useRef(false);
-
-  const fetchGlobalPassThroughEnabled = async () => {
-    try {
-      const res = await API.get('/api/option/');
-      const { success, data } = res?.data || {};
-      if (!success || !Array.isArray(data)) {
-        return;
-      }
-      const option = data.find(
-        (item) => item?.key === 'global.pass_through_request_enabled',
-      );
-      if (option) {
-        setGlobalPassThroughEnabled(toBoolean(option.value));
-      }
-    } catch (error) {
-      setGlobalPassThroughEnabled(false);
-    }
-  };
 
   const testChannel = async (
     record,
@@ -80,6 +61,8 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
           action: 'test_key',
           key_index: keyIndex,
           test_model: model,
+          endpoint_type: endpointType,
+          is_stream: stream,
         });
         const { success, message, headers, body, status_code } = res.data;
         setModelTestResults((prev) => ({
@@ -441,8 +424,6 @@ export const useChannelTest = ({ t, channels, updateChannelProperty, refresh }) 
     setShowMultiKeyManageModal,
     currentMultiKeyChannel,
     setCurrentMultiKeyChannel,
-    globalPassThroughEnabled,
-    fetchGlobalPassThroughEnabled,
     testChannel,
     batchTestModels,
     stopBatchTesting,

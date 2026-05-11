@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Tag, Space } from '@douyinfe/semi-ui';
+import { Space } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import ChannelsTable from './ChannelsTable';
 import ChannelsActions from './ChannelsActions';
@@ -82,9 +82,6 @@ const ChannelsPage = () => {
       <div className='flex items-center justify-between mb-4'>
         <Space align='center'>
           <h2 className='text-lg font-semibold'>{channelsData.t('渠道管理')}</h2>
-          {channelsData.globalPassThroughEnabled && (
-            <Tag color='orange'>{channelsData.t('全局透传')}</Tag>
-          )}
         </Space>
       </div>
 

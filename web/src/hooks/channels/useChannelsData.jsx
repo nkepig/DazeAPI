@@ -67,7 +67,6 @@ export const useChannelsData = () => {
     enableBatchDelete: searchState.enableBatchDelete,
     statusFilter: searchState.statusFilter,
     compactMode: searchState.compactMode,
-    globalPassThroughEnabled: testState.globalPassThroughEnabled,
 
     showEdit,
     setShowEdit,

@@ -10,7 +10,6 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/samber/lo"
 )
 
@@ -2013,13 +2012,7 @@ func TestRemoveDisabledFieldsSkipWhenChannelPassThroughEnabled(t *testing.T) {
 	assertJSONEqual(t, input, string(out))
 }
 
-func TestRemoveDisabledFieldsSkipWhenGlobalPassThroughEnabled(t *testing.T) {
-	original := model_setting.GetGlobalSettings().PassThroughRequestEnabled
-	model_setting.GetGlobalSettings().PassThroughRequestEnabled = true
-	t.Cleanup(func() {
-		model_setting.GetGlobalSettings().PassThroughRequestEnabled = original
-	})
-
+func TestRemoveDisabledFieldsSkipWhenChannelPassThroughEnabledFalse(t *testing.T) {
 	input := `{
 		"service_tier":"flex",
 		"safety_identifier":"user-123",
