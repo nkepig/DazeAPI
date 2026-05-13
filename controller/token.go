@@ -102,16 +102,11 @@ func GetTokenStatus(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	expiredAt := token.ExpiredTime
-	if expiredAt == -1 {
-		expiredAt = 0
-	}
 	c.JSON(http.StatusOK, gin.H{
 		"object":          "credit_summary",
 		"total_granted":   token.RemainQuota,
 		"total_used":      0, // not supported currently
 		"total_available": token.RemainQuota,
-		"expires_at":      expiredAt * 1000,
 	})
 }
 
@@ -142,11 +137,6 @@ func GetTokenUsage(c *gin.Context) {
 		return
 	}
 
-	expiredAt := token.ExpiredTime
-	if expiredAt == -1 {
-		expiredAt = 0
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"code":    true,
 		"message": "ok",
@@ -159,7 +149,6 @@ func GetTokenUsage(c *gin.Context) {
 			"unlimited_quota":      token.UnlimitedQuota,
 			"model_limits":         token.GetModelLimitsMap(),
 			"model_limits_enabled": token.ModelLimitsEnabled,
-			"expires_at":           expiredAt,
 		},
 	})
 }
@@ -243,7 +232,6 @@ func AddToken(c *gin.Context) {
 		Key:                key,
 		CreatedTime:        common.GetTimestamp(),
 		AccessedTime:       common.GetTimestamp(),
-		ExpiredTime:        token.ExpiredTime,
 		RemainQuota:        token.RemainQuota,
 		UnlimitedQuota:     token.UnlimitedQuota,
 		ModelLimitsEnabled: token.ModelLimitsEnabled,
@@ -307,10 +295,6 @@ func UpdateToken(c *gin.Context) {
 		return
 	}
 	if token.Status == common.TokenStatusEnabled {
-		if cleanToken.Status == common.TokenStatusExpired && cleanToken.ExpiredTime <= common.GetTimestamp() && cleanToken.ExpiredTime != -1 {
-			common.ApiErrorI18n(c, i18n.MsgTokenExpiredCannotEnable)
-			return
-		}
 		if cleanToken.Status == common.TokenStatusExhausted && cleanToken.RemainQuota <= 0 && !cleanToken.UnlimitedQuota {
 			common.ApiErrorI18n(c, i18n.MsgTokenExhaustedCannotEable)
 			return
@@ -321,7 +305,6 @@ func UpdateToken(c *gin.Context) {
 	} else {
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
-		cleanToken.ExpiredTime = token.ExpiredTime
 		cleanToken.RemainQuota = token.RemainQuota
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled

@@ -59,9 +59,6 @@ const renderStatus = (text, record, t) => {
     variant = 2;
     tagText = t('已禁用');
   } else if (text === 3) {
-    variant = 3;
-    tagText = t('已过期');
-  } else if (text === 4) {
     variant = 0;
     tagText = t('已耗尽');
   }

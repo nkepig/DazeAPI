@@ -22,7 +22,6 @@ func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
 	}
-	rand.Seed(time.Now().UnixNano())
 	newChannelId2channel := make(map[int]*Channel)
 	var channels []*Channel
 	DB.Find(&channels)
@@ -64,8 +63,6 @@ func InitChannelCache() {
 		}
 	}
 
-	channelSyncLock.Lock()
-	group2model2channels = newGroup2model2channels
 	for i, channel := range newChannelId2channel {
 		if channel.ChannelInfo.IsMultiKey {
 			channel.Keys = channel.GetKeys()
@@ -78,14 +75,19 @@ func InitChannelCache() {
 			}
 		}
 	}
+
+	channelSyncLock.Lock()
+	group2model2channels = newGroup2model2channels
 	channelsIDM = newChannelId2channel
 	channelSyncLock.Unlock()
 	common.SysLog("channels synced from database")
 }
 
 func SyncChannelCache(frequency int) {
+	ticker := time.NewTicker(time.Duration(frequency) * time.Second)
+	defer ticker.Stop()
 	for {
-		time.Sleep(time.Duration(frequency) * time.Second)
+		<-ticker.C
 		common.SysLog("syncing channels from database")
 		InitChannelCache()
 	}

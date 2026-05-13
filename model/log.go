@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -16,6 +17,63 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
+
+const (
+	asyncLogChanSize    = 5000
+	asyncLogBatchSize   = 100
+	asyncLogFlushInterval = 2 * time.Second
+)
+
+var (
+	asyncLogChan chan *Log
+	asyncLogOnce sync.Once
+)
+
+func initAsyncLogWriter() {
+	asyncLogOnce.Do(func() {
+		asyncLogChan = make(chan *Log, asyncLogChanSize)
+		go asyncLogWorker()
+	})
+}
+
+func asyncLogWorker() {
+	batch := make([]*Log, 0, asyncLogBatchSize)
+	ticker := time.NewTicker(asyncLogFlushInterval)
+	defer ticker.Stop()
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		if err := LOG_DB.CreateInBatches(batch, asyncLogBatchSize).Error; err != nil {
+			logger.LogError(context.Background(), "async log flush error: "+err.Error())
+		}
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case log := <-asyncLogChan:
+			batch = append(batch, log)
+			if len(batch) >= asyncLogBatchSize {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
+		}
+	}
+}
+
+func enqueueLog(log *Log) {
+	initAsyncLogWriter()
+	select {
+	case asyncLogChan <- log:
+	default:
+		if err := LOG_DB.Create(log).Error; err != nil {
+			common.SysLog("sync log fallback error: " + err.Error())
+		}
+	}
+}
 
 type Log struct {
 	Id               int    `json:"id" gorm:"index:idx_created_at_id,priority:1;index:idx_user_id_id,priority:2"`
@@ -84,10 +142,7 @@ func RecordLog(userId int, logType int, content string) {
 		Type:      logType,
 		Content:   content,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		logger.LogError(context.Background(), "failed to record log: "+err.Error())
-	}
+	enqueueLog(log)
 }
 
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
@@ -128,10 +183,7 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 		RequestId: requestId,
 		Other:     otherStr,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		logger.LogError(c, "failed to record log: "+err.Error())
-	}
+	enqueueLog(log)
 }
 
 type RecordConsumeLogParams struct {
@@ -189,10 +241,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		RequestId: requestId,
 		Other:     otherStr,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		logger.LogError(c, "failed to record log: "+err.Error())
-	}
+	enqueueLog(log)
 	if common.DataExportEnabled {
 		gopool.Go(func() {
 			LogQuotaData(userId, username, params.ModelName, params.Quota, common.GetTimestamp(), params.PromptTokens+params.CompletionTokens)
@@ -237,10 +286,7 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 		Group:     params.Group,
 		Other:     common.MapToJsonStr(params.Other),
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		common.SysLog("failed to record task billing log: " + err.Error())
-	}
+	enqueueLog(log)
 }
 
 func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string) (logs []*Log, total int64, err error) {
@@ -292,32 +338,26 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	}
 
 	if channelIds.Len() > 0 {
-		var channels []struct {
-			Id   int    `gorm:"column:id"`
-			Name string `gorm:"column:name"`
-		}
+		channelMap := make(map[int]string, channelIds.Len())
 		if common.MemoryCacheEnabled {
-			// Cache get channel
+			channelSyncLock.RLock()
 			for _, channelId := range channelIds.Items() {
-				if cacheChannel, err := CacheGetChannel(channelId); err == nil {
-					channels = append(channels, struct {
-						Id   int    `gorm:"column:id"`
-						Name string `gorm:"column:name"`
-					}{
-						Id:   channelId,
-						Name: cacheChannel.Name,
-					})
+				if ch, ok := channelsIDM[channelId]; ok {
+					channelMap[channelId] = ch.Name
 				}
 			}
+			channelSyncLock.RUnlock()
 		} else {
-			// Bulk query channels from DB
+			var channels []struct {
+				Id   int    `gorm:"column:id"`
+				Name string `gorm:"column:name"`
+			}
 			if err = DB.Table("channels").Select("id, name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
 				return logs, total, err
 			}
-		}
-		channelMap := make(map[int]string, len(channels))
-		for _, channel := range channels {
-			channelMap[channel.Id] = channel.Name
+			for _, channel := range channels {
+				channelMap[channel.Id] = channel.Name
+			}
 		}
 		for i := range logs {
 			logs[i].ChannelName = channelMap[logs[i].ChannelId]
@@ -511,28 +551,27 @@ func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccess
 		return nil, err
 	}
 
-	missingChannelIds := make(map[int]bool)
+	channelIds := types.NewSet[int]()
 	for _, r := range results {
-		if r.ChannelName == "" {
-			missingChannelIds[r.ChannelId] = true
-		}
+		channelIds.Add(r.ChannelId)
 	}
-	channelNames := make(map[int]string)
-	for id := range missingChannelIds {
-		if ch, err := CacheGetChannel(id); err == nil {
+	channelNames := make(map[int]string, channelIds.Len())
+	channelStatuses := make(map[int]int, channelIds.Len())
+	channelSyncLock.RLock()
+	for _, id := range channelIds.Items() {
+		if ch, ok := channelsIDM[id]; ok {
 			channelNames[id] = ch.Name
+			channelStatuses[id] = ch.Status
 		}
 	}
+	channelSyncLock.RUnlock()
 
 	result := make([]ChannelSuccessRate, 0, len(results))
 	for _, r := range results {
 		chName := r.ChannelName
-		var chStatus int
+		chStatus := channelStatuses[r.ChannelId]
 		if chName == "" {
 			chName = channelNames[r.ChannelId]
-		}
-		if ch, err := CacheGetChannel(r.ChannelId); err == nil {
-			chStatus = ch.Status
 		}
 
 		var successRate float64

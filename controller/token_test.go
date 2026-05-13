@@ -77,7 +77,7 @@ func seedToken(t *testing.T, db *gorm.DB, userID int, name string, rawKey string
 		Status:         common.TokenStatusEnabled,
 		CreatedTime:    1,
 		AccessedTime:   1,
-		ExpiredTime:    -1,
+		
 		RemainQuota:    100,
 		UnlimitedQuota: true,
 		Group:          "default",
@@ -209,7 +209,6 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 	body := map[string]any{
 		"id":                   token.Id,
 		"name":                 "updated-token",
-		"expired_time":         -1,
 		"remain_quota":         100,
 		"unlimited_quota":      true,
 		"model_limits_enabled": false,
