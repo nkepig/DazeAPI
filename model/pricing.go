@@ -20,7 +20,7 @@ type Pricing struct {
 	Icon                   string                  `json:"icon,omitempty"`
 	Tags                   string                  `json:"tags,omitempty"`
 	VendorID               int                     `json:"vendor_id,omitempty"`
-	PricingType            int                     `json:"pricing_type"` // 0=per-token, 1=per-call
+	PricingType            int                     `json:"pricing_type"`     // 0=per-token, 1=per-call
 	PromptPrice            float64                 `json:"prompt_price"`     // $/1M tokens
 	CompletionPrice        float64                 `json:"completion_price"` // $/1M tokens
 	CacheReadPrice         float64                 `json:"cache_read_price,omitempty"`
@@ -335,6 +335,10 @@ func updatePricing() {
 	modelEnableGroupsLock.Unlock()
 
 	lastGetPricingTime = time.Now()
+
+	snapshot := make([]Pricing, len(pricingMap))
+	copy(snapshot, pricingMap)
+	go SyncUserModelOverridesWithPricing(snapshot)
 }
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射

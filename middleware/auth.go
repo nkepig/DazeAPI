@@ -341,15 +341,16 @@ func TokenAuth() func(c *gin.Context) {
 
 		userCache.WriteContext(c)
 
-		userGroup := userCache.Group
 		userGroupRatio := userCache.GetGroupRatioMap()
-		tokenGroup := token.Group
+		tokenGroup := strings.TrimSpace(token.Group)
 		if tokenGroup != "" {
 			accessibleGroups := service.GetUserAccessibleChannelGroupsByRatio(userGroupRatio)
 			if _, ok := accessibleGroups[tokenGroup]; !ok {
-				if _, allowed := userGroupRatio[tokenGroup]; !allowed {
-					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
-					return
+				if len(userGroupRatio) > 0 {
+					if _, allowed := userGroupRatio[tokenGroup]; !allowed {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+						return
+					}
 				}
 				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 没有可用渠道", tokenGroup))
 				return
@@ -358,9 +359,8 @@ func TokenAuth() func(c *gin.Context) {
 				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 没有可用模型", tokenGroup))
 				return
 			}
-			userGroup = tokenGroup
 		}
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, tokenGroup)
 
 		err = SetupContextForToken(c, token, parts...)
 		if err != nil {

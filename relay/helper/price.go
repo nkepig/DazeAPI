@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -30,7 +31,7 @@ func getUserModelOverride(info *relaycommon.RelayInfo, modelName string) (dto.Us
 	return dto.UserModelOverride{}, false
 }
 
-func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPricing *pricing.ModelPricing, groupDiscountInfo *types.GroupDiscountInfo) {
+func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPricing *pricing.ModelPricing) {
 	o, ok := getUserModelOverride(info, modelName)
 	if !ok {
 		return
@@ -42,10 +43,11 @@ func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPrici
 		modelPricing.CompletionPrice = 0
 		modelPricing.CacheReadPrice = 0
 		modelPricing.CacheWritePrice = 0
-		groupDiscountInfo.GroupDiscount = 1.0
-	} else {
-		groupDiscountInfo.GroupDiscount = o.Value
 	}
+	// GroupRatio 是用户分组倍率的唯一来源。
+	// UserSetting.ModelOverrides 仅保留模型白名单与按次固定价能力，
+	// 不再覆盖 token 按分组计算出的倍率，否则会把诸如 {"deepseek":2}
+	// 的用户倍率错误重置成默认 override 值（通常为 1）。
 }
 
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupDiscountInfo {
@@ -60,16 +62,16 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	discount, ok := pricing.GetGroupModelDiscount(relayInfo.UserGroup, relayInfo.OriginModelName)
-	if ok {
-		groupDiscountInfo.GroupSpecialRatio = discount
-		groupDiscountInfo.GroupDiscount = discount
-		groupDiscountInfo.HasSpecialRatio = true
-	} else {
-		userGroupRatio := relayInfo.UserGroupRatio
-		if ratio, ratioOk := userGroupRatio[relayInfo.UsingGroup]; ratioOk {
-			groupDiscountInfo.GroupDiscount = ratio
+	userGroupRatio := relayInfo.UserGroupRatio
+	if ctx != nil {
+		if m := common.GetContextKeyMapStringFloat64(ctx, string(constant.ContextKeyUserGroupRatio)); m != nil {
+			userGroupRatio = m
 		}
+	}
+	if len(userGroupRatio) == 0 {
+		groupDiscountInfo.GroupDiscount = 1.0
+	} else if ratio, ratioOk := userGroupRatio[relayInfo.UsingGroup]; ratioOk {
+		groupDiscountInfo.GroupDiscount = ratio
 	}
 
 	return groupDiscountInfo
@@ -85,7 +87,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		return types.PriceData{}, fmt.Errorf("model pricing not found: %s", info.OriginModelName)
 	}
 
-	applyUserOverride(info, modelName, &modelPricing, &groupDiscountInfo)
+	applyUserOverride(info, modelName, &modelPricing)
 
 	var preConsumedQuota int
 	var freeModel bool
@@ -129,20 +131,20 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	cacheWrite1h := modelPricing.CacheWritePrice * claudeCacheCreation1hMultiplier
 
 	priceData := types.PriceData{
-		FreeModel:            freeModel,
-		PromptPrice:         modelPricing.PromptPrice,
-		CompletionPrice:     modelPricing.CompletionPrice,
-		CacheReadPrice:      modelPricing.CacheReadPrice,
-		CacheWritePrice:     modelPricing.CacheWritePrice,
-		CacheWrite5mPrice:   cacheWrite5m,
-		CacheWrite1hPrice:   cacheWrite1h,
-		ImagePrice:          modelPricing.ImagePrice,
-		AudioInputPrice:     modelPricing.AudioInputPrice,
-		AudioOutputPrice:    modelPricing.AudioOutputPrice,
-		PerCallPrice:        modelPricing.PerCallPrice,
-		UsePerCallPricing:   modelPricing.UsePerCallPricing,
-		GroupDiscountInfo:   groupDiscountInfo,
-		QuotaToPreConsume:   preConsumedQuota,
+		FreeModel:         freeModel,
+		PromptPrice:       modelPricing.PromptPrice,
+		CompletionPrice:   modelPricing.CompletionPrice,
+		CacheReadPrice:    modelPricing.CacheReadPrice,
+		CacheWritePrice:   modelPricing.CacheWritePrice,
+		CacheWrite5mPrice: cacheWrite5m,
+		CacheWrite1hPrice: cacheWrite1h,
+		ImagePrice:        modelPricing.ImagePrice,
+		AudioInputPrice:   modelPricing.AudioInputPrice,
+		AudioOutputPrice:  modelPricing.AudioOutputPrice,
+		PerCallPrice:      modelPricing.PerCallPrice,
+		UsePerCallPricing: modelPricing.UsePerCallPricing,
+		GroupDiscountInfo: groupDiscountInfo,
+		QuotaToPreConsume: preConsumedQuota,
 	}
 
 	if common.DebugEnabled {
@@ -161,7 +163,7 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		return types.PriceData{}, fmt.Errorf("model pricing not found: %s", info.OriginModelName)
 	}
 
-	applyUserOverride(info, modelName, &modelPricing, &groupDiscountInfo)
+	applyUserOverride(info, modelName, &modelPricing)
 
 	if !modelPricing.UsePerCallPricing {
 		modelPricing.PerCallPrice = modelPricing.PromptPrice
@@ -178,10 +180,10 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 	}
 
 	priceData := types.PriceData{
-		FreeModel:          freeModel,
-		PerCallPrice:       modelPricing.PerCallPrice,
-		UsePerCallPricing:  true,
-		GroupDiscountInfo:  groupDiscountInfo,
+		FreeModel:         freeModel,
+		PerCallPrice:      modelPricing.PerCallPrice,
+		UsePerCallPricing: true,
+		GroupDiscountInfo: groupDiscountInfo,
 		Quota:             quota,
 	}
 	return priceData, nil

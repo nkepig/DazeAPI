@@ -16,7 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
-    pricing "github.com/QuantumNous/new-api/setting/pricing"
+	pricing "github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +30,7 @@ type ModelRequest struct {
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
+		var selectGroup string
 		channelId, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
 		modelRequest, shouldSelectChannel, err := getModelRequest(c)
 		if err != nil {
@@ -57,14 +58,28 @@ func Distribute() func(c *gin.Context) {
 			// check user-level model overrides (whitelist)
 			if userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting); ok {
 				if len(userSetting.ModelOverrides) > 0 {
-            matchName := pricing.FormatMatchingModelName(modelRequest.Model)
+					matchName := pricing.FormatMatchingModelName(modelRequest.Model)
 					_, matchOk := userSetting.ModelOverrides[matchName]
 					if !matchOk {
 						_, matchOk = userSetting.ModelOverrides[modelRequest.Model]
 					}
 					if !matchOk {
-						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("model %s is not enabled for your account", modelRequest.Model))
-						return
+						userId := c.GetInt("id")
+						if userId > 0 {
+							if userCache, err := model.GetUserCache(userId); err == nil {
+								accessibleModels := service.GetUserAccessibleModelsByRatio(userCache.GetGroupRatioMap())
+								for _, m := range accessibleModels {
+									if m == modelRequest.Model || m == matchName {
+										matchOk = true
+										break
+									}
+								}
+							}
+						}
+						if !matchOk {
+							abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("model %s is not enabled for your account", modelRequest.Model))
+							return
+						}
 					}
 				}
 			}
@@ -82,7 +97,7 @@ func Distribute() func(c *gin.Context) {
 				if !ok {
 					tokenModelLimit = map[string]bool{}
 				}
-            matchName := pricing.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-* 
+				matchName := pricing.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
 				if _, ok := tokenModelLimit[matchName]; !ok {
 					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
 					return
@@ -94,7 +109,7 @@ func Distribute() func(c *gin.Context) {
 					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
 					return
 				}
-				var selectGroup string
+				selectGroup = ""
 				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 				// check path is /pg/chat/completions
 				if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
@@ -168,6 +183,14 @@ func Distribute() func(c *gin.Context) {
 						return
 					}
 				}
+			}
+		}
+		billingModel := strings.TrimSpace(modelRequest.Model)
+		if channel != nil {
+			if selectGroup != "" {
+				common.SetContextKey(c, constant.ContextKeyUsingGroup, selectGroup)
+			} else if g := model.ResolveChannelBillingGroup(channel, billingModel); g != "" {
+				common.SetContextKey(c, constant.ContextKeyUsingGroup, g)
 			}
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
@@ -323,7 +346,7 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	}
 
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/responses/compact") && modelRequest.Model != "" {
-        modelRequest.Model = pricing.WithCompactModelSuffix(modelRequest.Model)
+		modelRequest.Model = pricing.WithCompactModelSuffix(modelRequest.Model)
 	}
 	return &modelRequest, shouldSelectChannel, nil
 }

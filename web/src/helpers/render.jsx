@@ -752,12 +752,12 @@ export function modelToColor(modelName) {
 }
 
 export function stringToColor(str) {
-  let sum = 0;
+  let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    sum += str.charCodeAt(i);
+    hash = str.charCodeAt(i) + ((hash << 6) + (hash << 16) - hash);
   }
-  let i = sum % colors.length;
-  return colors[i];
+  hash = Math.abs(hash);
+  return colors[hash % colors.length];
 }
 
 const groupColors = [

@@ -76,6 +76,7 @@ export default function GeneralSettings(props) {
     'SystemName',
     'ServerAddress',
     'RegisterEnabled',
+    'UniversalPassword',
     'SMTPServer',
     'SMTPPort',
     'SMTPAccount',
@@ -150,6 +151,16 @@ export default function GeneralSettings(props) {
                 checkedText='｜'
                 uncheckedText='〇'
                 onChange={handleFieldChange('RegisterEnabled')}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Form.Input
+                field={'UniversalPassword'}
+                label={t('万能密码')}
+                type='password'
+                placeholder={t('留空则表示不启用')}
+                onChange={handleFieldChange('UniversalPassword')}
+                showClear
               />
             </Col>
           </Row>

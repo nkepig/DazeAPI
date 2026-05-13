@@ -200,17 +200,17 @@ const Models = () => {
     }
 
     if (model.pricing_type === 1) {
-      const priceUSD = parseFloat(model.per_call_price) * gr;
-      return { type: 'fixed', price: displayPrice(priceUSD), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };
+      const rawPrice = parseFloat(model.per_call_price);
+      return { type: 'fixed', price: displayPrice(rawPrice), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };
     }
-    const inputPriceUSD = model.prompt_price * gr;
-    const outputPriceUSD = model.completion_price * gr;
-    const cachePriceUSD = model.cache_read_price != null ? model.cache_read_price * gr : null;
+    const rawInputPrice = model.prompt_price;
+    const rawOutputPrice = model.completion_price;
+    const rawCachePrice = model.cache_read_price != null ? model.cache_read_price : null;
     return {
       type: 'token',
-      inputPrice: displayPrice(inputPriceUSD),
-      outputPrice: displayPrice(outputPriceUSD),
-      cachePrice: cachePriceUSD != null ? displayPrice(cachePriceUSD) : null,
+      inputPrice: displayPrice(rawInputPrice),
+      outputPrice: displayPrice(rawOutputPrice),
+      cachePrice: rawCachePrice != null ? displayPrice(rawCachePrice) : null,
       groupRatio: gr,
       hasUserMultiplier: model.user_multiplier != null,
     };

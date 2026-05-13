@@ -57,6 +57,8 @@ const OperationSetting = () => {
 
     RegisterEnabled: true,
 
+    UniversalPassword: '',
+
     // SMTP Settings
     SMTPServer: '',
     SMTPPort: '',

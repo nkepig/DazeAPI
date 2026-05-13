@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -176,11 +177,35 @@ func GetContextKeyMapStringFloat64(c *gin.Context, key string) map[string]float6
 	if !exists {
 		return nil
 	}
-	m, ok := val.(map[string]float64)
+	if m, ok := val.(map[string]float64); ok {
+		return m
+	}
+	mi, ok := val.(map[string]interface{})
 	if !ok {
 		return nil
 	}
-	return m
+	out := make(map[string]float64, len(mi))
+	for k, v := range mi {
+		switch t := v.(type) {
+		case float64:
+			out[k] = t
+		case float32:
+			out[k] = float64(t)
+		case int:
+			out[k] = float64(t)
+		case int64:
+			out[k] = float64(t)
+		case uint:
+			out[k] = float64(t)
+		case uint64:
+			out[k] = float64(t)
+		default:
+			if f, err := strconv.ParseFloat(fmt.Sprint(v), 64); err == nil {
+				out[k] = f
+			}
+		}
+	}
+	return out
 }
 
 func GetContextKeyTime(c *gin.Context, key constant.ContextKey) time.Time {

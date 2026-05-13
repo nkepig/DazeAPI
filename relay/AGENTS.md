@@ -29,6 +29,13 @@ relay/
 | OpenAI-family baseline | `relay/channel/openai/` | broadest compatibility surface |
 | Task metadata safety | `relay/channel/task/taskcommon/helpers.go` | strips unsafe `model` metadata |
 
+## Billing / 用户分组倍率（约定）
+
+- `users.group` 不参与倍率与 relay 选路语义（可为空）。
+- `users.groupratio`（JSON → `UserGroupRatio`）：**空对象 `{}`** 表示允许使用所有渠道分组、计费倍率 **1**；非空时仅允许 JSON 中出现的分组名为渠道分组，倍率为对应数值。
+- API 请求的 **`UsingGroup`** 以 **令牌 `tokens.group`** 为初值；分发选路后可对齐为实际渠道分组名，计费在 `helper.HandleGroupRatio` 中 **只** 查 `UserGroupRatio[UsingGroup]`（不再使用「账号分组 + 模型」折扣表或运营全局分组倍率）。
+- 用户 `model_overrides` 中 **`billing_type: "price"`** 仅覆盖价格字段，**不再**把 `GroupDiscount` 重置为 1，以免覆盖 `groupratio` 倍率。
+
 ## Conventions
 
 - New providers register through `GetAdaptor`; task providers through `GetTaskAdaptor`.

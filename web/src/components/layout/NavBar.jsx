@@ -15,8 +15,9 @@ import {
   Globe,
 } from 'lucide-react';
 import { UserContext } from '../../context/User';
-import { isAdmin, isRoot, getSystemName } from '../../helpers';
+import { isRoot, isAdmin, getSystemName, stringToColor } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
+import { Avatar } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
 
 const navItems = [
@@ -209,13 +210,18 @@ const NavBar = () => {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className='hidden md:flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-[#1A1A1A] bg-transparent border border-[#EBEBEB] rounded-lg cursor-pointer hover:bg-[#F5F5F5] transition-colors'
                 >
+                  <Avatar size='extra-extra-small' color={stringToColor(userState.user?.username || '')}>
+                    {(userState.user?.display_name || userState.user?.username || '').slice(0, 1).toUpperCase()}
+                  </Avatar>
                   {(userState.user?.display_name || userState.user?.username || '').slice(0, 8)}
                 </button>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className='md:hidden w-9 h-9 rounded-full bg-[#FAFAFA] border border-[#EBEBEB] flex items-center justify-center cursor-pointer hover:bg-[#F0F0F0] transition-colors text-[12px] font-semibold text-[#1A1A1A]'
+                  className='md:hidden w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors border-0 p-0 bg-transparent hover:bg-[#F0F0F0]'
                 >
-                  {(userState.user?.display_name || userState.user?.username || '').slice(0, 1).toUpperCase()}
+                  <Avatar size='small' color={stringToColor(userState.user?.username || '')}>
+                    {(userState.user?.display_name || userState.user?.username || '').slice(0, 1).toUpperCase()}
+                  </Avatar>
                 </button>
                 {dropdownOpen && (
                   <div className='absolute right-0 top-12 w-48 bg-white rounded-xl border border-[#EBEBEB] shadow-lg py-1.5 z-50'>

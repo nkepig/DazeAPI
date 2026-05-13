@@ -114,13 +114,14 @@ func GetUserCache(userId int) (userCache *UserBase, err error) {
 
 	// Create cache object from user data
 	userCache = &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Id:         user.Id,
+		Group:      user.Group,
+		GroupRatio: user.GroupRatio,
+		Quota:      user.Quota,
+		Status:     user.Status,
+		Username:   user.Username,
+		Setting:    user.Setting,
+		Email:      user.Email,
 	}
 
 	return userCache, nil

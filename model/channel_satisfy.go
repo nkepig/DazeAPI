@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
@@ -40,6 +42,31 @@ func IsChannelEnabledForAnyGroupModel(groups []string, modelName string, channel
 		}
 	}
 	return false
+}
+
+// ResolveChannelBillingGroup 返回该渠道上实际承载 modelName 的分组名，用于选路后将 UsingGroup 与 groupratio 的 key 对齐。
+func ResolveChannelBillingGroup(channel *Channel, modelName string) string {
+	if channel == nil {
+		return ""
+	}
+	if strings.TrimSpace(modelName) != "" {
+		for _, raw := range strings.Split(channel.Group, ",") {
+			g := NormalizeGroupField(raw)
+			if g == "" {
+				continue
+			}
+			if IsChannelEnabledForGroupModel(g, modelName, channel.Id) {
+				return g
+			}
+		}
+	}
+	for _, raw := range strings.Split(channel.Group, ",") {
+		g := NormalizeGroupField(raw)
+		if g != "" {
+			return g
+		}
+	}
+	return ""
 }
 
 func isChannelEnabledForGroupModelDB(group string, modelName string, channelID int) bool {

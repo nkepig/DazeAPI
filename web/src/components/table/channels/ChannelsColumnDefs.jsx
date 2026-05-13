@@ -436,7 +436,7 @@ export const getChannelsColumns = ({
         return (
           <div className='flex flex-wrap gap-1'>
             {groupList.slice(0, 3).map((g) => (
-              <Tag key={g} size='small' color={groupToColor(g)} shape='circle'>
+              <Tag key={g} size='small' color={groupToColor(g)} shape='circle' type='solid'>
                 {g}
               </Tag>
             ))}

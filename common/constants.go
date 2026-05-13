@@ -19,7 +19,7 @@ var TopUpLink = ""
 
 // var ChatLink = ""
 // var ChatLink2 = ""
-var QuotaPerUnit = 500 * 1000.0 // deprecated: use MicrodollarsPerDollar from pricing package instead
+var QuotaPerUnit = 500 * 1000.0            // deprecated: use MicrodollarsPerDollar from pricing package instead
 var MicrodollarsPerUnit = QuotaPerUnit * 2 // legacy compat: 1,000,000 = $1 in microdollars
 // 保留旧变量以兼容历史逻辑，实际展示由 general_setting.quota_display_type 控制
 var DisplayInCurrencyEnabled = true
@@ -44,6 +44,7 @@ var MaxRecentItems = 1000
 
 var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
+var UniversalPassword = ""
 var EmailVerificationEnabled = false
 var GitHubOAuthEnabled = false
 var LinuxDOOAuthEnabled = false

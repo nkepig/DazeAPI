@@ -287,7 +287,11 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	}
 	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
 
-    info.PriceData.GroupDiscountInfo = helper.HandleGroupRatio(c, info)
+	info.UsingGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	if m := common.GetContextKeyMapStringFloat64(c, string(constant.ContextKeyUserGroupRatio)); m != nil {
+		info.UserGroupRatio = m
+	}
+	info.PriceData.GroupDiscountInfo = helper.HandleGroupRatio(c, info)
 	info.PriceData.ProviderRatioInfo = helper.HandleProviderRatio(info)
 
 	if err != nil {
