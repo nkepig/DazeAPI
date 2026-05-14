@@ -84,6 +84,12 @@ func updateUserCache(user User) error {
 	)
 }
 
+// userBaseCacheLooksComplete rejects partial Redis hashes (e.g. only Quota from HINCRBY)
+func userBaseCacheLooksComplete(userId int, ub *UserBase) bool {
+	return ub != nil && ub.Id == userId &&
+		(ub.Status == common.UserStatusEnabled || ub.Status == common.UserStatusDisabled)
+}
+
 // GetUserCache gets complete user cache from hash
 func GetUserCache(userId int) (userCache *UserBase, err error) {
 	var user *User
@@ -99,13 +105,15 @@ func GetUserCache(userId int) (userCache *UserBase, err error) {
 		}
 	}()
 
-	// Try getting from Redis first
 	userCache, err = cacheGetUserBase(userId)
-	if err == nil {
+	if err == nil && userBaseCacheLooksComplete(userId, userCache) {
 		return userCache, nil
 	}
+	if err == nil {
+		_ = invalidateUserCache(userId)
+	}
 
-	// If Redis fails, get from DB
+	// Redis miss / incomplete / error: load from DB and refresh cache in defer
 	fromDB = true
 	user, err = GetUserById(userId, false)
 	if err != nil {

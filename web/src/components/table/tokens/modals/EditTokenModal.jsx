@@ -38,7 +38,6 @@ import {
   Form,
   Col,
   Row,
-  Select,
 } from '@douyinfe/semi-ui';
 import { StatusPill } from '../../../common/ui/StatusPill';
 import {
@@ -46,7 +45,6 @@ import {
   IconSave,
   IconClose,
   IconKey,
-  IconLayers,
 } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -64,7 +62,6 @@ const EditTokenModal = (props) => {
     name: '',
     remain_quota: 0,
     unlimited_quota: true,
-    tokenCount: 1,
     group: '',
   });
 
@@ -127,22 +124,10 @@ const EditTokenModal = (props) => {
     }
   }, [props.visiable, props.editingToken.id]);
 
-  const generateRandomSuffix = () => {
-    const characters =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += characters.charAt(
-        Math.floor(Math.random() * characters.length),
-      );
-    }
-    return result;
-  };
-
   const submit = async (values) => {
     setLoading(true);
     if (isEdit) {
-      let { tokenCount: _tc, ...localInputs } = values;
+      const { ...localInputs } = values;
       localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
       let res = await API.put(`/api/token/`, {
         ...localInputs,
@@ -157,31 +142,20 @@ const EditTokenModal = (props) => {
         showError(t(message));
       }
     } else {
-      const count = parseInt(values.tokenCount, 10) || 1;
-      let successCount = 0;
-      for (let i = 0; i < count; i++) {
-        let { tokenCount: _tc, ...localInputs } = values;
-        const baseName =
-          values.name.trim() === '' ? 'default' : values.name.trim();
-        if (i !== 0 || values.name.trim() === '') {
-          localInputs.name = `${baseName}-${generateRandomSuffix()}`;
-        } else {
-          localInputs.name = baseName;
-        }
-        localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
-        let res = await API.post(`/api/token/`, localInputs);
-        const { success, message } = res.data;
-        if (success) {
-          successCount++;
-        } else {
-          showError(t(message));
-          break;
-        }
-      }
-      if (successCount > 0) {
+      const { ...localInputs } = values;
+      const baseName =
+        values.name.trim() === '' ? 'default' : values.name.trim();
+      localInputs.name = baseName;
+      localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
+      localInputs.unlimited_quota = true;
+      const res = await API.post(`/api/token/`, localInputs);
+      const { success, message } = res.data;
+      if (success) {
         showSuccess(t('令牌创建成功，请在列表页面点击复制获取令牌！'));
         props.refresh();
         props.handleClose();
+      } else {
+        showError(t(message));
       }
     }
     setLoading(false);
@@ -277,20 +251,6 @@ const EditTokenModal = (props) => {
                       extraText={t('选择分组以应用对应的分组折扣')}
                     />
                   </Col>
-                  {!isEdit && (
-                    <Col span={24}>
-                      <Form.InputNumber
-                        field='tokenCount'
-                        label={t('新建数量')}
-                        min={1}
-                        extraText={t('批量创建时会在名称后自动添加随机后缀')}
-                        rules={[
-                          { required: true, message: t('请输入新建数量') },
-                        ]}
-                        style={{ width: '100%' }}
-                      />
-                    </Col>
-                  )}
                 </Row>
               </Card>
 
@@ -303,38 +263,54 @@ const EditTokenModal = (props) => {
                   <div>
                     <Text className='text-lg font-medium'>{t('额度设置')}</Text>
                     <div className='text-xs text-gray-600'>
-                      {t('设置令牌可用额度和数量')}
+                      {t('设置令牌可用额度')}
                     </div>
                   </div>
                 </div>
                 <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.InputNumber
-                      field='remain_quota'
-                      label={t('额度')}
-                      placeholder={t('请输入额度')}
-                      type='number'
-                      disabled={values.unlimited_quota}
-                      extraText={values.unlimited_quota ? '' : `${symbol}${(values.remain_quota || 0).toFixed(2)}`}
-                      step={1}
-                      precision={2}
-                      rules={
-                        values.unlimited_quota
-                          ? []
-                          : [{ required: true, message: t('请输入额度') }]
-                      }
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.Switch
-                      field='unlimited_quota'
-                      label={t('无限额度')}
-                      size='default'
-                      extraText={t(
-                        '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
-                      )}
-                    />
-                  </Col>
+                  {isEdit ? (
+                    <>
+                      <Col span={24}>
+                        <Form.InputNumber
+                          field='remain_quota'
+                          label={t('额度')}
+                          placeholder={t('请输入额度')}
+                          type='number'
+                          disabled={values.unlimited_quota}
+                          extraText={
+                            values.unlimited_quota
+                              ? ''
+                              : `${symbol}${(values.remain_quota || 0).toFixed(2)}`
+                          }
+                          step={1}
+                          precision={2}
+                          rules={
+                            values.unlimited_quota
+                              ? []
+                              : [{ required: true, message: t('请输入额度') }]
+                          }
+                        />
+                      </Col>
+                      <Col span={24}>
+                        <Form.Switch
+                          field='unlimited_quota'
+                          label={t('无限额度')}
+                          size='default'
+                          extraText={t(
+                            '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
+                          )}
+                        />
+                      </Col>
+                    </>
+                  ) : (
+                    <Col span={24}>
+                      <Text type='tertiary'>
+                        {t(
+                          '新建令牌默认为无限额度，创建后可在列表中编辑以设置固定额度上限',
+                        )}
+                      </Text>
+                    </Col>
+                  )}
                 </Row>
               </Card>
 
