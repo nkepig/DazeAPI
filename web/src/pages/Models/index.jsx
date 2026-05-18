@@ -206,11 +206,15 @@ const Models = () => {
     const rawInputPrice = model.prompt_price;
     const rawOutputPrice = model.completion_price;
     const rawCachePrice = model.cache_read_price != null ? model.cache_read_price : null;
+    const rawCreateCachePrice =
+      model.cache_write_price != null ? model.cache_write_price : null;
     return {
       type: 'token',
       inputPrice: displayPrice(rawInputPrice),
       outputPrice: displayPrice(rawOutputPrice),
       cachePrice: rawCachePrice != null ? displayPrice(rawCachePrice) : null,
+      createCachePrice:
+        rawCreateCachePrice != null ? displayPrice(rawCreateCachePrice) : null,
       groupRatio: gr,
       hasUserMultiplier: model.user_multiplier != null,
     };
@@ -402,9 +406,15 @@ const Models = () => {
                             <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.outputPrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
                           </div>
                           {priceInfo.cachePrice && (
-                            <div className='col-span-2'>
+                            <div>
                               <span className='text-[11px] text-[#888]'>{t('缓存价格')}</span>
                               <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.cachePrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
+                            </div>
+                          )}
+                          {priceInfo.createCachePrice && (
+                            <div>
+                              <span className='text-[11px] text-[#888]'>{t('缓存创建价格')}</span>
+                              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.createCachePrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
                             </div>
                           )}
                         </div>

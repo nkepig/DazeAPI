@@ -21,9 +21,78 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button, Card, Space, Typography } from '@douyinfe/semi-ui';
 import { IconDownload, IconFile, IconSave, IconCode } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
-import { API, showError, showSuccess, verifyJSON } from '../../../helpers';
+import {
+  API,
+  showError,
+  showInfo,
+  showSuccess,
+  verifyJSON,
+} from '../../../helpers';
 
 const { Text } = Typography;
+
+const normalizeModelPriceJson = (rawText) => {
+  const parsed = rawText.trim() ? JSON.parse(rawText) : {};
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('invalid-model-price-json');
+  }
+
+  const normalized = {};
+  let trimmedKeyCount = 0;
+  let mergedDuplicateCount = 0;
+  let emptyKeyCount = 0;
+
+  Object.entries(parsed).forEach(([modelName, value]) => {
+    const rawModelName = String(modelName || '');
+    const normalizedName = rawModelName.trim();
+    if (!normalizedName) {
+      emptyKeyCount += 1;
+      return;
+    }
+    if (rawModelName !== normalizedName) {
+      trimmedKeyCount += 1;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(normalized, normalizedName)
+    ) {
+      mergedDuplicateCount += 1;
+    }
+    normalized[normalizedName] = value;
+  });
+
+  return {
+    normalized,
+    stats: {
+      trimmedKeyCount,
+      mergedDuplicateCount,
+      emptyKeyCount,
+    },
+  };
+};
+
+const stringifyModelPriceJson = (rawText) => {
+  const { normalized, stats } = normalizeModelPriceJson(rawText);
+  return {
+    text: JSON.stringify(normalized, null, 2),
+    stats,
+  };
+};
+
+const notifyNormalization = (stats, t) => {
+  const changedCount =
+    stats.trimmedKeyCount + stats.mergedDuplicateCount + stats.emptyKeyCount;
+  if (changedCount <= 0) {
+    return;
+  }
+
+  showInfo(
+    t('已自动清理模型名：去除空白 {{trimmed}}, 合并重复 {{merged}}, 删除空键 {{empty}}', {
+      trimmed: stats.trimmedKeyCount,
+      merged: stats.mergedDuplicateCount,
+      empty: stats.emptyKeyCount,
+    }),
+  );
+};
 
 export default function ModelSettingsFileEditor({ options, refresh }) {
   const { t } = useTranslation();
@@ -34,8 +103,7 @@ export default function ModelSettingsFileEditor({ options, refresh }) {
   useEffect(() => {
     const raw = options.ModelPrice || '{}';
     try {
-      const parsed = raw.trim() ? JSON.parse(raw) : {};
-      setJsonText(JSON.stringify(parsed, null, 2));
+      setJsonText(stringifyModelPriceJson(raw).text);
     } catch {
       setJsonText(raw);
     }
@@ -43,8 +111,9 @@ export default function ModelSettingsFileEditor({ options, refresh }) {
 
   const handleFormat = () => {
     try {
-      const parsed = JSON.parse(jsonText);
-      setJsonText(JSON.stringify(parsed, null, 2));
+      const { text, stats } = stringifyModelPriceJson(jsonText);
+      setJsonText(text);
+      notifyNormalization(stats, t);
       showSuccess(t('格式化成功'));
     } catch {
       showError(t('JSON 格式错误，无法格式化'));
@@ -58,8 +127,9 @@ export default function ModelSettingsFileEditor({ options, refresh }) {
     reader.onload = (event) => {
       const text = event.target.result;
       try {
-        JSON.parse(text);
-        setJsonText(text);
+        const { text: normalizedText, stats } = stringifyModelPriceJson(text);
+        setJsonText(normalizedText);
+        notifyNormalization(stats, t);
         showSuccess(t('导入成功'));
       } catch {
         showError(t('导入的文件不是合法的 JSON'));
@@ -71,8 +141,10 @@ export default function ModelSettingsFileEditor({ options, refresh }) {
 
   const handleExportFile = () => {
     try {
-      JSON.parse(jsonText);
-      const blob = new Blob([jsonText], { type: 'application/json' });
+      const { text: normalizedText, stats } = stringifyModelPriceJson(jsonText);
+      setJsonText(normalizedText);
+      notifyNormalization(stats, t);
+      const blob = new Blob([normalizedText], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -90,11 +162,15 @@ export default function ModelSettingsFileEditor({ options, refresh }) {
       showError(t('不是合法的 JSON 字符串'));
       return;
     }
+
     setLoading(true);
     try {
+      const { text: normalizedText, stats } = stringifyModelPriceJson(jsonText);
+      setJsonText(normalizedText);
+      notifyNormalization(stats, t);
       const res = await API.put('/api/option/', {
         key: 'ModelPrice',
-        value: jsonText,
+        value: normalizedText,
       });
       if (res.data.success) {
         showSuccess(t('保存成功'));

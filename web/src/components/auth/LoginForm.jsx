@@ -434,7 +434,15 @@ const LoginForm = () => {
 
       {/* new-api credit */}
       <div className='absolute bottom-6 left-6 z-[60] max-w-md text-[11px] text-[#b0b0b0] leading-relaxed'>
-        本项目基于 New-API 二次开发，仅供个人学习使用。
+        <a
+          href='https://github.com/nkepig/DazeAPI'
+          target='_blank'
+          rel='noopener noreferrer'
+          className='underline decoration-[#b0b0b0] hover:text-[#888] transition-colors'
+        >
+          本项目
+        </a>
+        基于 New-API 二次开发，仅供个人学习使用。
         <a
           href='https://github.com/QuantumNous/new-api'
           target='_blank'

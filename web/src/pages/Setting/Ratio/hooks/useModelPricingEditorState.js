@@ -56,6 +56,20 @@ const parseOptionJSON = (rawValue) => {
   }
 };
 
+const normalizeModelName = (name) => String(name || '').trim();
+
+const dedupeModelPriceMap = (modelPriceMap) => {
+  const deduped = {};
+  Object.entries(modelPriceMap || {}).forEach(([name, value]) => {
+    const normalizedName = normalizeModelName(name);
+    if (!normalizedName) {
+      return;
+    }
+    deduped[normalizedName] = value;
+  });
+  return deduped;
+};
+
 const buildModelState = (name, modelPriceMap) => {
   const storedPrice = modelPriceMap[name] || {};
   const perCallPrice = toNormalizedNumber(storedPrice.per_call_price);
@@ -175,11 +189,11 @@ export function useModelPricingEditorState({
   const [statusFilter, setStatusFilter] = useState(filterMode === 'unset' ? 'unset' : 'all');
 
   useEffect(() => {
-    const modelPriceMap = parseOptionJSON(options.ModelPrice);
+    const modelPriceMap = dedupeModelPriceMap(parseOptionJSON(options.ModelPrice));
     const configuredNames = Object.keys(modelPriceMap);
     const names = new Set([
       ...candidateModelNames
-        .map((n) => (typeof n === 'string' ? n : n.id))
+        .map((n) => normalizeModelName(typeof n === 'string' ? n : n.id))
         .filter(Boolean),
       ...configuredNames.filter(Boolean),
     ]);

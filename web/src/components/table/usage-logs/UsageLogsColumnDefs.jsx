@@ -571,6 +571,35 @@ export const getLogsColumns = ({
       },
     },
     {
+      key: COLUMN_KEYS.TOKEN_NAME,
+      title: t('令牌名称'),
+      dataIndex: 'token_name',
+      render: (text, record) => {
+        if (
+          !(
+            record.type === 0 ||
+            record.type === 2 ||
+            record.type === 5 ||
+            record.type === 6
+          )
+        ) {
+          return <></>;
+        }
+        const name =
+          text !== undefined && text !== null && String(text).trim() !== ''
+            ? String(text)
+            : '-';
+        return (
+          <Typography.Text
+            ellipsis={{ showTooltip: true }}
+            style={{ maxWidth: 200 }}
+          >
+            {name}
+          </Typography.Text>
+        );
+      },
+    },
+    {
       key: COLUMN_KEYS.TYPE,
       title: t('类型'),
       dataIndex: 'type',

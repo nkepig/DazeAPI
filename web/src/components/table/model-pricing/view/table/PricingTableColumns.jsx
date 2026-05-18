@@ -197,36 +197,16 @@ export const getPricingTableColumns = ({
     ...(isMobile ? {} : { fixed: 'right' }),
     render: (text, record, index) => {
       const priceData = getPriceData(record);
-      if (record.pricing_type === 1) {
-        return (
-          <div className='space-y-1'>
-            <div className='text-gray-700'>
-              {t('按次计费')}：${record.per_call_price?.toFixed(4) || '-'}
-            </div>
-            <div className='text-gray-700'>
-              {t('分组折扣')}：{priceData?.usedGroupRatio ?? '-'}
-            </div>
-          </div>
-        );
-      }
+      const priceItems = getModelPriceItems(priceData, t, siteDisplayType);
+
       return (
         <div className='space-y-1'>
-          <div className='text-gray-700'>
-            {t('输入价格')}：${record.prompt_price?.toFixed(2) || '-'} /1M tokens
-          </div>
-          <div className='text-gray-700'>
-            {t('输出价格')}：${record.completion_price?.toFixed(2) || '-'} /1M tokens
-          </div>
-          {record.cache_read_price > 0 && (
-            <div className='text-gray-700'>
-              {t('缓存读取')}：${record.cache_read_price?.toFixed(2) || '-'} /1M tokens
+          {priceItems.map((item) => (
+            <div key={item.key} className='text-gray-700'>
+              {item.label}：{item.value}
+              {item.suffix}
             </div>
-          )}
-          {record.cache_write_price > 0 && (
-            <div className='text-gray-700'>
-              {t('缓存写入')}：${record.cache_write_price?.toFixed(2) || '-'} /1M tokens
-            </div>
-          )}
+          ))}
           <div className='text-gray-700'>
             {t('分组折扣')}：{priceData?.usedGroupRatio ?? '-'}
           </div>
