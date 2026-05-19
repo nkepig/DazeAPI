@@ -147,17 +147,9 @@ const EditUserModal = (props) => {
     payload.quota = displayAmountToQuota(payload.quota || 0);
     if (userId) {
       payload.id = parseInt(userId);
-      if (
-        pendingQuotaDelta !== 0 &&
-        Number(quotaToDisplayAmount(payload.quota) || 0) === originalQuota + pendingQuotaDelta
-      ) {
-        payload.quota_delta = displayAmountToQuota(pendingQuotaDelta);
-      } else {
-        const displayQuota = Number(quotaToDisplayAmount(payload.quota) || 0);
-        const delta = Number((displayQuota - originalQuota).toFixed(2));
-        if (delta !== 0) {
-          payload.quota_delta = displayAmountToQuota(delta);
-        }
+      const delta = Number(pendingQuotaDelta || 0);
+      if (delta !== 0) {
+        payload.quota_delta = displayAmountToQuota(delta);
       }
       if (isRoot()) {
         const fullGroupRatio = {};
@@ -308,13 +300,14 @@ const EditUserModal = (props) => {
                           placeholder={t('剩余额度')}
                           step={1}
                           precision={2}
+                          disabled
                           extraText={`${getCurrencyConfig().symbol}${(values.quota || 0).toFixed(2)}`}
                           rules={[{ required: true, message: t('请输入额度') }]}
                           style={{ width: '100%' }}
                         />
                       </Col>
                       <Col span={14}>
-                        <Form.Slot label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('添加额度')}</span>}>
+                        <Form.Slot label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('调整余额')}</span>}>
                           <Button icon={<IconPlus />} onClick={() => setIsModalOpen(true)} />
                         </Form.Slot>
                       </Col>
@@ -435,7 +428,7 @@ const EditUserModal = (props) => {
         title={
           <div className='flex items-center'>
             <IconPlus className='mr-2' />
-            {t('添加额度')}
+            {t('调整余额')}
           </div>
         }
       >
@@ -443,20 +436,26 @@ const EditUserModal = (props) => {
           {(() => {
             const current = formApiRef.current?.getValue('quota') || 0;
             const addVal = parseFloat(addAmountLocal) || 0;
+            const previewColor =
+              addVal > 0 ? '#16a34a' : addVal < 0 ? '#dc2626' : 'var(--semi-color-text-1)';
             return (
-              <Text type='secondary' className='block mb-2'>
+              <Text className='block mb-2' style={{ color: previewColor, fontWeight: 600 }}>
                 {`${t('新额度：')}${getCurrencyConfig().symbol}${(current + addVal).toFixed(2)}`}
               </Text>
             );
           })()}
         </div>
+        <Text type='tertiary' size='small' className='block mb-3'>
+          {t('输入正数表示增加，输入负数表示减少；提交时会基于用户最新余额做增减，不会覆盖期间已发生的消耗。')}
+        </Text>
         <div className='mb-3'>
           <div className='mb-1'>
             <Text size='small' style={{ fontWeight: 600 }}>{t('金额')}</Text>
           </div>
           <InputNumber
+            min={-999999999}
             prefix={getCurrencyConfig().symbol}
-            placeholder={t('输入金额')}
+            placeholder={t('输入金额，负数表示减少')}
             value={addAmountLocal}
             precision={2}
             onChange={(val) => {

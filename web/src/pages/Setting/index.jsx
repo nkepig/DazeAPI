@@ -20,7 +20,7 @@ import PerformanceSetting from '../../components/settings/PerformanceSetting';
 
 const sections = [
   { key: 'operation', icon: Settings, label: '运营设置', Component: OperationSetting },
-  { key: 'ratio', icon: Calculator, label: '分组与模型定价', Component: RatioSetting },
+  { key: 'ratio', icon: Calculator, label: '模型定价', Component: RatioSetting },
   { key: 'performance', icon: Activity, label: '性能设置', Component: PerformanceSetting },
 ];
 
