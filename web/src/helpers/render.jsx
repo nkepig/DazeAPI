@@ -1405,8 +1405,8 @@ export function renderModelPrice(
   if (inputTerms.length > 0) lines.push('输入  : ' + inputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((normalInputTokens / 1_000_000) * promptPrice * groupRatio));
   if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1_000_000) * cacheReadPrice * groupRatio));
   if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1_000_000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1_000_000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1_000_000) * cacheWrite1hPrice * groupRatio));
-  if (imageInputTerms.length > 0) lines.push('图片入: ' + imageInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((imageInputTokens / 1_000_000) * imageInputPrice * groupRatio));
-  if (audioInputTerms.length > 0) lines.push('音频入: ' + audioInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio));
+  if (imageInputTerms.length > 0) lines.push('图片输入: ' + imageInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((imageInputTokens / 1_000_000) * imageInputPrice * groupRatio));
+  if (audioInputTerms.length > 0) lines.push('音频输入: ' + audioInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio));
   if (outputTerms.length > 0) lines.push('输出  : ' + outputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(outputAmount));
   lines.push('结果  : ' + renderDisplayAmountFromUsd(totalAmount));
 

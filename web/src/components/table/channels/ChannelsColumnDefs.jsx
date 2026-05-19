@@ -49,6 +49,59 @@ import { IconTreeTriangleDown, IconMore } from '@douyinfe/semi-icons';
 import { FaRandom } from 'react-icons/fa';
 import { StatusPill } from '../../common/ui/StatusPill';
 
+const HOVER_TOOLTIP_PROPS = {
+  mouseEnterDelay: 200,
+  mouseLeaveDelay: 200,
+};
+
+const InlineChannelNumberInput = ({
+  value,
+  min,
+  onCommit,
+}) => {
+  const wrapperRef = React.useRef(null);
+  const [localValue, setLocalValue] = React.useState(value);
+
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const commitValue = () => {
+    if (localValue === '' || localValue === null || localValue === undefined) {
+      return;
+    }
+    if (Number(localValue) === Number(value)) {
+      return;
+    }
+    onCommit(localValue);
+  };
+
+  return (
+    <div ref={wrapperRef}>
+      <InputNumber
+        style={{ width: 70 }}
+        value={localValue}
+        min={min}
+        size='small'
+        innerButtons
+        keepFocus={true}
+        onChange={(nextValue) => setLocalValue(nextValue)}
+        onBlur={(e) => {
+          const nextFocusTarget = e?.relatedTarget;
+          if (
+            nextFocusTarget &&
+            wrapperRef.current?.contains(nextFocusTarget)
+          ) {
+            return;
+          }
+          commitValue();
+        }}
+        onEnterPress={commitValue}
+      />
+    </div>
+  );
+};
+
 // Render functions
 const renderType = (type, record = {}, t) => {
   const channelInfo = record?.channel_info;
@@ -122,6 +175,7 @@ const renderType = (type, record = {}, t) => {
             )}
           </div>
         }
+        {...HOVER_TOOLTIP_PROPS}
       >
         <span>
           <Tag
@@ -329,7 +383,7 @@ export const getChannelsColumns = ({
                   </Button>
                 </div>
               }
-              trigger='hover'
+              trigger='click'
               position='topLeft'
             >
               <span>{text}</span>
@@ -352,6 +406,7 @@ export const getChannelsColumns = ({
                 )}
                 trigger='hover'
                 position='topLeft'
+                {...HOVER_TOOLTIP_PROPS}
               >
                 <span className='inline-flex items-center cursor-default'>
                   <StatusPill variant='info'>{t('透传')}</StatusPill>
@@ -361,7 +416,11 @@ export const getChannelsColumns = ({
             {showUpstreamUpdateTag && (
               <Space spacing={4} align='center'>
                 {pendingAddCount > 0 ? (
-                  <Tooltip content={t('点击处理新增模型')} position='top'>
+                  <Tooltip
+                    content={t('点击处理新增模型')}
+                    position='top'
+                    {...HOVER_TOOLTIP_PROPS}
+                  >
                     <Tag
                       color='green'
                       type='light'
@@ -383,7 +442,11 @@ export const getChannelsColumns = ({
                   </Tooltip>
                 ) : null}
                 {pendingRemoveCount > 0 ? (
-                  <Tooltip content={t('点击处理删除模型')} position='top'>
+                  <Tooltip
+                    content={t('点击处理删除模型')}
+                    position='top'
+                    {...HOVER_TOOLTIP_PROPS}
+                  >
                     <Tag
                       color='red'
                       type='light'
@@ -480,7 +543,7 @@ export const getChannelsColumns = ({
             </div>
           );
           return (
-            <Tooltip content={tooltipContent}>
+            <Tooltip content={tooltipContent} {...HOVER_TOOLTIP_PROPS}>
               <div className="cursor-help inline-block">
                 {statusElement}
               </div>
@@ -538,49 +601,37 @@ export const getChannelsColumns = ({
       render: (text, record, index) => {
         if (record.children === undefined) {
           return (
-            <div>
-              <InputNumber
-                style={{ width: 70 }}
-                name='priority'
-                onBlur={(e) => {
-                  manageChannel(record.id, 'priority', record, e.target.value);
-                }}
-                keepFocus={true}
-                innerButtons
-                defaultValue={record.priority}
-                min={-999}
-                size='small'
-              />
-            </div>
+            <InlineChannelNumberInput
+              value={record.priority}
+              min={-999}
+              onCommit={(nextValue) =>
+                manageChannel(record.id, 'priority', record, nextValue)
+              }
+            />
           );
         } else {
           return (
-            <InputNumber
-              style={{ width: 70 }}
-              name='priority'
-              keepFocus={true}
-              onBlur={(e) => {
+            <InlineChannelNumberInput
+              value={record.priority}
+              min={-999}
+              onCommit={(nextValue) => {
                 Modal.warning({
                   title: t('修改子渠道优先级'),
                   content:
                     t('确定要修改所有子渠道优先级为 ') +
-                    e.target.value +
+                    nextValue +
                     t(' 吗？'),
                   onOk: () => {
-                    if (e.target.value === '') {
+                    if (nextValue === '') {
                       return;
                     }
                     submitTagEdit('priority', {
                       tag: record.key,
-                      priority: e.target.value,
+                      priority: nextValue,
                     });
                   },
                 });
               }}
-              innerButtons
-              defaultValue={record.priority}
-              min={-999}
-              size='small'
             />
           );
         }
@@ -593,49 +644,37 @@ export const getChannelsColumns = ({
       render: (text, record, index) => {
         if (record.children === undefined) {
           return (
-            <div>
-              <InputNumber
-                style={{ width: 70 }}
-                name='weight'
-                onBlur={(e) => {
-                  manageChannel(record.id, 'weight', record, e.target.value);
-                }}
-                keepFocus={true}
-                innerButtons
-                defaultValue={record.weight}
-                min={0}
-                size='small'
-              />
-            </div>
+            <InlineChannelNumberInput
+              value={record.weight}
+              min={0}
+              onCommit={(nextValue) =>
+                manageChannel(record.id, 'weight', record, nextValue)
+              }
+            />
           );
         } else {
           return (
-            <InputNumber
-              style={{ width: 70 }}
-              name='weight'
-              keepFocus={true}
-              onBlur={(e) => {
+            <InlineChannelNumberInput
+              value={record.weight}
+              min={-999}
+              onCommit={(nextValue) => {
                 Modal.warning({
                   title: t('修改子渠道权重'),
                   content:
                     t('确定要修改所有子渠道权重为 ') +
-                    e.target.value +
+                    nextValue +
                     t(' 吗？'),
                   onOk: () => {
-                    if (e.target.value === '') {
+                    if (nextValue === '') {
                       return;
                     }
                     submitTagEdit('weight', {
                       tag: record.key,
-                      weight: e.target.value,
+                      weight: nextValue,
                     });
                   },
                 });
               }}
-              innerButtons
-              defaultValue={record.weight}
-              min={-999}
-              size='small'
             />
           );
         }
