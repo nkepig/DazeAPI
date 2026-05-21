@@ -155,7 +155,7 @@ const EditUserModal = (props) => {
         const fullGroupRatio = {};
         groupList.forEach((item) => {
           if (item.name && item.name.trim() !== '') {
-            fullGroupRatio[item.name.trim()] = Number((item.ratio ?? 1).toFixed(1));
+            fullGroupRatio[item.name.trim()] = Number((item.ratio ?? 1).toFixed(2));
           }
         });
         payload.group_ratio = JSON.stringify(fullGroupRatio);
@@ -368,11 +368,11 @@ const EditUserModal = (props) => {
                           <InputNumber
                             min={0.01}
                             max={1000}
-                            step={0.1}
-                            precision={1}
+                            step={0.01}
+                            precision={2}
                             value={item.ratio ?? 1}
                             onChange={(v) => {
-                              const ratio = v == null ? 1 : Number(v.toFixed(1));
+                              const ratio = v == null ? 1 : Number(v.toFixed(2));
                               setGroupList((prev) => {
                                 const next = [...prev];
                                 next[index] = { ...next[index], ratio };

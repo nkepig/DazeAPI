@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useCallback, useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +31,7 @@ const PageLayout = () => {
     }
   };
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (!localStorage.getItem('user')) return;
     try {
       const res = await API.get('/api/user/self');
@@ -43,7 +43,7 @@ const PageLayout = () => {
     } catch {
       // Session may be expired; keep cached data for now
     }
-  };
+  }, [userDispatch]);
 
   const loadStatus = async () => {
     try {
@@ -68,6 +68,27 @@ if (success) {
     loadStatus().catch(console.error);
     refreshUser();
   }, []);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith('/console')) {
+      return;
+    }
+    refreshUser();
+  }, [location.pathname, refreshUser]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUser();
+      }
+    };
+    window.addEventListener('focus', refreshUser);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', refreshUser);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshUser]);
 
   useEffect(() => {
     let preferredLang;
