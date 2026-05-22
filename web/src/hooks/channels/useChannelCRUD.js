@@ -55,7 +55,10 @@ export const useChannelCRUD = ({ t, channels, refresh }) => {
     const { success, message } = res.data;
     if (success) {
       showSuccess(t('操作成功完成！'));
-      await refresh();
+      const shouldRefresh = action !== 'priority' && action !== 'weight';
+      if (shouldRefresh) {
+        await refresh();
+      }
     } else {
       showError(message);
     }
@@ -123,7 +126,10 @@ export const useChannelCRUD = ({ t, channels, refresh }) => {
       const res = await API.put('/api/channel/tag', data);
       if (res?.data?.success) {
         showSuccess('更新成功！');
-        await refresh();
+        const shouldRefresh = type !== 'priority' && type !== 'weight';
+        if (shouldRefresh) {
+          await refresh();
+        }
       }
     } catch (error) {
       showError(error);
