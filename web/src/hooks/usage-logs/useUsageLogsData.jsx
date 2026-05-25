@@ -490,6 +490,7 @@ export const useLogsData = () => {
               other.cache_creation_tokens_1h || 0,
               other.cache_write_1h_price || other.cache_write_price || 1.0,
               billingDisplayMode,
+              pricingDataForRender,
             );
           } else {
             content = renderModelPrice(

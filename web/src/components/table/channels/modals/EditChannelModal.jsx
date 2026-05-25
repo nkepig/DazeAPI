@@ -161,6 +161,7 @@ const EditChannelModal = (props) => {
     is_enterprise_account: false,
     // 渠道 setting 字段（ChannelSettings）
     pass_through_body_enabled: false,
+    request_record_enabled: false,
     proxy: '',
     image_convert_mode: 'disabled',
   };
@@ -460,6 +461,8 @@ const EditChannelModal = (props) => {
           const parsedSetting = JSON.parse(data.setting);
           data.pass_through_body_enabled =
             parsedSetting.pass_through_body_enabled === true;
+          data.request_record_enabled =
+            parsedSetting.request_record_enabled === true;
           data.proxy = parsedSetting.proxy || '';
           if (parsedSetting.convert_image_base64_to_url === true) {
             data.image_convert_mode = 'base64_to_url';
@@ -471,11 +474,13 @@ const EditChannelModal = (props) => {
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.pass_through_body_enabled = false;
+          data.request_record_enabled = false;
           data.proxy = '';
           data.image_convert_mode = 'disabled';
         }
       } else {
         data.pass_through_body_enabled = false;
+        data.request_record_enabled = false;
         data.proxy = '';
         data.image_convert_mode = 'disabled';
       }
@@ -1041,6 +1046,8 @@ const EditChannelModal = (props) => {
     }
     channelSetting.pass_through_body_enabled =
       localInputs.pass_through_body_enabled === true;
+    channelSetting.request_record_enabled =
+      localInputs.request_record_enabled === true;
     if (localInputs.proxy && localInputs.proxy.trim()) {
       channelSetting.proxy = localInputs.proxy.trim();
     } else {
@@ -1062,6 +1069,7 @@ const EditChannelModal = (props) => {
     // 清理不需要发送到后端的字段
     delete localInputs.is_enterprise_account;
     delete localInputs.pass_through_body_enabled;
+    delete localInputs.request_record_enabled;
     delete localInputs.proxy;
     delete localInputs.image_convert_mode;
 
@@ -1325,6 +1333,23 @@ const EditChannelModal = (props) => {
                       description={t('该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。')}
                     />
                   )}
+
+                  <div className='flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl mb-2'
+                    style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
+                    <div className='flex-1 min-w-0'>
+                      <div className='text-sm font-medium leading-5'>{t('记录请求输出')}</div>
+                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>
+                        {t('开启后会将该渠道请求体和响应输出保存')}
+                      </div>
+                    </div>
+                    <Form.Switch
+                      field='request_record_enabled'
+                      noLabel
+                      style={{ marginBottom: 0 }}
+                      onChange={(value) => handleInputChange('request_record_enabled', value)}
+                      initValue={inputs.request_record_enabled}
+                    />
+                  </div>
 
                   <Form.TextArea
                     field='param_override'

@@ -9,6 +9,7 @@ type ChannelSettings struct {
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
 	ConvertImageBase64ToURL bool  `json:"convert_image_base64_to_url,omitempty"`
 	ConvertImageURLToBase64 bool  `json:"convert_image_url_to_base64,omitempty"`
+	RequestRecordEnabled   bool   `json:"request_record_enabled,omitempty"`
 }
 
 type VertexKeyType string

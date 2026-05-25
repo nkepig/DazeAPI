@@ -195,6 +195,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		defer bodyStorage.Close()
 		c.Request.Body = io.NopCloser(bodyStorage)
+		channelSetting := channel.GetSetting()
+		var requestBodyBytes []byte
+		var recorder *service.RecordingResponseWriter
+		if channelSetting.RequestRecordEnabled {
+			common.SysLog(fmt.Sprintf("channel request record enabled: channel_id=%d request_id=%s", channel.Id, relayInfo.RequestId))
+			requestBodyBytes, _ = bodyStorage.Bytes()
+			recorder = &service.RecordingResponseWriter{ResponseWriter: c.Writer}
+			c.Writer = recorder
+		}
 
 		switch relayFormat {
 		case types.RelayFormatOpenAIRealtime:
@@ -205,6 +214,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			newAPIError = geminiRelayHandler(c, relayInfo)
 		default:
 			newAPIError = relayHandler(c, relayInfo)
+		}
+
+		if recorder != nil {
+			c.Writer = recorder.ResponseWriter
+			recordChannelRequest(c, relayInfo, channel, requestBodyBytes, recorder.Body.Bytes(), newAPIError)
 		}
 
 		if newAPIError == nil {
@@ -227,6 +241,41 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
 		logger.LogInfo(c, retryLogStr)
 	}
+}
+
+func recordChannelRequest(c *gin.Context, info *relaycommon.RelayInfo, channel *model.Channel, requestBody []byte, responseBody []byte, relayErr *types.NewAPIError) {
+	if c == nil || info == nil || channel == nil {
+		return
+	}
+	statusCode := c.Writer.Status()
+	if relayErr != nil && relayErr.StatusCode > 0 {
+		statusCode = relayErr.StatusCode
+	}
+	errorMessage := ""
+	if relayErr != nil {
+		errorMessage = relayErr.ErrorWithStatusCode()
+	}
+	username := common.GetContextKeyString(c, constant.ContextKeyUserName)
+	if username == "" {
+		username = fmt.Sprintf("user%d", info.UserId)
+	}
+	service.RecordChannelRequest(service.ChannelRequestRecord{
+		Time:         time.Now().Unix(),
+		RequestId:    info.RequestId,
+		Username:     username,
+		UserId:       info.UserId,
+		ChannelId:    channel.Id,
+		ChannelName:  channel.Name,
+		ModelName:    info.OriginModelName,
+		Path:         c.Request.URL.Path,
+		Method:       c.Request.Method,
+		StatusCode:   statusCode,
+		IsStream:     info.IsStream,
+		RetryIndex:   info.RetryIndex,
+		Error:        errorMessage,
+		RequestBody:  string(requestBody),
+		ResponseBody: string(responseBody),
+	})
 }
 
 var upgrader = websocket.Upgrader{
@@ -273,17 +322,16 @@ func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
 
 func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service.RetryParam) (*model.Channel, *types.NewAPIError) {
 	if info.ChannelMeta == nil {
-		autoBan := c.GetBool("auto_ban")
-		autoBanInt := 1
-		if !autoBan {
-			autoBanInt = 0
+		// Distributor already selected the channel; load the full record (Setting, keys, etc.).
+		channelId := common.GetContextKeyInt(c, constant.ContextKeyChannelId)
+		if channelId <= 0 {
+			return nil, types.NewError(errors.New("渠道未选择"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 		}
-		return &model.Channel{
-			Id:      c.GetInt("channel_id"),
-			Type:    c.GetInt("channel_type"),
-			Name:    c.GetString("channel_name"),
-			AutoBan: &autoBanInt,
-		}, nil
+		channel, err := model.CacheGetChannel(channelId)
+		if err != nil {
+			return nil, types.NewError(fmt.Errorf("获取渠道 #%d 失败: %w", channelId, err), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		return channel, nil
 	}
 	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
 

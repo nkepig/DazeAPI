@@ -314,6 +314,17 @@ const getUpstreamUpdateMeta = (record) => {
   };
 };
 
+const isChannelRequestRecordEnabled = (record) => {
+  if (!record || record.children !== undefined || !record.setting) {
+    return false;
+  }
+  try {
+    return JSON.parse(record.setting)?.request_record_enabled === true;
+  } catch (error) {
+    return false;
+  }
+};
+
 export const getChannelsColumns = ({
   t,
   COLUMN_KEYS,
@@ -349,6 +360,7 @@ export const getChannelsColumns = ({
       dataIndex: 'name',
       render: (text, record, index) => {
         const passThroughEnabled = isRequestPassThroughEnabled(record);
+        const requestRecordEnabled = isChannelRequestRecordEnabled(record);
         const upstreamUpdateMeta = getUpstreamUpdateMeta(record);
         const pendingAddCount = upstreamUpdateMeta.pendingAddModels.length;
         const pendingRemoveCount =
@@ -392,7 +404,7 @@ export const getChannelsColumns = ({
             <span>{text}</span>
           );
 
-        if (!passThroughEnabled && !showUpstreamUpdateTag) {
+        if (!passThroughEnabled && !requestRecordEnabled && !showUpstreamUpdateTag) {
           return nameNode;
         }
 
@@ -412,6 +424,11 @@ export const getChannelsColumns = ({
                   <StatusPill variant='info'>{t('透传')}</StatusPill>
                 </span>
               </Tooltip>
+            )}
+            {requestRecordEnabled && (
+              <span className='inline-flex items-center cursor-default'>
+                <StatusPill variant='warning'>{t('正在记录')}</StatusPill>
+              </span>
             )}
             {showUpstreamUpdateTag && (
               <Space spacing={4} align='center'>
