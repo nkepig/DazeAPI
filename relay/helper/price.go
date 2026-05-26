@@ -44,16 +44,12 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {
-	modelName := pricing.FormatMatchingModelName(info.OriginModelName)
-
 	groupDiscountInfo := HandleGroupRatio(c, info)
 
 	modelPricing, err := pricing.RequireModelPricing(info.OriginModelName)
 	if err != nil {
 		return types.PriceData{}, err
 	}
-
-	applyUserModelRatioMultiplier(info, modelName, &groupDiscountInfo)
 
 	var preConsumedQuota int
 	var freeModel bool
@@ -122,14 +118,11 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
 	groupDiscountInfo := HandleGroupRatio(c, info)
-	modelName := pricing.FormatMatchingModelName(info.OriginModelName)
 
 	modelPricing, err := pricing.RequireModelPricing(info.OriginModelName)
 	if err != nil {
 		return types.PriceData{}, err
 	}
-
-	applyUserModelRatioMultiplier(info, modelName, &groupDiscountInfo)
 
 	if !modelPricing.UsePerCallPricing {
 		modelPricing.PerCallPrice = modelPricing.PromptPrice
