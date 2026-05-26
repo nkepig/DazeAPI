@@ -311,10 +311,8 @@ func updatePricing() {
 				p.PricingType = 0
 			}
 		} else {
-			// 未配置的模型使用默认价格
-			p.PerCallPrice = 0.111
-			p.PricingType = 1
-			p.IsDefaultPrice = true
+			// 未在 ModelPrice 中配置的模型不进入对外定价列表；调用时由分发/计费层直接拒绝
+			continue
 		}
 		pricingMap = append(pricingMap, p)
 	}
@@ -335,10 +333,6 @@ func updatePricing() {
 	modelEnableGroupsLock.Unlock()
 
 	lastGetPricingTime = time.Now()
-
-	snapshot := make([]Pricing, len(pricingMap))
-	copy(snapshot, pricingMap)
-	go SyncUserModelOverridesWithPricing(snapshot)
 }
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射

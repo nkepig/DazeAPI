@@ -166,25 +166,6 @@ export const useUsersData = () => {
     setLoading(false);
   };
 
-  const syncModels = async () => {
-    try {
-      const res = await API.post('/api/user/sync-models');
-      const { success, message, data } = res.data;
-      if (success) {
-        showSuccess(
-          t('同步完成：更新了 {{users}} 个用户，移除了 {{models}} 个无效模型', {
-            users: data.updated_users,
-            models: data.removed_models,
-          }),
-        );
-      } else {
-        showError(message);
-      }
-    } catch (error) {
-      showError(t('操作失败，请重试'));
-    }
-  };
-
   // Handle page change
   const handlePageChange = (page) => {
     setActivePage(page);
@@ -282,7 +263,6 @@ export const useUsersData = () => {
     searchUsers,
     manageUser,
     deleteUser,
-    syncModels,
     handlePageChange,
     handlePageSizeChange,
     handleRow,

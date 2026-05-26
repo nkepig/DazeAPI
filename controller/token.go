@@ -147,8 +147,6 @@ func GetTokenUsage(c *gin.Context) {
 			"total_used":           token.UsedQuota,
 			"total_available":      token.RemainQuota,
 			"unlimited_quota":      token.UnlimitedQuota,
-			"model_limits":         token.GetModelLimitsMap(),
-			"model_limits_enabled": token.ModelLimitsEnabled,
 		},
 	})
 }
@@ -234,8 +232,6 @@ func AddToken(c *gin.Context) {
 		AccessedTime:       common.GetTimestamp(),
 		RemainQuota:        token.RemainQuota,
 		UnlimitedQuota:     token.UnlimitedQuota,
-		ModelLimitsEnabled: token.ModelLimitsEnabled,
-		ModelLimits:        token.ModelLimits,
 		AllowIps:           token.AllowIps,
 		Group:              token.Group,
 		CrossGroupRetry:    token.CrossGroupRetry,
@@ -307,8 +303,6 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.Name = token.Name
 		cleanToken.RemainQuota = token.RemainQuota
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
-		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
-		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
 		if !checkTokenGroupAccess(c, token.Group) {
 			return

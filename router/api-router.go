@@ -75,7 +75,6 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.POST("/manage", controller.ManageUser)
 				adminRoute.PUT("/", controller.UpdateUser)
 				adminRoute.DELETE("/:id", controller.DeleteUser)
-				adminRoute.POST("/sync-models", controller.AdminSyncUserModels)
 				adminRoute.GET("/default-vendor-ratios", controller.AdminGetDefaultVendorRatios)
 				adminRoute.PUT("/default-vendor-ratios", controller.AdminUpdateDefaultVendorRatios)
 			}

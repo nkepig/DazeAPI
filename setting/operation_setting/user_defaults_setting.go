@@ -4,7 +4,7 @@ import "github.com/QuantumNous/new-api/setting/config"
 
 // UserDefaultsSetting 新用户相关默认值（由运营配置持久化）
 type UserDefaultsSetting struct {
-	// DefaultVendorRatioMultipliers：供应商 ID -> 倍率。新用户 ModelOverrides 中：按 Token 计费时写入为「分组倍率」乘在系统 modelRatio 上；按次计费时乘在系统价格上（缺省或未配置视为 1.0）
+	// DefaultVendorRatioMultipliers：供应商 ID -> 倍率，用于在计费时乘在系统模型价格/倍率上。
 	DefaultVendorRatioMultipliers map[int]float64 `json:"default_vendor_ratio_multipliers"`
 }
 

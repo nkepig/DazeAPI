@@ -56,7 +56,6 @@ const UsersPage = () => {
     compactMode,
 
     // Actions
-    syncModels,
 
     // Translation
     t,

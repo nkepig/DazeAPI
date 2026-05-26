@@ -1,11 +1,5 @@
 package dto
 
-// UserModelOverride 表示管理员为用户指定的单个模型的计费覆盖
-type UserModelOverride struct {
-	BillingType string  `json:"billing_type"` // "ratio"（按 Token 倍率）或 "price"（按次固定价格）
-	Value       float64 `json:"value"`        // 倍率值或价格值
-}
-
 type UserSetting struct {
 	NotifyType                       string  `json:"notify_type,omitempty"`
 	QuotaWarningThreshold            float64 `json:"quota_warning_threshold,omitempty"`
@@ -21,9 +15,6 @@ type UserSetting struct {
 	SidebarModules                   string  `json:"sidebar_modules,omitempty"`
 	BillingPreference                string  `json:"billing_preference,omitempty"`
 	Language                         string  `json:"language,omitempty"`
-	// ModelOverrides 管理员为该用户指定的可用模型及其计费覆盖。
-	// 非空时：用户只能使用 map 中的模型，模型列表也只显示这些模型。
-	ModelOverrides map[string]UserModelOverride `json:"model_overrides,omitempty"`
 }
 
 var (

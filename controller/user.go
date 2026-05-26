@@ -183,10 +183,9 @@ func Register(c *gin.Context) {
 			Key:                key,
 			CreatedTime:        common.GetTimestamp(),
 			AccessedTime:       common.GetTimestamp(),
-	
+
 			RemainQuota:        500000, // 示例额度
 			UnlimitedQuota:     true,
-			ModelLimitsEnabled: false,
 		}
 		if setting.DefaultUseAutoGroup {
 			token.Group = "auto"
@@ -304,38 +303,7 @@ type TransferAffQuotaRequest struct {
 
 type UpdateUserRequest struct {
 	model.User
-	QuotaDelta     *int                             `json:"quota_delta"`
-	ModelOverrides map[string]dto.UserModelOverride `json:"model_overrides"`
-}
-
-func validateUserModelOverrides(modelOverrides map[string]dto.UserModelOverride) error {
-	for name, o := range modelOverrides {
-		if o.Value < 0 {
-			return fmt.Errorf("model %s value must be >= 0", name)
-		}
-		if o.BillingType != "ratio" && o.BillingType != "price" {
-			return fmt.Errorf("model %s billing_type must be 'ratio' or 'price'", name)
-		}
-	}
-	return nil
-}
-
-func validateUserSettingPayload(modelOverrides map[string]dto.UserModelOverride) error {
-	return validateUserModelOverrides(modelOverrides)
-}
-
-func applyAdminUserSettings(userId int, modelOverrides map[string]dto.UserModelOverride) error {
-	if modelOverrides == nil {
-		return nil
-	}
-	currentUser, err := model.GetUserById(userId, true)
-	if err != nil {
-		return err
-	}
-	currentSetting := currentUser.GetSetting()
-	currentSetting.ModelOverrides = modelOverrides
-	currentUser.SetSetting(currentSetting)
-	return currentUser.Update(false)
+	QuotaDelta *int `json:"quota_delta"`
 }
 
 func TransferAffQuota(c *gin.Context) {
@@ -478,7 +446,6 @@ func appendRootModelConfig(responseData gin.H, settings dto.UserSetting) {
 		}
 		globalModels = append(globalModels, g)
 	}
-	responseData["model_overrides"] = settings.ModelOverrides
 	responseData["global_models"] = globalModels
 }
 
@@ -560,20 +527,6 @@ func GetUserModels(c *gin.Context) {
 		return
 	}
 
-	userSetting := user.GetSetting()
-	if len(userSetting.ModelOverrides) > 0 {
-		models := make([]string, 0, len(userSetting.ModelOverrides))
-		for m := range userSetting.ModelOverrides {
-			models = append(models, m)
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "",
-			"data":    models,
-		})
-		return
-	}
-
 	models := service.GetUserAccessibleModelsByRatio(user.GetGroupRatioMap())
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -614,24 +567,11 @@ func UpdateUser(c *gin.Context) {
 	if updatedUser.Password == "$I_LOVE_U" {
 		updatedUser.Password = "" // rollback to what it should be
 	}
-	if myRole != common.RoleRootUser {
-		req.ModelOverrides = nil
-	}
-	if err := validateUserSettingPayload(req.ModelOverrides); err != nil {
-		common.ApiError(c, err)
-		return
-	}
 	updatePassword := updatedUser.Password != ""
 	includeQuota := false
 	if err := updatedUser.Edit(updatePassword, includeQuota); err != nil {
 		common.ApiError(c, err)
 		return
-	}
-	if c.GetInt("role") == common.RoleRootUser {
-		if err := applyAdminUserSettings(updatedUser.Id, req.ModelOverrides); err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
-			return
-		}
 	}
 	if req.QuotaDelta != nil {
 		if err := model.DeltaUpdateUserQuota(originUser.Id, *req.QuotaDelta); err != nil {
@@ -871,13 +811,6 @@ func CreateUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserCannotCreateHigherLevel)
 		return
 	}
-	if myRole != common.RoleRootUser {
-		req.ModelOverrides = nil
-	}
-	if err := validateUserSettingPayload(req.ModelOverrides); err != nil {
-		common.ApiError(c, err)
-		return
-	}
 	groupName := model.NormalizeGroupField(user.Group)
 	if groupName == "" {
 		groupName = user.Username
@@ -892,10 +825,6 @@ func CreateUser(c *gin.Context) {
 	}
 	if err := cleanUser.Insert(0); err != nil {
 		common.ApiError(c, err)
-		return
-	}
-	if err := applyAdminUserSettings(cleanUser.Id, req.ModelOverrides); err != nil {
-		common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
 		return
 	}
 
@@ -1144,7 +1073,6 @@ func UpdateUserSetting(c *gin.Context) {
 		QuotaWarningThreshold:            req.QuotaWarningThreshold,
 		UpstreamModelUpdateNotifyEnabled: upstreamModelUpdateNotifyEnabled,
 		RecordIpLog:                      req.RecordIpLog,
-		ModelOverrides:                   existingSettings.ModelOverrides,
 		SidebarModules:                   existingSettings.SidebarModules,
 		BillingPreference:                existingSettings.BillingPreference,
 		Language:                         existingSettings.Language,
@@ -1188,59 +1116,6 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	common.ApiSuccessI18n(c, i18n.MsgSettingSaved, nil)
-}
-
-// AdminSyncUserModels removes model_overrides entries for models that no longer
-// exist in any enabled channel, across all users.
-func AdminSyncUserModels(c *gin.Context) {
-	// Build a set of all currently enabled models across all channels.
-	enabledModels := model.GetEnabledModels()
-	enabledSet := make(map[string]struct{}, len(enabledModels))
-	for _, m := range enabledModels {
-		enabledSet[m] = struct{}{}
-	}
-
-	users, err := model.GetUsersWithModelOverrides()
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	updatedUsers := 0
-	removedTotal := 0
-
-	for _, u := range users {
-		settings := u.GetSetting()
-		if len(settings.ModelOverrides) == 0 {
-			continue
-		}
-		removedCount := 0
-		for modelName := range settings.ModelOverrides {
-			if _, ok := enabledSet[modelName]; !ok {
-				delete(settings.ModelOverrides, modelName)
-				removedCount++
-			}
-		}
-		if removedCount == 0 {
-			continue
-		}
-		u.SetSetting(settings)
-		if err := u.Update(false); err != nil {
-			common.SysError("sync user models: failed to update user " + strconv.Itoa(u.Id) + ": " + err.Error())
-			continue
-		}
-		updatedUsers++
-		removedTotal += removedCount
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"updated_users":  updatedUsers,
-			"removed_models": removedTotal,
-		},
-	})
 }
 
 // AdminGetDefaultVendorRatios 返回全部供应商及新用户默认供应商倍率配置

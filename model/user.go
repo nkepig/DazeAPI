@@ -11,7 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
@@ -138,79 +137,7 @@ func generateDefaultSidebarConfigForRole(userRole int) string {
 	return string(configBytes)
 }
 
-func buildDefaultModelOverrides() map[string]dto.UserModelOverride {
-	pricingList := GetPricing()
-	if len(pricingList) == 0 {
-		return map[string]dto.UserModelOverride{}
-	}
-	overrides := make(map[string]dto.UserModelOverride, len(pricingList))
-	for _, pricing := range pricingList {
-		mult := operation_setting.VendorRatioMultiplier(pricing.VendorID)
-		// token 计费：Value 仅作「分组倍率」乘在系统定价上（见 relay/helper/price.go applyUserOverride），不得写入定价本身
-		override := dto.UserModelOverride{BillingType: "ratio", Value: mult}
-		if pricing.PricingType == 1 {
-			override.BillingType = "price"
-			override.Value = pricing.PerCallPrice * mult
-		}
-		overrides[pricing.ModelName] = override
-	}
-	return overrides
-}
 
-func applyDefaultUserSettings(user *User) {
-	currentSetting := user.GetSetting()
-	currentSetting.ModelOverrides = buildDefaultModelOverrides()
-	user.SetSetting(currentSetting)
-}
-
-func SyncUserModelOverridesWithPricing(pricingList []Pricing) {
-	if len(pricingList) == 0 {
-		return
-	}
-
-	defaultOverrides := make(map[string]dto.UserModelOverride)
-	for _, p := range pricingList {
-		mult := operation_setting.VendorRatioMultiplier(p.VendorID)
-		override := dto.UserModelOverride{BillingType: "ratio", Value: mult}
-		if p.PricingType == 1 {
-			override.BillingType = "price"
-			override.Value = p.PerCallPrice * mult
-		}
-		defaultOverrides[p.ModelName] = override
-	}
-
-	users, err := GetUsersWithModelOverrides()
-	if err != nil {
-		common.SysLog("SyncUserModelOverridesWithPricing: failed to get users: " + err.Error())
-		return
-	}
-
-	for _, u := range users {
-		settings := u.GetSetting()
-		if len(settings.ModelOverrides) == 0 {
-			continue
-		}
-
-		changed := false
-		for modelName, override := range defaultOverrides {
-			if _, exists := settings.ModelOverrides[modelName]; !exists {
-				settings.ModelOverrides[modelName] = override
-				changed = true
-			}
-		}
-
-		if !changed {
-			continue
-		}
-
-		u.SetSetting(settings)
-		if err := DB.Model(u).Update("setting", u.Setting).Error; err != nil {
-			common.SysLog(fmt.Sprintf("SyncUserModelOverridesWithPricing: failed to update user %d: %s", u.Id, err.Error()))
-			continue
-		}
-		_ = updateUserCache(*u)
-	}
-}
 
 // CheckUserExistOrDeleted check if user exist or deleted, if not exist, return false, nil, if deleted or exist, return true, nil
 func CheckUserExistOrDeleted(username string, email string) (bool, error) {
@@ -343,14 +270,6 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 	return users, total, nil
 }
 
-// GetUsersWithModelOverrides returns all non-deleted users that have a non-empty Setting field,
-// so callers can filter and update ModelOverrides in-process.
-func GetUsersWithModelOverrides() ([]*User, error) {
-	var users []*User
-	err := DB.Where("setting != '' AND setting IS NOT NULL AND setting != '{}'").Find(&users).Error
-	return users, err
-}
-
 func GetUserById(id int, selectAll bool) (*User, error) {
 	return getUserById(id, selectAll, false)
 }
@@ -468,7 +387,6 @@ func (user *User) Insert(inviterId int) error {
 		// 这里暂时不设置SidebarModules，因为需要在用户创建后根据角色设置
 		user.SetSetting(defaultSetting)
 	}
-	applyDefaultUserSettings(user)
 	user.Group = NormalizeGroupField(user.Group)
 
 	result := DB.Create(user)
@@ -527,7 +445,6 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		defaultSetting := dto.UserSetting{}
 		user.SetSetting(defaultSetting)
 	}
-	applyDefaultUserSettings(user)
 	user.Group = NormalizeGroupField(user.Group)
 
 	result := tx.Create(user)

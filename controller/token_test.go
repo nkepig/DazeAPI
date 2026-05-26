@@ -211,8 +211,6 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 		"name":                 "updated-token",
 		"remain_quota":         100,
 		"unlimited_quota":      true,
-		"model_limits_enabled": false,
-		"model_limits":         "",
 		"group":                "default",
 		"cross_group_retry":    false,
 	}

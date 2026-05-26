@@ -55,55 +55,6 @@ func Distribute() func(c *gin.Context) {
 		} else {
 			// Select a channel for the user
 			// check token model mapping
-			// check user-level model overrides (whitelist)
-			if userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting); ok {
-				if len(userSetting.ModelOverrides) > 0 {
-					matchName := pricing.FormatMatchingModelName(modelRequest.Model)
-					_, matchOk := userSetting.ModelOverrides[matchName]
-					if !matchOk {
-						_, matchOk = userSetting.ModelOverrides[modelRequest.Model]
-					}
-					if !matchOk {
-						userId := c.GetInt("id")
-						if userId > 0 {
-							if userCache, err := model.GetUserCache(userId); err == nil {
-								accessibleModels := service.GetUserAccessibleModelsByRatio(userCache.GetGroupRatioMap())
-								for _, m := range accessibleModels {
-									if m == modelRequest.Model || m == matchName {
-										matchOk = true
-										break
-									}
-								}
-							}
-						}
-						if !matchOk {
-							abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("model %s is not enabled for your account", modelRequest.Model))
-							return
-						}
-					}
-				}
-			}
-
-			modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
-			if modelLimitEnable {
-				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
-				if !ok {
-					// token model limit is empty, all models are not allowed
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess))
-					return
-				}
-				var tokenModelLimit map[string]bool
-				tokenModelLimit, ok = s.(map[string]bool)
-				if !ok {
-					tokenModelLimit = map[string]bool{}
-				}
-				matchName := pricing.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
-				if _, ok := tokenModelLimit[matchName]; !ok {
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
-					return
-				}
-			}
-
 			if shouldSelectChannel {
 				if modelRequest.Model == "" {
 					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
@@ -186,6 +137,15 @@ func Distribute() func(c *gin.Context) {
 			}
 		}
 		billingModel := strings.TrimSpace(modelRequest.Model)
+		if billingModel != "" && !pricing.IsModelConfigured(billingModel) {
+			abortWithOpenAiMessage(
+				c,
+				http.StatusBadRequest,
+				fmt.Sprintf("model %s pricing is not configured", billingModel),
+				types.ErrorCodeModelPriceError,
+			)
+			return
+		}
 		if channel != nil {
 			if selectGroup != "" {
 				common.SetContextKey(c, constant.ContextKeyUsingGroup, selectGroup)

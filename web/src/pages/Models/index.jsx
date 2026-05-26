@@ -189,16 +189,6 @@ const Models = () => {
   const getPriceInfo = (model) => {
     const gr = model.user_multiplier != null ? model.user_multiplier : getUsedGroupRatio(model);
 
-    const isDefaultPrice = model.per_call_price === 0.111 || Math.abs(model.per_call_price - 0.111) < 0.0001;
-
-    if (isDefaultPrice) {
-      return {
-        type: 'unconfigured',
-        groupRatio: gr,
-        hasUserMultiplier: model.user_multiplier != null
-      };
-    }
-
     if (model.pricing_type === 1) {
       const rawPrice = parseFloat(model.per_call_price);
       return { type: 'fixed', price: displayPrice(rawPrice), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };

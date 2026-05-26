@@ -22,8 +22,7 @@ type Token struct {
 	
 	RemainQuota        int            `json:"remain_quota" gorm:"default:0"`
 	UnlimitedQuota     bool           `json:"unlimited_quota"`
-	ModelLimitsEnabled bool           `json:"model_limits_enabled"`
-	ModelLimits        string         `json:"model_limits" gorm:"type:text"`
+
 	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
 	Group              string         `json:"group" gorm:"default:''"`
@@ -295,7 +294,7 @@ func (token *Token) Update() (err error) {
 		}
 	}()
 	err = DB.Model(token).Select("name", "status", "remain_quota", "unlimited_quota",
-		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry").Updates(token).Error
+		"allow_ips", "group", "cross_group_retry").Updates(token).Error
 	return err
 }
 
@@ -327,36 +326,6 @@ func (token *Token) Delete() (err error) {
 	}()
 	err = DB.Delete(token).Error
 	return err
-}
-
-func (token *Token) IsModelLimitsEnabled() bool {
-	return token.ModelLimitsEnabled
-}
-
-func (token *Token) GetModelLimits() []string {
-	if token.ModelLimits == "" {
-		return []string{}
-	}
-	return strings.Split(token.ModelLimits, ",")
-}
-
-func (token *Token) GetModelLimitsMap() map[string]bool {
-	limits := token.GetModelLimits()
-	limitsMap := make(map[string]bool)
-	for _, limit := range limits {
-		limitsMap[limit] = true
-	}
-	return limitsMap
-}
-
-func DisableModelLimits(tokenId int) error {
-	token, err := GetTokenById(tokenId)
-	if err != nil {
-		return err
-	}
-	token.ModelLimitsEnabled = false
-	token.ModelLimits = ""
-	return token.Update()
 }
 
 func DeleteTokenById(id int, userId int) (err error) {

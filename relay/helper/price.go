@@ -5,7 +5,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -16,39 +15,6 @@ import (
 )
 
 const claudeCacheCreation1hMultiplier = 6.0 / 3.75
-
-func getUserModelOverride(info *relaycommon.RelayInfo, modelName string) (dto.UserModelOverride, bool) {
-	overrides := info.UserSetting.ModelOverrides
-	if len(overrides) == 0 {
-		return dto.UserModelOverride{}, false
-	}
-	if o, ok := overrides[modelName]; ok {
-		return o, true
-	}
-	if o, ok := overrides[info.OriginModelName]; ok {
-		return o, true
-	}
-	return dto.UserModelOverride{}, false
-}
-
-func applyUserOverride(info *relaycommon.RelayInfo, modelName string, modelPricing *pricing.ModelPricing) {
-	o, ok := getUserModelOverride(info, modelName)
-	if !ok {
-		return
-	}
-	if o.BillingType == "price" {
-		modelPricing.PerCallPrice = o.Value
-		modelPricing.UsePerCallPricing = true
-		modelPricing.PromptPrice = 0
-		modelPricing.CompletionPrice = 0
-		modelPricing.CacheReadPrice = 0
-		modelPricing.CacheWritePrice = 0
-	}
-	// GroupRatio 是用户分组倍率的唯一来源。
-	// UserSetting.ModelOverrides 仅保留模型白名单与按次固定价能力，
-	// 不再覆盖 token 按分组计算出的倍率，否则会把诸如 {"deepseek":2}
-	// 的用户倍率错误重置成默认 override 值（通常为 1）。
-}
 
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupDiscountInfo {
 	groupDiscountInfo := types.GroupDiscountInfo{
@@ -82,12 +48,12 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 	groupDiscountInfo := HandleGroupRatio(c, info)
 
-	modelPricing, found := pricing.GetModelPricing(info.OriginModelName)
-	if !found {
-		return types.PriceData{}, fmt.Errorf("model pricing not found: %s", info.OriginModelName)
+	modelPricing, err := pricing.RequireModelPricing(info.OriginModelName)
+	if err != nil {
+		return types.PriceData{}, err
 	}
 
-	applyUserOverride(info, modelName, &modelPricing)
+	applyUserModelRatioMultiplier(info, modelName, &groupDiscountInfo)
 
 	var preConsumedQuota int
 	var freeModel bool
@@ -158,12 +124,12 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 	groupDiscountInfo := HandleGroupRatio(c, info)
 	modelName := pricing.FormatMatchingModelName(info.OriginModelName)
 
-	modelPricing, found := pricing.GetModelPricing(info.OriginModelName)
-	if !found {
-		return types.PriceData{}, fmt.Errorf("model pricing not found: %s", info.OriginModelName)
+	modelPricing, err := pricing.RequireModelPricing(info.OriginModelName)
+	if err != nil {
+		return types.PriceData{}, err
 	}
 
-	applyUserOverride(info, modelName, &modelPricing)
+	applyUserModelRatioMultiplier(info, modelName, &groupDiscountInfo)
 
 	if !modelPricing.UsePerCallPricing {
 		modelPricing.PerCallPrice = modelPricing.PromptPrice

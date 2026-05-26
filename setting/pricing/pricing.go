@@ -64,6 +64,9 @@ func InitPricingSettings() {
 	groupModelDiscountMap.AddAll(defaultGroupModelDiscount)
 }
 
+// ErrModelPricingNotConfigured is returned when a model has no entry in ModelPrice.
+var ErrModelPricingNotConfigured = fmt.Errorf("model pricing not configured")
+
 func GetModelPricing(name string) (ModelPricing, bool) {
 	name = FormatMatchingModelName(name)
 	pricing, ok := modelPricingMap.Get(name)
@@ -156,6 +159,14 @@ func GroupModelDiscount2JSONString() string {
 
 func UpdateGroupModelDiscountByJSONString(jsonStr string) error {
 	return types.LoadFromJsonStringWithCallback(groupModelDiscountMap, jsonStr, func() {})
+}
+
+func RequireModelPricing(name string) (ModelPricing, error) {
+	pricing, ok := GetModelPricing(name)
+	if !ok {
+		return ModelPricing{}, fmt.Errorf("%w: %s", ErrModelPricingNotConfigured, name)
+	}
+	return pricing, nil
 }
 
 func IsModelConfigured(name string) bool {
