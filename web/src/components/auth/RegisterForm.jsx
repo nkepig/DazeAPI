@@ -79,7 +79,7 @@ const RegisterForm = () => {
   const { t } = useTranslation();
   const canvasRef = useRef(null);
 
-  const [inputs, setInputs] = useState({ username: '', password: '', password2: '', email: '', verification_code: '', wechat_verification_code: '' });
+  const [inputs, setInputs] = useState({ username: '', password: '', password2: '', email: '', verification_code: '', wechat_verification_code: '', aff_code: localStorage.getItem('aff') || '' });
   const { username, password, password2 } = inputs;
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
@@ -164,7 +164,7 @@ const RegisterForm = () => {
     if (turnstileEnabled && !turnstileToken) { showInfo('请稍后几秒重试'); return; }
     setRegisterLoading(true);
     try {
-      const res = await API.post(`/api/user/register?turnstile=${turnstileToken}`, { username, password, email: inputs.email, verification_code: inputs.verification_code, aff_code: localStorage.getItem('aff') });
+      const res = await API.post(`/api/user/register?turnstile=${turnstileToken}`, { username, password, email: inputs.email, verification_code: inputs.verification_code, aff_code: inputs.aff_code || localStorage.getItem('aff') });
       const { success, message } = res.data;
       if (success) { showSuccess(t('注册成功！')); navigate('/login'); } else showError(message);
     } catch { showError(t('注册失败，请重试')); }
@@ -276,6 +276,7 @@ const RegisterForm = () => {
                 <Form.Input field='email' label={t('邮箱')} placeholder={t('输入邮箱，支持： Gmail、QQ、163等主流邮箱')} type='email' onChange={(v) => handleChange('email', v)} prefix={<IconMail />}
                   suffix={<Button onClick={sendVerificationCode} loading={verificationCodeLoading} disabled={disableButton}>{disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}</Button>} />
                 <Form.Input field='verification_code' label={t('验证码')} placeholder={t('输入验证码')} onChange={(v) => handleChange('verification_code', v)} prefix={<IconKey />} />
+                <Form.Input field='aff_code' label={t('邀请码')} placeholder={t('填写邀请码（可选）')} onChange={(v) => handleChange('aff_code', v)} value={inputs.aff_code} />
               </Form>
 
               {(hasUserAgreement || hasPrivacyPolicy) && (

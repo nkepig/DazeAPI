@@ -117,7 +117,7 @@ const UserInfoModal = ({
           </div>
 
           {/* 邀请信息 */}
-          {(userInfoData.aff_code || userInfoData.aff_count !== undefined) && (
+          {(userInfoData.aff_code || userInfoData.aff_count !== undefined || userInfoData.inviter_id) && (
             <div style={rowStyle}>
               {userInfoData.aff_code && (
                 <div style={colStyle}>
@@ -133,6 +133,14 @@ const UserInfoModal = ({
                   </div>
                 </div>
               )}
+              {userInfoData.inviter_id ? (
+                <div style={colStyle}>
+                  {renderLabel(t('邀请人'), 'tertiary')}
+                  <div style={valueStyle}>
+                    {userInfoData.inviter_username || `${t('用户')} #${userInfoData.inviter_id}`}
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
 

@@ -294,6 +294,19 @@ export const getUsersColumns = ({
       },
     },
     {
+      title: t('邀请人'),
+      dataIndex: 'inviter_username',
+      render: (text, record) => {
+        if (text) {
+          return <span className='text-sm text-[#1A1A1A]'>{text}</span>;
+        }
+        if (record.inviter_id && record.inviter_id > 0) {
+          return <span className='text-sm text-[#999]'>用户 #{record.inviter_id}</span>;
+        }
+        return <span className='text-sm text-[#999]'>-</span>;
+      },
+    },
+    {
       title: '',
       dataIndex: 'operate',
       fixed: 'right',

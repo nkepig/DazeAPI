@@ -46,6 +46,7 @@ type User struct {
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
 	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
+	InviterUsername  string         `json:"inviter_username,omitempty" gorm:"-:all"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
@@ -200,7 +201,33 @@ func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err err
 		return nil, 0, err
 	}
 
+	fillInviterUsernames(users)
 	return users, total, nil
+}
+
+func fillInviterUsernames(users []*User) {
+	inviterIds := make([]int, 0)
+	for _, user := range users {
+		if user.InviterId > 0 {
+			inviterIds = append(inviterIds, user.InviterId)
+		}
+	}
+	if len(inviterIds) == 0 {
+		return
+	}
+	var inviters []User
+	if err := DB.Select("id", "username").Where("id IN ?", inviterIds).Find(&inviters).Error; err != nil {
+		return
+	}
+	usernameMap := make(map[int]string)
+	for _, inviter := range inviters {
+		usernameMap[inviter.Id] = inviter.Username
+	}
+	for _, user := range users {
+		if user.InviterId > 0 {
+			user.InviterUsername = usernameMap[user.InviterId]
+		}
+	}
 }
 
 func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, int64, error) {
@@ -267,6 +294,7 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 		return nil, 0, err
 	}
 
+	fillInviterUsernames(users)
 	return users, total, nil
 }
 

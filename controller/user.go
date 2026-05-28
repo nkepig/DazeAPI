@@ -407,6 +407,10 @@ func buildUserResponseData(user *model.User, includeRemark bool) gin.H {
 		"setting":           setting,
 		"stripe_customer":   user.StripeCustomer,
 	}
+	if user.InviterId != 0 {
+		inviterUsername, _ := model.GetUsernameById(user.InviterId, false)
+		responseData["inviter_username"] = inviterUsername
+	}
 	if includeRemark {
 		responseData["remark"] = user.Remark
 	}
