@@ -27,7 +27,7 @@ import {
   InputNumber,
 } from '@douyinfe/semi-ui';
 import { SiAlipay } from 'react-icons/si';
-import { Wallet, BarChart2, TrendingUp, Receipt } from 'lucide-react';
+import { Wallet, BarChart2, CreditCard, TrendingUp, Receipt } from 'lucide-react';
 import { showError } from '../../helpers';
 
 const { Text } = Typography;
@@ -35,10 +35,13 @@ const { Text } = Typography;
 const RechargeCard = ({
   t,
   enableAlipayTopUp,
+  enableEpayTopUp,
+  epayPayTypes = [],
   minTopUp,
   payAmount,
   onPayAmountChange,
   onOpenAlipay,
+  onOpenEpay,
   userState,
   renderQuota,
   statusLoading,
@@ -52,19 +55,33 @@ const RechargeCard = ({
     }
     onOpenAlipay();
   };
+  const handleOpenEpay = (type) => {
+    const y = Math.round(Number(payAmount) * 100) / 100;
+    if (!Number.isFinite(y) || y < minTopUp) {
+      showError(t('金额不能低于最低充值限额'));
+      return;
+    }
+    onOpenEpay(type);
+  };
+  const epayTypes = epayPayTypes.length > 0 ? epayPayTypes : ['alipay'];
+  const epayTypeName = (type) => {
+    if (type === 'alipay') return t('易支付-支付宝');
+    if (type === 'wxpay') return t('易支付-微信');
+    return `${t('易支付')}-${type}`;
+  };
   return (
     <Card className='!rounded-2xl shadow-sm border border-[var(--semi-color-border)]'>
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-3'>
           <div className='w-10 h-10 rounded-xl bg-[#e6f4ff] flex items-center justify-center'>
-            <SiAlipay size={22} color='#1677FF' />
+            <CreditCard size={22} color='#1677FF' />
           </div>
           <div>
             <Typography.Text className='text-lg font-semibold block'>
-              {t('支付宝充值')}
+              {t('在线充值')}
             </Typography.Text>
             <Text type='tertiary' style={{ fontSize: 12 }}>
-              {t('点击生成付款码，使用支付宝扫码支付')}
+              {t('选择支付方式完成充值')}
             </Text>
           </div>
         </div>
@@ -112,7 +129,7 @@ const RechargeCard = ({
         <div className='py-12 flex justify-center'>
           <Spin size='large' />
         </div>
-      ) : enableAlipayTopUp ? (
+      ) : enableAlipayTopUp || enableEpayTopUp ? (
         <div>
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ display: 'block', marginBottom: 6 }}>
@@ -134,17 +151,35 @@ const RechargeCard = ({
               {t('上下箭头每次增减 1 元；手动输入支持两位小数')}
             </Text>
           </div>
-          <Button
-            theme='solid'
-            type='primary'
-            size='large'
-            block
-            icon={<SiAlipay size={20} />}
-            onClick={handleOpenQr}
-            style={{ background: '#1677FF', borderColor: '#1677FF' }}
-          >
-            {t('生成付款码')}
-          </Button>
+          <div className='flex flex-col gap-2'>
+            {enableAlipayTopUp && (
+              <Button
+                theme='solid'
+                type='primary'
+                size='large'
+                block
+                icon={<SiAlipay size={20} />}
+                onClick={handleOpenQr}
+                style={{ background: '#1677FF', borderColor: '#1677FF' }}
+              >
+                {t('生成支付宝付款码')}
+              </Button>
+            )}
+            {enableEpayTopUp && epayTypes.map((type) => (
+              <Button
+                key={type}
+                theme='solid'
+                type='primary'
+                size='large'
+                block
+                icon={<CreditCard size={20} />}
+                onClick={() => handleOpenEpay(type)}
+                style={{ background: '#16a34a', borderColor: '#16a34a' }}
+              >
+                {epayTypeName(type)}
+              </Button>
+            ))}
+          </div>
         </div>
       ) : (
         <Banner

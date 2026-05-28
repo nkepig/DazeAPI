@@ -181,7 +181,7 @@ func CompleteTopUp(topUp *TopUp, quota int64) error {
 		return err
 	}
 	if completed {
-		RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("支付宝充值成功，充值额度: %v，支付金额：%.2f 元，订单号: %s", logger.FormatQuota(int(quota)), topUp.Money, topUp.TradeNo))
+		RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("在线充值成功，充值额度: %v，支付金额：%.2f 元，订单号: %s", logger.FormatQuota(int(quota)), topUp.Money, topUp.TradeNo))
 	}
 	return nil
 }

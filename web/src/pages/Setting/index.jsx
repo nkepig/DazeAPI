@@ -3,7 +3,6 @@ Copyright (C) 2025 QuantumNous
 */
 
 import React, { useEffect, useState } from 'react';
-import { Collapsible } from '@douyinfe/semi-ui';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -45,11 +44,7 @@ function SectionBlock({ sectionKey, icon: Icon, label, children, open, onToggle,
           }}
         />
       </button>
-      <Collapsible isOpen={open}>
-        <div className='pt-2 pb-4'>
-          {children}
-        </div>
-      </Collapsible>
+      {open && <div className='pt-2 pb-4'>{children}</div>}
       <div className='border-b border-[#F0F0F0]' />
     </div>
   );

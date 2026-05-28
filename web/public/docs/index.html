@@ -16,6 +16,10 @@
     <!-- Load Scalar Library -->
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
     <script>
+      // 动态获取 Base URL：优先使用运营配置注入的 SITE_URL，如果没有则默认使用当前浏览器的 Origin (Host)
+      const injectedSiteUrl = (typeof window !== 'undefined' && typeof window.SITE_URL === 'string') ? window.SITE_URL.trim() : '';
+      const baseUrl = (injectedSiteUrl || window.location.origin).replace(/\/+$/, '');
+
       // 1. Define API Specification Data (OpenAPI Spec)
       const apiSpec = {
         "openapi": "1.0.0",
@@ -25,23 +29,23 @@
           "description": "Unified API service integrating Gemini, OpenAI, Claude, and Sora. Supports multiple native model formats in a single gateway.",
           "contact": {
             "name": "API Support",
-            "url": "https://uqapi.com"
+            "url": baseUrl
           },
           "license": {
             "name": "UQ API",
-            "url": "https://uqapi.com"
+            "url": baseUrl
           }
         },
         "servers":[
           { 
-            "url": "https://uqapi.com", 
-            "description": "UQ API Main Gateway"
+            "url": baseUrl, 
+            "description": "UQ API Gateway"
           }
         ],
         "tags":[
           {
             "name": "OpenAI",
-            "description": "OpenAI compatible APIs for Chat, Image Generation, Embeddings, and Models.\n\n🔗 **[Official OpenAI Documentation](https://platform.openai.com/docs/api-reference)**"
+            "description": "OpenAI compatible APIs for Chat, Image Generation, Image Edits, Embeddings, and Models.\n\n🔗 **[Official OpenAI Documentation](https://platform.openai.com/docs/api-reference)**"
           },
           {
             "name": "Gemini",
@@ -50,10 +54,6 @@
           {
             "name": "Anthropic (Claude)",
             "description": "Anthropic Claude native APIs. Requires `anthropic-version` header.\n\n🔗 **[Official Anthropic Documentation](https://docs.anthropic.com/en/api/messages)**"
-          },
-          {
-            "name": "Reverse APIs",
-            "description": "Reverse-engineered APIs for advanced image and video generation (e.g., GPT-Image, Sora)."
           }
         ],
         "components": {
@@ -118,8 +118,7 @@
                     "example": {
                       "model": "gpt-4o-mini",
                       "messages":[
-                        { "role": "system", "content": "You are a helpful assistant." },
-                        { "role": "user", "content": "Hello, how are you?" }
+                        { "role": "user", "content": "Hi" }
                       ],
                       "stream": false
                     }
@@ -143,7 +142,7 @@
                             "index": 0,
                             "message": {
                               "role": "assistant",
-                              "content": "I'm doing well, thank you!"
+                              "content": "Hi!"
                             },
                             "finish_reason": "stop"
                           }
@@ -160,7 +159,7 @@
               "operationId": "createImage",
               "tags":["OpenAI"],
               "summary": "Create Image",
-              "description": "Generate an image based on a text prompt. Supports DALL-E 2 and DALL-E 3 models.",
+              "description": "Generate an image from a short prompt.",
               "requestBody": {
                 "required": true,
                 "content": {
@@ -169,8 +168,8 @@
                       "type": "object"
                     },
                     "example": {
-                      "prompt": "A cute baby sea otter",
-                      "model": "dall-e-3",
+                      "prompt": "A cat",
+                      "model": "gpt-image-2",
                       "n": 1,
                       "size": "1024x1024"
                     }
@@ -189,7 +188,73 @@
                         "created": 1589478378,
                         "data":[
                           {
-                            "url": "https://uqapi.com/images/sample.png"
+                            "url": baseUrl + "/images/sample.png"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/images/edits": {
+            "post": {
+              "operationId": "createImageEdit",
+              "tags": ["OpenAI"],
+              "summary": "OpenAI Image Edit",
+              "description": `Edit an uploaded image with an OpenAI-compatible multipart request.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '${baseUrl}/v1/images/edits' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -F 'model=gpt-image-2-base64' \\\n  -F 'image[]=@/path/to/image.png' \\\n  -F 'prompt=Make it brighter'\n\`\`\``,
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string",
+                          "description": "The image model to use, e.g., gpt-image-2-base64"
+                        },
+                        "image": {
+                          "type": "string",
+                          "format": "binary",
+                          "description": "Single image file."
+                        },
+                        "image[]": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "binary"
+                          },
+                          "description": "One or more image files. Recommended for OpenAI-compatible clients."
+                        },
+                        "prompt": {
+                          "type": "string",
+                          "description": "The text description for editing."
+                        }
+                      },
+                      "required": ["model", "image[]", "prompt"]
+                    },
+                    "example": {
+                      "model": "gpt-image-2-base64",
+                      "prompt": "Make it brighter"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully edited image.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "created": 1713833628,
+                        "data":[
+                          {
+                            "url": baseUrl + "/images/edited.png"
                           }
                         ]
                       }
@@ -214,7 +279,7 @@
                     },
                     "example": {
                       "model": "text-embedding-3-small",
-                      "input": "The food was delicious and the waiter was friendly."
+                      "input": "Hello"
                     }
                   }
                 }
@@ -299,7 +364,7 @@
                       "contents": [
                         {
                           "parts":[
-                            { "text": "Hello, AI! Please introduce yourself." }
+                            { "text": "Hi" }
                           ]
                         }
                       ]
@@ -320,7 +385,7 @@
                           {
                             "content": {
                               "parts":[
-                                { "text": "Hello! I am Gemini..." }
+                                { "text": "Hi!" }
                               ]
                             }
                           }
@@ -351,7 +416,7 @@
                       "messages":[
                         {
                           "role": "user",
-                          "content": "Hello, Claude! How are you today?"
+                          "content": "Hi"
                         }
                       ]
                     }
@@ -373,97 +438,9 @@
                         "content":[
                           {
                             "type": "text",
-                            "text": "Hello! I'm doing well, thank you for asking."
+                            "text": "Hi!"
                           }
                         ]
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "/v1/chat/completions/reverse": {
-             "post": {
-              "operationId": "createImageReverse",
-              "tags": ["Reverse APIs"],
-              "summary": "Generate Image (GPT Image)",
-              "description": "Generate images using reverse-engineered GPT Image models.",
-              "requestBody": {
-                "required": true,
-                "content": {
-                  "application/json": {
-                    "schema": {
-                      "type": "object"
-                    },
-                    "example": {
-                      "model": "gpt-image-1.5",
-                      "messages":[
-                        { "role": "user", "content": "A cute cat" }
-                      ],
-                      "size": "360x360"
-                    }
-                  }
-                }
-              },
-              "responses": {
-                "200": {
-                  "description": "Successfully generated image.",
-                  "content": {
-                    "application/json": {
-                      "schema": {
-                        "type": "object"
-                      },
-                      "example": {
-                        "created": 1713833628,
-                        "data":[
-                          {
-                            "url": "https://uqapi.com/images/cat.png"
-                          }
-                        ]
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "/v1/videos": {
-            "post": {
-              "operationId": "createVideoReverse",
-              "tags": ["Reverse APIs"],
-              "summary": "Generate Video (Sora)",
-              "description": "Generate videos using reverse-engineered Sora model.",
-              "requestBody": {
-                "required": true,
-                "content": {
-                  "multipart/form-data": {
-                    "schema": {
-                      "type": "object"
-                    },
-                    "example": {
-                      "prompt": "A cute cat playing with a ball",
-                      "model": "sora-2",
-                      "seconds": "10",
-                      "size": "720x1280"
-                    }
-                  }
-                }
-              },
-              "responses": {
-                "200": {
-                  "description": "Successfully generated video.",
-                  "content": {
-                    "application/json": {
-                      "schema": {
-                        "type": "object"
-                      },
-                      "example": {
-                        "id": "video_abc123",
-                        "object": "video",
-                        "model": "sora-2",
-                        "status": "completed",
-                        "url": "https://uqapi.com/videos/video_abc123.mp4"
                       }
                     }
                   }

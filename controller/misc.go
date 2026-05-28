@@ -90,6 +90,7 @@ func GetStatus(c *gin.Context) {
 		"price":             operation_setting.Price,
 		"stripe_unit_price": setting.StripeUnitPrice,
 		"enable_alipay_topup": operation_setting.GetPaymentSetting().AlipayAppId != "" && operation_setting.GetPaymentSetting().AlipayPrivateKey != "",
+		"enable_epay_topup":   epayConfigured(operation_setting.GetPaymentSetting()),
 
 		// 面板启用开关
 		"api_info_enabled":      cs.ApiInfoEnabled,

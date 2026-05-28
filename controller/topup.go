@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
@@ -71,12 +72,30 @@ func GetTopUpInfo(c *gin.Context) {
 
 	ps := operation_setting.GetPaymentSetting()
 	enableAlipay := ps.AlipayAppId != "" && ps.AlipayPrivateKey != ""
+	enableEpay := epayConfigured(ps)
+	if enableEpay {
+		for _, payType := range strings.Split(ps.EpayPayTypes, ",") {
+			payType = strings.TrimSpace(payType)
+			if payType == "" {
+				continue
+			}
+			payMethods = append(payMethods, map[string]string{
+				"name":      epayPayTypeName(payType),
+				"type":      "epay",
+				"pay_type":  payType,
+				"color":     "rgba(var(--semi-green-5), 1)",
+				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
+			})
+		}
+	}
 
 	data := gin.H{
 		"enable_stripe_topup": setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
 		"enable_creem_topup":  setting.CreemApiKey != "" && setting.CreemProducts != "[]",
 		"enable_waffo_topup":  enableWaffo,
 		"enable_alipay_topup": enableAlipay,
+		"enable_epay_topup":   enableEpay,
+		"epay_pay_types":      splitEpayPayTypes(ps.EpayPayTypes),
 		"waffo_pay_methods": func() interface{} {
 			if enableWaffo {
 				return setting.GetWaffoPayMethods()
@@ -92,6 +111,17 @@ func GetTopUpInfo(c *gin.Context) {
 		"discount":         ps.AmountDiscount,
 	}
 	common.ApiSuccess(c, data)
+}
+
+func epayPayTypeName(payType string) string {
+	switch payType {
+	case "alipay":
+		return "易支付-支付宝"
+	case "wxpay":
+		return "易支付-微信"
+	default:
+		return "易支付-" + payType
+	}
 }
 
 type AmountRequest struct {

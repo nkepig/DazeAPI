@@ -10,12 +10,18 @@ type PaymentSetting struct {
 	AlipayPublicKey  string          `json:"alipay_public_key"`
 	AlipayGateway    string          `json:"alipay_gateway"`
 	AlipayNotifyUrl  string          `json:"alipay_notify_url"`
+	EpayEnabled      bool            `json:"epay_enabled"`
+	EpayApiUrl       string          `json:"epay_api_url"`
+	EpayPid          string          `json:"epay_pid"`
+	EpayKey          string          `json:"epay_key"`
+	EpayPayTypes     string          `json:"epay_pay_types"`
 }
 
 var paymentSetting = PaymentSetting{
 	AmountOptions:  []int{10, 20, 50, 100, 200, 500},
 	AmountDiscount: map[int]float64{},
 	AlipayGateway:  "https://openapi.alipay.com/gateway.do",
+	EpayPayTypes:   "alipay,wxpay",
 }
 
 func init() {

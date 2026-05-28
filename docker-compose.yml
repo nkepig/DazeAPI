@@ -30,7 +30,8 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/data
-      - ./logs:/app/logs
+      # 使用命名卷，避免容器写日志触发 IDE 对工作区 logs/ 的文件监听
+      - api_logs:/app/logs
     environment:
       - SQL_DSN=postgresql://root:Xdd20041031@postgres:5432/new-api # ⚠️ IMPORTANT: Change the password in production!
 #      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api  # Point to the mysql service, uncomment if using MySQL
@@ -95,6 +96,7 @@ services:
 
 volumes:
   pg_data:
+  api_logs:
 #  mysql_data:
 
 networks:

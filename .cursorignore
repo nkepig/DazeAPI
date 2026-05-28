@@ -1,0 +1,15 @@
+# Reduce Cursor indexing / file events (keep in sync with .vscode/settings.json)
+web/node_modules/
+electron/node_modules/
+logs/
+data/
+web/dist/
+electron/dist/
+build/
+.git/
+.gomodcache/
+.gocache/
+.gocache-temp/
+.gopath/
+tiktoken_cache/
+.cache/

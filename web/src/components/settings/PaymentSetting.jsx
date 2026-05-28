@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from '@douyinfe/semi-ui';
 import SettingsPaymentGatewayAlipay from '../../pages/Setting/Payment/SettingsPaymentGatewayAlipay';
+import SettingsPaymentGatewayEpay from '../../pages/Setting/Payment/SettingsPaymentGatewayEpay';
 import { API, showError } from '../../helpers';
 import { useTranslation } from 'react-i18next';
 
@@ -34,7 +35,10 @@ const PaymentSetting = () => {
     if (success) {
       const next = {};
       data.forEach((item) => {
-        if (item.key.startsWith('payment_setting.alipay_')) {
+        if (
+          item.key.startsWith('payment_setting.alipay_') ||
+          item.key.startsWith('payment_setting.epay_')
+        ) {
           next[item.key] = item.value;
         }
       });
@@ -63,6 +67,7 @@ const PaymentSetting = () => {
     <Spin spinning={loading} size='large'>
       <Card style={{ marginTop: '10px' }}>
         <SettingsPaymentGatewayAlipay options={inputs} refresh={onRefresh} />
+        <SettingsPaymentGatewayEpay options={inputs} refresh={onRefresh} />
       </Card>
     </Spin>
   );

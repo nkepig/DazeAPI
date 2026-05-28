@@ -5,12 +5,14 @@ import (
 	"embed"
 	"html"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
@@ -64,6 +66,26 @@ func renderIndexPage(indexPage []byte) []byte {
 	return rendered
 }
 
+func renderDocsPage(data []byte) []byte {
+	siteURL := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
+	if siteURL == "" {
+		return data
+	}
+	script := []byte("<script>window.SITE_URL=" + strconv.Quote(siteURL) + ";</script>")
+	insertAt := bytes.Index(data, []byte("</head>"))
+	if insertAt == -1 {
+		rendered := make([]byte, 0, len(script)+len(data))
+		rendered = append(rendered, script...)
+		rendered = append(rendered, data...)
+		return rendered
+	}
+	rendered := make([]byte, 0, len(data)+len(script))
+	rendered = append(rendered, data[:insertAt]...)
+	rendered = append(rendered, script...)
+	rendered = append(rendered, data[insertAt:]...)
+	return rendered
+}
+
 func SetWebRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.GlobalWebRateLimit())
@@ -86,10 +108,11 @@ func SetWebRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 			return
 		}
 		c.Header("Cache-Control", "no-cache")
-		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+		c.Data(http.StatusOK, "text/html; charset=utf-8", renderDocsPage(data))
 	}
 	router.GET("/docs", docsHandler)
 	router.GET("/docs/", docsHandler)
+	router.GET("/docs/index.html", docsHandler)
 
 	router.Use(static.Serve("/", common.EmbedFolder(buildFS, "web/dist")))
 	router.NoRoute(func(c *gin.Context) {

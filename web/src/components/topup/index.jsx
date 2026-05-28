@@ -37,6 +37,8 @@ const TopUp = () => {
   const [minTopUp, setMinTopUp] = useState(statusState?.status?.min_topup || 1);
   const [payAmount, setPayAmount] = useState(1);
   const [enableAlipayTopUp, setEnableAlipayTopUp] = useState(false);
+  const [enableEpayTopUp, setEnableEpayTopUp] = useState(false);
+  const [epayPayTypes, setEpayPayTypes] = useState([]);
   const [alipayQRVisible, setAlipayQRVisible] = useState(false);
   const [statusLoading, setStatusLoading] = useState(true);
 
@@ -58,6 +60,8 @@ const TopUp = () => {
       const { data, success } = res.data;
       if (success) {
         setEnableAlipayTopUp(data.enable_alipay_topup || false);
+        setEnableEpayTopUp(data.enable_epay_topup || false);
+        setEpayPayTypes(Array.isArray(data.epay_pay_types) ? data.epay_pay_types : []);
         const minVal = Math.max(1, Number(data.min_topup) || 1);
         setMinTopUp(minVal);
       } else {
@@ -103,6 +107,25 @@ const TopUp = () => {
     }
   }, [statusState?.status]);
 
+  const handleOpenEpay = async (type) => {
+    const y = Math.round(Number(payAmount) * 100) / 100;
+    if (!Number.isFinite(y) || y < minTopUp) {
+      showError(t('金额不能低于最低充值限额'));
+      return;
+    }
+    try {
+      const res = await API.post('/api/user/epay/pay', { amount: y, type });
+      const { success, message, data } = res.data;
+      if (success && data?.pay_url) {
+        window.location.href = data.pay_url;
+      } else {
+        showError(message || t('创建支付订单失败'));
+      }
+    } catch (error) {
+      showError(t('支付请求失败'));
+    }
+  };
+
   return (
     <div className='w-full max-w-xl mx-auto relative min-h-screen lg:min-h-0 mt-[60px] px-3 pb-10'>
       <TopupHistoryModal
@@ -123,10 +146,13 @@ const TopUp = () => {
       <RechargeCard
         t={t}
         enableAlipayTopUp={enableAlipayTopUp}
+        enableEpayTopUp={enableEpayTopUp}
+        epayPayTypes={epayPayTypes}
         minTopUp={minTopUp}
         payAmount={payAmount}
         onPayAmountChange={setPayAmount}
         onOpenAlipay={() => setAlipayQRVisible(true)}
+        onOpenEpay={handleOpenEpay}
         userState={userState}
         renderQuota={renderQuota}
         statusLoading={statusLoading}

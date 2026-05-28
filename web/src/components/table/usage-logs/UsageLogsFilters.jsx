@@ -73,9 +73,6 @@ const LogsFilters = ({
               style={{ width: 120 }}
               showClear
               pure
-              onChange={() => {
-                setTimeout(() => { refresh(); }, 0);
-              }}
             >
               <Form.Select.Option value='0'>{t('全部')}</Form.Select.Option>
               <Form.Select.Option value='1'>{t('充值')}</Form.Select.Option>

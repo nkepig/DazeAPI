@@ -35,6 +35,9 @@ func SetApiRouter(router *gin.Engine) {
 
 		// Alipay async notify（需公网可访问）
 		apiRouter.POST("/alipay/notify", controller.AlipayNotify)
+		apiRouter.GET("/epay/notify", controller.EpayNotify)
+		apiRouter.POST("/epay/notify", controller.EpayNotify)
+		apiRouter.GET("/epay/return", controller.EpayReturn)
 
 		// Universal secure verification routes
 		apiRouter.POST("/verify", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.UniversalVerify)
@@ -58,6 +61,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
 				selfRoute.POST("/alipay/pay", middleware.CriticalRateLimit(), controller.RequestAlipayTopUp)
+				selfRoute.POST("/epay/pay", middleware.CriticalRateLimit(), controller.RequestEpayTopUp)
 				selfRoute.GET("/alipay/status", controller.AlipayTopUpStatus)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 			}
