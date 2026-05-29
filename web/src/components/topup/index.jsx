@@ -127,7 +127,7 @@ const TopUp = () => {
   };
 
   return (
-    <div className='w-full max-w-xl mx-auto relative min-h-screen lg:min-h-0 mt-[60px] px-3 pb-10'>
+    <div className='w-full max-w-xl mx-auto relative min-h-screen lg:min-h-0 px-3 pb-10'>
       <TopupHistoryModal
         visible={openHistory}
         onCancel={() => setOpenHistory(false)}
