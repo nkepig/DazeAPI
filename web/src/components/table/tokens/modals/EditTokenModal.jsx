@@ -146,7 +146,7 @@ const EditTokenModal = (props) => {
       const baseName =
         values.name.trim() === '' ? 'default' : values.name.trim();
       localInputs.name = baseName;
-      localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
+      localInputs.remain_quota = 0;
       localInputs.unlimited_quota = true;
       const res = await API.post(`/api/token/`, localInputs);
       const { success, message } = res.data;
@@ -254,65 +254,54 @@ const EditTokenModal = (props) => {
                 </Row>
               </Card>
 
-              {/* 额度设置 */}
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='green' className='mr-2 shadow-md'>
-                    <IconCreditCard size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('额度设置')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('设置令牌可用额度')}
+              {isEdit && (
+                <Card className='!rounded-2xl shadow-sm border-0'>
+                  <div className='flex items-center mb-2'>
+                    <Avatar size='small' color='green' className='mr-2 shadow-md'>
+                      <IconCreditCard size={16} />
+                    </Avatar>
+                    <div>
+                      <Text className='text-lg font-medium'>{t('额度设置')}</Text>
+                      <div className='text-xs text-gray-600'>
+                        {t('设置令牌可用额度')}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <Row gutter={12}>
-                  {isEdit ? (
-                    <>
-                      <Col span={24}>
-                        <Form.InputNumber
-                          field='remain_quota'
-                          label={t('额度')}
-                          placeholder={t('请输入额度')}
-                          type='number'
-                          disabled={values.unlimited_quota}
-                          extraText={
-                            values.unlimited_quota
-                              ? ''
-                              : `${symbol}${(values.remain_quota || 0).toFixed(2)}`
-                          }
-                          step={1}
-                          precision={2}
-                          rules={
-                            values.unlimited_quota
-                              ? []
-                              : [{ required: true, message: t('请输入额度') }]
-                          }
-                        />
-                      </Col>
-                      <Col span={24}>
-                        <Form.Switch
-                          field='unlimited_quota'
-                          label={t('无限额度')}
-                          size='default'
-                          extraText={t(
-                            '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
-                          )}
-                        />
-                      </Col>
-                    </>
-                  ) : (
+                  <Row gutter={12}>
                     <Col span={24}>
-                      <Text type='tertiary'>
-                        {t(
-                          '新建令牌默认为无限额度，创建后可在列表中编辑以设置固定额度上限',
-                        )}
-                      </Text>
+                      <Form.InputNumber
+                        field='remain_quota'
+                        label={t('额度')}
+                        placeholder={t('请输入额度')}
+                        type='number'
+                        disabled={values.unlimited_quota}
+                        extraText={
+                          values.unlimited_quota
+                            ? ''
+                            : `${symbol}${(values.remain_quota || 0).toFixed(2)}`
+                        }
+                        step={1}
+                        precision={2}
+                        rules={
+                          values.unlimited_quota
+                            ? []
+                            : [{ required: true, message: t('请输入额度') }]
+                        }
+                      />
                     </Col>
-                  )}
-                </Row>
-              </Card>
+                    <Col span={24}>
+                      <Form.Switch
+                        field='unlimited_quota'
+                        label={t('无限额度')}
+                        size='default'
+                        extraText={t(
+                          '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
+                        )}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              )}
 
             </div>
           )}
