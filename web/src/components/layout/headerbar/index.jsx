@@ -19,9 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { useHeaderBar } from '../../../hooks/common/useHeaderBar';
-import { useNotifications } from '../../../hooks/common/useNotifications';
 import { useNavigation } from '../../../hooks/common/useNavigation';
-import NoticeModal from '../NoticeModal';
 import MobileMenuButton from './MobileMenuButton';
 import HeaderLogo from './HeaderLogo';
 import Navigation from './Navigation';
@@ -53,26 +51,10 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     t,
   } = useHeaderBar({ onMobileMenuToggle, drawerOpen });
 
-  const {
-    noticeVisible,
-    unreadCount,
-    handleNoticeOpen,
-    handleNoticeClose,
-    getUnreadKeys,
-  } = useNotifications(statusState);
-
   const { mainNavLinks } = useNavigation(t, docsLink, headerNavModules);
 
   return (
     <header className='text-semi-color-text-0 sticky top-0 z-50 transition-colors duration-300 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-lg'>
-      <NoticeModal
-        visible={noticeVisible}
-        onClose={handleNoticeClose}
-        isMobile={isMobile}
-        defaultTab={unreadCount > 0 ? 'system' : 'inApp'}
-        unreadKeys={getUnreadKeys()}
-      />
-
       <div className='w-full px-2'>
         <div className='flex items-center justify-between h-16'>
           <div className='flex items-center'>
@@ -107,10 +89,10 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
 
           <ActionButtons
             isNewYear={isNewYear}
-            unreadCount={unreadCount}
-            onNoticeOpen={handleNoticeOpen}
+            unreadCount={0}
+            onNoticeOpen={() => {}}
             theme={theme}
-            onThemeToggle={handleThemeToggle}
+            onThemeToggle={onThemeToggle}
             currentLang={currentLang}
             onLanguageChange={handleLanguageChange}
             userState={userState}
