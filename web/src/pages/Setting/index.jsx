@@ -10,14 +10,17 @@ import {
   Calculator,
   Activity,
   ChevronDown,
+  Megaphone,
 } from 'lucide-react';
 
 import { isRoot } from '../../helpers';
 import OperationSetting from '../../components/settings/OperationSetting';
 import RatioSetting from '../../components/settings/RatioSetting';
 import PerformanceSetting from '../../components/settings/PerformanceSetting';
+import AnnouncementSetting from '../../components/settings/AnnouncementSetting';
 
 const sections = [
+  { key: 'announcement', icon: Megaphone, label: '公告管理', Component: AnnouncementSetting },
   { key: 'operation', icon: Settings, label: '运营设置', Component: OperationSetting },
   { key: 'ratio', icon: Calculator, label: '模型定价', Component: RatioSetting },
   { key: 'performance', icon: Activity, label: '性能设置', Component: PerformanceSetting },

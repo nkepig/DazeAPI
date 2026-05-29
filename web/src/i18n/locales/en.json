@@ -3464,5 +3464,10 @@
   "渠道 / 密钥": "Channel / Key",
   "成功率": "Success Rate",
   "成功/总数": "Success/Total",
-  "总请求数": "Total Requests"
+  "总请求数": "Total Requests",
+  "请输入公告内容（支持 Markdown）": "Enter announcement content (Markdown supported)",
+  "保存": "Save",
+  "保存且通知": "Save & Notify",
+  "公告已保存并通知用户": "Announcement saved and users notified",
+  "预览": "Preview"
 }

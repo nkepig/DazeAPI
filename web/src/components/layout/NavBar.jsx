@@ -12,13 +12,16 @@ import {
   Home,
   Menu,
   X,
+  Megaphone,
   Globe,
 } from 'lucide-react';
 import { UserContext } from '../../context/User';
 import { isRoot, isAdmin, getSystemName, stringToColor } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
-import { Avatar } from '@douyinfe/semi-ui';
+import { Avatar, Badge } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
+import AnnouncementModal from './AnnouncementModal';
+import { API } from '../../helpers/api';
 
 const navItems = [
   { key: 'dashboard', path: '/console/dashboard', icon: LayoutDashboard, label: '控制台' },
@@ -45,9 +48,31 @@ const NavBar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [announcementVisible, setAnnouncementVisible] = useState(false);
+  const [announcementContent, setAnnouncementContent] = useState('');
+  const [announcementVersion, setAnnouncementVersion] = useState('');
+  const [hasUnread, setHasUnread] = useState(false);
   const dropdownRef = useRef(null);
   const langRef = useRef(null);
   const isLoggedIn = !!userState?.user;
+
+  const fetchAnnouncement = async () => {
+    try {
+      const res = await API.get('/api/announcement');
+      if (res.data?.success) {
+        const { content, version } = res.data.data || {};
+        setAnnouncementContent(content || '');
+        setAnnouncementVersion(version || '');
+        const readVersion = localStorage.getItem('announcement_read_version') || '';
+        setHasUnread(content && !!version && readVersion !== version);
+      }
+    } catch {
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncement();
+  }, []);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -176,7 +201,22 @@ const NavBar = () => {
 
         {/* Right */}
         <div className='flex items-center gap-2 shrink-0'>
-          {/* Language */}
+          <button
+            onClick={() => {
+              fetchAnnouncement();
+              setAnnouncementVisible(true);
+              if (hasUnread && announcementVersion) {
+                localStorage.setItem('announcement_read_version', String(announcementVersion));
+                setHasUnread(false);
+              }
+            }}
+            className='relative flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 hover:bg-[#F5F5F5] transition-colors'
+          >
+            <Badge dot={hasUnread} type='danger'>
+              <Megaphone size={18} strokeWidth={1.5} color='#999' />
+            </Badge>
+          </button>
+
           <div className='relative' ref={langRef}>
             <button
               onClick={() => setLangOpen(!langOpen)}
@@ -370,6 +410,13 @@ const NavBar = () => {
           </div>
         </motion.div>
       )}
+      <AnnouncementModal
+        visible={announcementVisible}
+        content={announcementContent}
+        version={announcementVersion}
+        onClose={() => setAnnouncementVisible(false)}
+        isMobile={false}
+      />
     </nav>
   );
 };

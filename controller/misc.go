@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -138,14 +139,50 @@ func GetStatus(c *gin.Context) {
 	return
 }
 
-func GetNotice(c *gin.Context) {
+func GetAnnouncement(c *gin.Context) {
 	common.OptionMapRWMutex.RLock()
-	defer common.OptionMapRWMutex.RUnlock()
+	content := common.OptionMap["Notice"]
+	versionStr := common.OptionMap["NoticeVersion"]
+	common.OptionMapRWMutex.RUnlock()
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    common.OptionMap["Notice"],
+		"data": gin.H{
+			"content": content,
+			"version": versionStr,
+		},
 	})
+	return
+}
+
+func UpdateAnnouncement(c *gin.Context) {
+	type Request struct {
+		Content string `json:"content"`
+		Notify  bool   `json:"notify"`
+	}
+	var req Request
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "无效的参数"})
+		return
+	}
+
+	if err := model.UpdateOption("Notice", req.Content); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	var version string
+	if req.Notify {
+		loc, _ := time.LoadLocation("Asia/Shanghai")
+		version = time.Now().In(loc).Format("2006-01-02 15:04:05")
+		if err := model.UpdateOption("NoticeVersion", version); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": version})
 	return
 }
 
