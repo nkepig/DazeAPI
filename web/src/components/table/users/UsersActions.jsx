@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Button } from '@douyinfe/semi-ui';
 
-const UsersActions = ({ setShowAddUser, t }) => {
+const UsersActions = ({ setShowAddUser, setShowDefaultRegistrationGroupRatio, t }) => {
   const handleAddUser = () => {
     setShowAddUser(true);
   };
@@ -29,6 +29,15 @@ const UsersActions = ({ setShowAddUser, t }) => {
     <div className='flex items-center gap-2 flex-wrap'>
       <Button onClick={handleAddUser} size='small' className='shrink-0'>
         {t('添加用户')}
+      </Button>
+      <Button
+        onClick={() => setShowDefaultRegistrationGroupRatio(true)}
+        size='small'
+        theme='light'
+        type='primary'
+        className='shrink-0'
+      >
+        {t('默认可用分组及倍率')}
       </Button>
     </div>
   );

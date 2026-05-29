@@ -1,15 +1,23 @@
 package operation_setting
 
-import "github.com/QuantumNous/new-api/setting/config"
+import (
+	"errors"
+	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/config"
+)
 
 // UserDefaultsSetting 新用户相关默认值（由运营配置持久化）
 type UserDefaultsSetting struct {
 	// DefaultVendorRatioMultipliers：供应商 ID -> 倍率，用于在计费时乘在系统模型价格/倍率上。
 	DefaultVendorRatioMultipliers map[int]float64 `json:"default_vendor_ratio_multipliers"`
+	DefaultRegistrationGroupRatio map[string]float64 `json:"default_registration_group_ratio"`
 }
 
 var userDefaultsSetting = UserDefaultsSetting{
 	DefaultVendorRatioMultipliers: map[int]float64{},
+	DefaultRegistrationGroupRatio: map[string]float64{},
 }
 
 func init() {
@@ -34,4 +42,40 @@ func VendorRatioMultiplier(vendorID int) float64 {
 		return 1.0
 	}
 	return m
+}
+
+func DefaultRegistrationGroupRatioCopy() map[string]float64 {
+	s := GetUserDefaultsSetting()
+	result := make(map[string]float64)
+	if s == nil || len(s.DefaultRegistrationGroupRatio) == 0 {
+		return result
+	}
+	for group, ratio := range s.DefaultRegistrationGroupRatio {
+		result[group] = ratio
+	}
+	return result
+}
+
+func DefaultRegistrationGroupRatioJSONString() string {
+	jsonBytes, err := common.Marshal(DefaultRegistrationGroupRatioCopy())
+	if err != nil {
+		common.SysLog("error marshalling default registration group ratio: " + err.Error())
+		return "{}"
+	}
+	return string(jsonBytes)
+}
+
+func NormalizeDefaultRegistrationGroupRatio(input map[string]float64) (map[string]float64, error) {
+	normalized := make(map[string]float64)
+	for group, ratio := range input {
+		name := strings.TrimSpace(group)
+		if name == "" {
+			continue
+		}
+		if ratio <= 0 || ratio > 1000 {
+			return nil, errors.New("倍率须在 (0, 1000] 之间: " + name)
+		}
+		normalized[name] = ratio
+	}
+	return normalized, nil
 }

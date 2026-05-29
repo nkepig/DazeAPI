@@ -24,6 +24,7 @@ import UsersActions from './UsersActions';
 import UsersFilters from './UsersFilters';
 import AddUserModal from './modals/AddUserModal';
 import EditUserModal from './modals/EditUserModal';
+import DefaultRegistrationGroupRatioModal from './modals/DefaultRegistrationGroupRatioModal';
 import { useUsersData } from '../../../hooks/users/useUsersData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -31,6 +32,7 @@ import { createCardProPagination } from '../../../helpers/utils';
 const UsersPage = () => {
   const usersData = useUsersData();
   const isMobile = useIsMobile();
+  const [showDefaultRegistrationGroupRatio, setShowDefaultRegistrationGroupRatio] = React.useState(false);
 
   const {
     // Modal state
@@ -76,11 +78,21 @@ const UsersPage = () => {
         editingUser={editingUser}
       />
 
+      <DefaultRegistrationGroupRatioModal
+        visible={showDefaultRegistrationGroupRatio}
+        onClose={() => setShowDefaultRegistrationGroupRatio(false)}
+        t={t}
+      />
+
       <CardPro
         type='type1'
         actionsArea={
           <div className='flex items-center gap-2 w-full flex-wrap'>
-            <UsersActions setShowAddUser={setShowAddUser} t={t} />
+            <UsersActions
+              setShowAddUser={setShowAddUser}
+              setShowDefaultRegistrationGroupRatio={setShowDefaultRegistrationGroupRatio}
+              t={t}
+            />
             <UsersFilters
               formInitValues={formInitValues}
               setFormApi={setFormApi}

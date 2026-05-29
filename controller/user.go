@@ -153,6 +153,7 @@ func Register(c *gin.Context) {
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
 		Group:       "",
 	}
+	cleanUser.GroupRatio = operation_setting.DefaultRegistrationGroupRatioJSONString()
 	// 总是保存用户提供的 email（如果有）
 	if user.Email != "" {
 		cleanUser.Email = user.Email
@@ -1120,6 +1121,42 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	common.ApiSuccessI18n(c, i18n.MsgSettingSaved, nil)
+}
+
+func AdminGetDefaultRegistrationGroupRatio(c *gin.Context) {
+	common.ApiSuccess(c, gin.H{
+		"default_registration_group_ratio": operation_setting.DefaultRegistrationGroupRatioCopy(),
+	})
+}
+
+type adminUpdateDefaultRegistrationGroupRatioRequest struct {
+	DefaultRegistrationGroupRatio map[string]float64 `json:"default_registration_group_ratio"`
+}
+
+func AdminUpdateDefaultRegistrationGroupRatio(c *gin.Context) {
+	var req adminUpdateDefaultRegistrationGroupRatioRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorMsg(c, "无效的请求参数")
+		return
+	}
+	if req.DefaultRegistrationGroupRatio == nil {
+		req.DefaultRegistrationGroupRatio = map[string]float64{}
+	}
+	normalized, err := operation_setting.NormalizeDefaultRegistrationGroupRatio(req.DefaultRegistrationGroupRatio)
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	jsonBytes, err := common.Marshal(normalized)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.UpdateOption("user_defaults_setting.default_registration_group_ratio", string(jsonBytes)); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
 }
 
 // AdminGetDefaultVendorRatios 返回全部供应商及新用户默认供应商倍率配置

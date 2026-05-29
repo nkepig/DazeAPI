@@ -74,13 +74,15 @@ func SetApiRouter(router *gin.Engine) {
 				// 必须在 /:id 之前注册，否则 "topup" 会被当成用户 id
 				adminRoute.GET("/topup", controller.GetAllTopUps)
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
-				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
 				adminRoute.PUT("/", controller.UpdateUser)
 				adminRoute.DELETE("/:id", controller.DeleteUser)
+				adminRoute.GET("/default-registration-group-ratio", controller.AdminGetDefaultRegistrationGroupRatio)
+				adminRoute.PUT("/default-registration-group-ratio", controller.AdminUpdateDefaultRegistrationGroupRatio)
 				adminRoute.GET("/default-vendor-ratios", controller.AdminGetDefaultVendorRatios)
 				adminRoute.PUT("/default-vendor-ratios", controller.AdminUpdateDefaultVendorRatios)
+				adminRoute.GET("/:id", controller.GetUser)
 			}
 		}
 

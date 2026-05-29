@@ -415,6 +415,9 @@ func (user *User) Insert(inviterId int) error {
 		// 这里暂时不设置SidebarModules，因为需要在用户创建后根据角色设置
 		user.SetSetting(defaultSetting)
 	}
+	if user.GroupRatio == "" {
+		user.GroupRatio = "{}"
+	}
 	user.Group = NormalizeGroupField(user.Group)
 
 	result := DB.Create(user)
@@ -472,6 +475,9 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 	if user.Setting == "" {
 		defaultSetting := dto.UserSetting{}
 		user.SetSetting(defaultSetting)
+	}
+	if user.GroupRatio == "" {
+		user.GroupRatio = "{}"
 	}
 	user.Group = NormalizeGroupField(user.Group)
 
