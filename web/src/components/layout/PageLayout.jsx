@@ -70,6 +70,10 @@ if (success) {
   }, []);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (!location.pathname.startsWith('/console')) {
       return;
     }

@@ -46,7 +46,7 @@ func RequestAlipayTopUp(c *gin.Context) {
 	}
 
 	amount := int64(math.Round(money))
-	quota := int64(money * common.QuotaPerUnit)
+	quota := int64(money * common.MicrodollarsPerUnit)
 
 	tradeNo := fmt.Sprintf("ALI%d%d", userId, common.GetTimestamp())
 
@@ -134,7 +134,7 @@ func syncAlipayTopUpIfPaid(topUp *model.TopUp) {
 	if tradeStatus != "TRADE_SUCCESS" && tradeStatus != "TRADE_FINISHED" {
 		return
 	}
-	quota := int64(topUp.Money * common.QuotaPerUnit)
+	quota := int64(topUp.Money * common.MicrodollarsPerUnit)
 	_ = model.CompleteTopUp(topUp, quota)
 }
 
@@ -176,7 +176,7 @@ func AlipayNotify(c *gin.Context) {
 	}
 
 	// 按实付金额（元，可含分）折算额度
-	quota := int64(topUp.Money * common.QuotaPerUnit)
+	quota := int64(topUp.Money * common.MicrodollarsPerUnit)
 
 	err := model.CompleteTopUp(topUp, quota)
 	if err != nil {

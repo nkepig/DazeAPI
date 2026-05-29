@@ -121,7 +121,7 @@ func EpayNotify(c *gin.Context) {
 		c.String(http.StatusOK, "success")
 		return
 	}
-	quota := int64(topUp.Money * common.QuotaPerUnit)
+	quota := int64(topUp.Money * common.MicrodollarsPerUnit)
 	if err := model.CompleteTopUp(topUp, quota); err != nil {
 		common.SysError("epay topup failed: " + err.Error())
 		c.String(http.StatusOK, "success")
