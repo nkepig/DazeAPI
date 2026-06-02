@@ -115,7 +115,7 @@ const EditUserModal = (props) => {
           const parsed = typeof data.group_ratio === 'string' ? JSON.parse(data.group_ratio) : data.group_ratio;
           let idCounter = 0;
           for (const [g, v] of Object.entries(parsed)) {
-            const ratio = typeof v === 'number' ? Number(v.toFixed(1)) : 1;
+            const ratio = typeof v === 'number' ? Number(v.toFixed(2)) : 1;
               groupEntries.push({
                 id: `existing-${idCounter++}`,
                 name: g,
