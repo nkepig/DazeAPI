@@ -190,7 +190,7 @@ func SetApiRouter(router *gin.Engine) {
 		}
 
 		groupRoute := apiRouter.Group("/group")
-		groupRoute.Use(middleware.AdminAuth())
+		groupRoute.Use(middleware.UserAuth())
 		{
 			groupRoute.GET("/", controller.GetGroups)
 		}
