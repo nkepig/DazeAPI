@@ -559,7 +559,7 @@ export const useLogsData = () => {
   };
 
   // Load logs function
-  const loadLogs = async (startIdx, pageSize, customLogType = null) => {
+  const loadLogs = async (startIdx, pageSize, customLogType = null, customGroupFilter = null) => {
     if (loading) {
       return;
     }
@@ -584,12 +584,14 @@ export const useLogsData = () => {
           ? formLogType
           : logType;
 
+    const effectiveGroup = customGroupFilter !== null ? customGroupFilter : groupFilter;
+
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
     if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
+      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${effectiveGroup !== 'all' ? effectiveGroup : ''}&request_id=${request_id}`;
     } else {
-      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
+      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${effectiveGroup !== 'all' ? effectiveGroup : ''}&request_id=${request_id}`;
     }
     url = encodeURI(url);
     try {
@@ -634,10 +636,13 @@ export const useLogsData = () => {
   };
 
   // Refresh function
-  const refresh = async () => {
+  const refresh = async (customGroupFilter = null) => {
     setActivePage(1);
+    if (customGroupFilter !== null) {
+      setGroupFilter(customGroupFilter);
+    }
     handleEyeClick();
-    await loadLogs(1, pageSize);
+    await loadLogs(1, pageSize, null, customGroupFilter);
   };
 
   // Copy text function

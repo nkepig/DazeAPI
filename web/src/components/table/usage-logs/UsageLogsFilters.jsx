@@ -32,7 +32,6 @@ const LogsFilters = ({
   loading,
   isAdminUser,
   groupFilter,
-  setGroupFilter,
   groupOptions,
   t,
 }) => {
@@ -90,8 +89,7 @@ const LogsFilters = ({
                 style={{ width: 130 }}
                 showClear
                 onChange={(v) => {
-                  setGroupFilter(v || 'all');
-                  setTimeout(() => { refresh(); }, 0);
+                  refresh(v || 'all');
                 }}
               >
                 <Select.Option value='all'>{t('全部分组')}</Select.Option>
