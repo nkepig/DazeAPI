@@ -82,7 +82,7 @@ const LogsFilters = ({
               <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
             </Form.Select>
 
-            {groupOptions.length > 0 && (
+            {isAdminUser && (
               <Select
                 value={groupFilter}
                 placeholder={t('分组')}
@@ -115,6 +115,16 @@ const LogsFilters = ({
                 field='model_name'
                 prefix={<IconSearch />}
                 placeholder={t('模型名称')}
+                showClear
+                pure
+              />
+            </div>
+
+            <div className='flex-1 min-w-[180px] max-w-xs'>
+              <Form.Input
+                field='token_name'
+                prefix={<IconSearch />}
+                placeholder={t('令牌名称')}
                 showClear
                 pure
               />
