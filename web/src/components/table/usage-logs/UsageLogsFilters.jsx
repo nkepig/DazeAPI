@@ -32,7 +32,6 @@ const LogsFilters = ({
   loading,
   isAdminUser,
   groupFilter,
-  setGroupFilter,
   groupOptions,
   t,
 }) => {
@@ -41,7 +40,7 @@ const LogsFilters = ({
       <Form
         initValues={formInitValues}
         getFormApi={(api) => setFormApi(api)}
-        onSubmit={refresh}
+        onSubmit={() => refresh()}
         allowEmpty={true}
         autoComplete='off'
         layout='vertical'
@@ -83,15 +82,14 @@ const LogsFilters = ({
               <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
             </Form.Select>
 
-            {groupOptions.length > 0 && (
+            {isAdminUser && (
               <Select
                 value={groupFilter}
                 placeholder={t('分组')}
                 style={{ width: 130 }}
                 showClear
                 onChange={(v) => {
-                  setGroupFilter(v || 'all');
-                  setTimeout(() => { refresh(); }, 0);
+                  refresh(v || 'all');
                 }}
               >
                 <Select.Option value='all'>{t('全部分组')}</Select.Option>
@@ -117,6 +115,16 @@ const LogsFilters = ({
                 field='model_name'
                 prefix={<IconSearch />}
                 placeholder={t('模型名称')}
+                showClear
+                pure
+              />
+            </div>
+
+            <div className='flex-1 min-w-[180px] max-w-xs'>
+              <Form.Input
+                field='token_name'
+                prefix={<IconSearch />}
+                placeholder={t('令牌名称')}
                 showClear
                 pure
               />

@@ -43,7 +43,24 @@ func GetAllChannelGroups() []string {
 }
 
 func GetGroups(c *gin.Context) {
-	groupNames := GetAllChannelGroups()
+	userId := c.GetInt("id")
+	var groupNames []string
+	if model.IsAdmin(userId) {
+		groupNames = GetAllChannelGroups()
+	} else {
+		if userId > 0 {
+			user, err := model.GetUserCache(userId)
+			if err == nil {
+				userGroupRatio := user.GetGroupRatioMap()
+				for g := range userGroupRatio {
+					groupNames = append(groupNames, g)
+				}
+			}
+		}
+		if len(groupNames) == 0 {
+			groupNames = GetAllChannelGroups()
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

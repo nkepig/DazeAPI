@@ -9,8 +9,6 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/bytedance/gopkg/util/gopool"
 )
 
 // UserBase struct remains the same as it represents the cached data structure
@@ -71,16 +69,18 @@ func invalidateUserCache(userId int) error {
 	return common.RedisDelKey(getUserCacheKey(userId))
 }
 
-// updateUserCache updates all user cache fields using hash
+// updateUserCache updates all user cache fields using a Lua script that
+// preserves the Quota field if it already exists (managed by HINCRBY).
 func updateUserCache(user User) error {
 	if !common.RedisEnabled {
 		return nil
 	}
 
-	return common.RedisHSetObj(
+	return common.RedisHSetObjPreservingFields(
 		getUserCacheKey(user.Id),
 		user.ToBaseUser(),
 		time.Duration(common.RedisKeyCacheSeconds())*time.Second,
+		map[string]bool{"Quota": true},
 	)
 }
 
@@ -95,13 +95,10 @@ func GetUserCache(userId int) (userCache *UserBase, err error) {
 	var user *User
 	var fromDB bool
 	defer func() {
-		// Update Redis cache asynchronously on successful DB read
 		if shouldUpdateRedis(fromDB, err) && user != nil {
-			gopool.Go(func() {
-				if err := updateUserCache(*user); err != nil {
-					common.SysLog("failed to update user status cache: " + err.Error())
-				}
-			})
+			if err := updateUserCache(*user); err != nil {
+				common.SysLog("failed to update user status cache: " + err.Error())
+			}
 		}
 	}()
 
@@ -158,6 +155,16 @@ func cacheIncrUserQuota(userId int, delta int64) error {
 
 func cacheDecrUserQuota(userId int, delta int64) error {
 	return cacheIncrUserQuota(userId, -delta)
+}
+
+// syncUserQuotaCacheIncr mirrors a DB quota credit in Redis (e.g. after topup).
+func syncUserQuotaCacheIncr(userId int, delta int64) {
+	if delta == 0 || !common.RedisEnabled {
+		return
+	}
+	if err := cacheIncrUserQuota(userId, delta); err != nil {
+		common.SysLog(fmt.Sprintf("failed to sync user %d quota cache (delta=%d): %s", userId, delta, err.Error()))
+	}
 }
 
 // Helper functions to get individual fields if needed
@@ -217,7 +224,9 @@ func updateUserQuotaCache(userId int, quota int) error {
 	if !common.RedisEnabled {
 		return nil
 	}
-	return common.RedisHSetField(getUserCacheKey(userId), "Quota", fmt.Sprintf("%d", quota))
+	// HSETNX: never overwrite Quota — it's managed by HINCRBY.
+	_, err := common.RedisHSetNXField(getUserCacheKey(userId), "Quota", fmt.Sprintf("%d", quota))
+	return err
 }
 
 func updateUserGroupCache(userId int, group string) error {

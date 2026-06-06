@@ -294,3 +294,110 @@ func RedisHSetField(key, field string, value interface{}) error {
 	}
 	return RDB.HSet(ctx, key, field, value).Err()
 }
+
+// RedisHSetNXField sets a hash field only if it does not already exist (HSETNX).
+// Returns true if the field was set, false if it already existed.
+func RedisHSetNXField(key, field string, value interface{}) (bool, error) {
+	if DebugEnabled {
+		SysLog(fmt.Sprintf("Redis HSETNX field: key=%s, field=%s, value=%v", key, field, value))
+	}
+	ctx := context.Background()
+	result, err := RDB.HSetNX(ctx, key, field, value).Result()
+	if err != nil {
+		return false, err
+	}
+	return result, nil
+}
+
+// RedisHSetObjPreservingFields sets all fields of a hash object but preserves the existing
+// values of specified fields. This prevents HMSET from overwriting fields that are managed
+// by atomic operations like HINCRBY (e.g., Quota).
+//
+// The function uses a Lua script to ensure atomicity:
+// 1. Save current values of preserve fields
+// 2. Set all fields from the object (HMSET)
+// 3. Restore preserved fields if they had existing values; otherwise set from object data
+// 4. Set key expiration
+func RedisHSetObjPreservingFields(key string, obj interface{}, expiration time.Duration, preserveFields map[string]bool) error {
+	if DebugEnabled {
+		SysLog(fmt.Sprintf("Redis HSETPRESERVE: key=%s, preserve=%v", key, preserveFields))
+	}
+	ctx := context.Background()
+
+	// Build data map from struct (same logic as RedisHSetObj)
+	data := make(map[string]interface{})
+	v := reflect.ValueOf(obj).Elem()
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		if field.Type.String() == "gorm.DeletedAt" {
+			continue
+		}
+
+		if value.Kind() == reflect.Ptr {
+			if value.IsNil() {
+				data[field.Name] = ""
+				continue
+			}
+			value = value.Elem()
+		}
+
+		if value.Kind() == reflect.Bool {
+			data[field.Name] = strconv.FormatBool(value.Bool())
+			continue
+		}
+
+		data[field.Name] = fmt.Sprintf("%v", value.Interface())
+	}
+
+	luaScript := `
+local saved = {}
+local preserve_count = 0
+-- Save current values of preserve fields
+for i = 1, #KEYS - 1 do
+	local field = KEYS[i + 1]
+	local val = redis.call('HGET', KEYS[1], field)
+	if val then
+		saved[field] = val
+		preserve_count = preserve_count + 1
+	end
+end
+
+-- Set all fields from object data
+for i = 1, #ARGV - 1, 2 do
+	redis.call('HSET', KEYS[1], ARGV[i], ARGV[i+1])
+end
+
+-- Restore preserved fields that had existing values
+if preserve_count > 0 then
+	for field, val in pairs(saved) do
+		redis.call('HSET', KEYS[1], field, val)
+	end
+end
+
+-- Set expiration
+local expire = tonumber(ARGV[#ARGV])
+if expire > 0 then
+	redis.call('EXPIRE', KEYS[1], expire)
+end
+
+return 1
+`
+
+	keys := make([]string, 0, 1+len(preserveFields))
+	keys = append(keys, key)
+	for field := range preserveFields {
+		keys = append(keys, field)
+	}
+
+	args := make([]interface{}, 0, len(data)*2+1)
+	for k, v := range data {
+		args = append(args, k, v)
+	}
+	args = append(args, strconv.Itoa(int(expiration.Seconds())))
+
+	_, err := RDB.Eval(ctx, luaScript, keys, args...).Result()
+	return err
+}

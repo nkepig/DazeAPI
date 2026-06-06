@@ -294,7 +294,7 @@ export const useLogsData = () => {
   };
 
   // Statistics functions
-  const getLogSelfStat = async () => {
+  const getLogSelfStat = async (customGroupFilter = null) => {
     const {
       token_name,
       model_name,
@@ -303,9 +303,10 @@ export const useLogsData = () => {
       logType: formLogType,
     } = getFormValues();
     const currentLogType = formLogType !== undefined ? formLogType : logType;
+    const effectiveGroup = typeof customGroupFilter === 'string' ? customGroupFilter : groupFilter;
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
-    let url = `/api/log/self/stat?type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=`;
+    let url = `/api/log/self/stat?type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${effectiveGroup !== 'all' ? effectiveGroup : ''}`;
     url = encodeURI(url);
     let res = await API.get(url);
     const { success, message, data } = res.data;
@@ -316,7 +317,7 @@ export const useLogsData = () => {
     }
   };
 
-  const getLogStat = async () => {
+  const getLogStat = async (customGroupFilter = null) => {
     const {
       username,
       token_name,
@@ -327,9 +328,10 @@ export const useLogsData = () => {
       logType: formLogType,
     } = getFormValues();
     const currentLogType = formLogType !== undefined ? formLogType : logType;
+    const effectiveGroup = typeof customGroupFilter === 'string' ? customGroupFilter : groupFilter;
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
-    let url = `/api/log/stat?type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=`;
+    let url = `/api/log/stat?type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${effectiveGroup !== 'all' ? effectiveGroup : ''}`;
     url = encodeURI(url);
     let res = await API.get(url);
     const { success, message, data } = res.data;
@@ -340,15 +342,15 @@ export const useLogsData = () => {
     }
   };
 
-  const handleEyeClick = async () => {
+  const handleEyeClick = async (customGroupFilter = null) => {
     if (loadingStat) {
       return;
     }
     setLoadingStat(true);
     if (isAdminUser) {
-      await getLogStat();
+      await getLogStat(customGroupFilter);
     } else {
-      await getLogSelfStat();
+      await getLogSelfStat(customGroupFilter);
     }
     setShowStat(true);
     setLoadingStat(false);
@@ -559,7 +561,7 @@ export const useLogsData = () => {
   };
 
   // Load logs function
-  const loadLogs = async (startIdx, pageSize, customLogType = null) => {
+  const loadLogs = async (startIdx, pageSize, customLogType = null, customGroupFilter = null) => {
     if (loading) {
       return;
     }
@@ -584,12 +586,14 @@ export const useLogsData = () => {
           ? formLogType
           : logType;
 
+    const effectiveGroup = typeof customGroupFilter === 'string' ? customGroupFilter : groupFilter;
+
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
     if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
+      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${effectiveGroup !== 'all' ? effectiveGroup : ''}&request_id=${request_id}`;
     } else {
-      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
+      url = `/api/log/self/?p=${startIdx}&page_size=${pageSize}&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${effectiveGroup !== 'all' ? effectiveGroup : ''}&request_id=${request_id}`;
     }
     url = encodeURI(url);
     try {
@@ -634,10 +638,14 @@ export const useLogsData = () => {
   };
 
   // Refresh function
-  const refresh = async () => {
+  const refresh = async (customGroupFilter = null) => {
+    const nextGroupFilter = typeof customGroupFilter === 'string' ? customGroupFilter : null;
     setActivePage(1);
-    handleEyeClick();
-    await loadLogs(1, pageSize);
+    if (nextGroupFilter !== null) {
+      setGroupFilter(nextGroupFilter);
+    }
+    handleEyeClick(nextGroupFilter);
+    await loadLogs(1, pageSize, null, nextGroupFilter);
   };
 
   // Copy text function
