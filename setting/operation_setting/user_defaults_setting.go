@@ -4,14 +4,14 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
 )
 
-// UserDefaultsSetting 新用户相关默认值（由运营配置持久化）
+// UserDefaultsSetting 用户相关默认值（由运营配置持久化）
 type UserDefaultsSetting struct {
 	// DefaultVendorRatioMultipliers：供应商 ID -> 倍率，用于在计费时乘在系统模型价格/倍率上。
 	DefaultVendorRatioMultipliers map[int]float64 `json:"default_vendor_ratio_multipliers"`
+	// DefaultRegistrationGroupRatio：默认可用分组及倍率，对未单独配置分组的用户生效作为全局兜底。
 	DefaultRegistrationGroupRatio map[string]float64 `json:"default_registration_group_ratio"`
 }
 
@@ -54,15 +54,6 @@ func DefaultRegistrationGroupRatioCopy() map[string]float64 {
 		result[group] = ratio
 	}
 	return result
-}
-
-func DefaultRegistrationGroupRatioJSONString() string {
-	jsonBytes, err := common.Marshal(DefaultRegistrationGroupRatioCopy())
-	if err != nil {
-		common.SysLog("error marshalling default registration group ratio: " + err.Error())
-		return "{}"
-	}
-	return string(jsonBytes)
 }
 
 func NormalizeDefaultRegistrationGroupRatio(input map[string]float64) (map[string]float64, error) {

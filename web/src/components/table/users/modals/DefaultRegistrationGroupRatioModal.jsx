@@ -111,7 +111,7 @@ const DefaultRegistrationGroupRatioModal = ({ visible, onClose, t }) => {
 
   return (
     <Modal
-      title={t('注册用户默认可用分组及倍率')}
+      title={t('默认可用分组及倍率')}
       visible={visible}
       onCancel={onClose}
       onOk={handleSave}
@@ -122,7 +122,7 @@ const DefaultRegistrationGroupRatioModal = ({ visible, onClose, t }) => {
       maskClosable={false}
     >
       <Typography.Paragraph type='tertiary' className='!mb-4'>
-        {t('保存后，新注册用户的 group_ratio 会按此配置初始化；留空则保存为空配置。')}
+        {t('对所有未单独配置分组的用户生效，作为全局兜底配置；留空则不设置兜底，未配置用户可使用所有分组。')}
       </Typography.Paragraph>
       {loading ? (
         <div className='py-16 flex justify-center'>
@@ -138,8 +138,8 @@ const DefaultRegistrationGroupRatioModal = ({ visible, onClose, t }) => {
               <Text className='text-lg font-medium'>{t('分组倍率配置')}</Text>
               <div className='text-xs text-gray-600'>
                 {Object.keys(groupOverrides).length === 0
-                  ? t('当前未配置默认可用分组')
-                  : t('配置各分组的倍率，不在列表中的分组将不可用')}
+                  ? t('当前未配置默认可用分组，未单独配置的用户将可使用所有分组')
+                  : t('配置各分组的倍率，不在列表中的分组对未单独配置的用户将不可用')}
               </div>
             </div>
           </div>

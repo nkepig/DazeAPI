@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,11 +48,21 @@ func (user *UserBase) GetSetting() dto.UserSetting {
 func (user *UserBase) GetGroupRatioMap() map[string]float64 {
 	result := make(map[string]float64)
 	if user.GroupRatio == "" {
-		return result
+		return operation_setting.DefaultRegistrationGroupRatioCopy()
 	}
 	err := common.Unmarshal([]byte(user.GroupRatio), &result)
 	if err != nil {
 		common.SysLog("failed to unmarshal group_ratio for user " + user.Username + ": " + err.Error())
+	}
+	if len(result) == 0 {
+		return operation_setting.DefaultRegistrationGroupRatioCopy()
+	}
+	// Merge: defaults fill gaps; user values take precedence.
+	defaults := operation_setting.DefaultRegistrationGroupRatioCopy()
+	for group, ratio := range defaults {
+		if _, exists := result[group]; !exists {
+			result[group] = ratio
+		}
 	}
 	return result
 }

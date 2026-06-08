@@ -153,7 +153,7 @@ func Register(c *gin.Context) {
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
 		Group:       "",
 	}
-	cleanUser.GroupRatio = operation_setting.DefaultRegistrationGroupRatioJSONString()
+	cleanUser.GroupRatio = ""
 	// 总是保存用户提供的 email（如果有）
 	if user.Email != "" {
 		cleanUser.Email = user.Email
