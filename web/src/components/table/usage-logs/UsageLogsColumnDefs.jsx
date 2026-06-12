@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import {
   Avatar,
+  Button,
   Space,
   Tag,
   Tooltip,
@@ -415,6 +416,7 @@ export const getLogsColumns = ({
   copyText,
   showUserInfoFunc,
   openChannelAffinityUsageCacheModal,
+  openRetryAttemptsDrawer,
   isAdminUser,
   billingDisplayMode = 'price',
 }) => {
@@ -765,25 +767,39 @@ export const getLogsColumns = ({
         if (!(record.type === 2 || record.type === 5)) {
           return <></>;
         }
+        const other = getLogOther(record.other);
+        const adminInfo = other?.admin_info || {};
+        const retryAttempts = Array.isArray(adminInfo?.retry_attempts)
+          ? adminInfo.retry_attempts.filter(Boolean)
+          : [];
         let content = t('渠道') + `：${record.channel}`;
-        if (record.other !== '') {
-          let other = JSON.parse(record.other);
-          if (other === null) {
-            return <></>;
-          }
-          if (other.admin_info !== undefined) {
-            if (
-              other.admin_info.use_channel !== null &&
-              other.admin_info.use_channel !== undefined &&
-              other.admin_info.use_channel !== ''
-            ) {
-              let useChannel = other.admin_info.use_channel;
-              let useChannelStr = useChannel.join('->');
-              content = t('渠道') + `：${useChannelStr}`;
-            }
+        if (adminInfo.use_channel !== null && adminInfo.use_channel !== undefined) {
+          const useChannel = Array.isArray(adminInfo.use_channel)
+            ? adminInfo.use_channel
+            : [];
+          if (useChannel.length > 0) {
+            content = t('渠道') + `：${useChannel.join('->')}`;
           }
         }
-        return isAdminUser ? <div>{content}</div> : <></>;
+        return isAdminUser ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div>{content}</div>
+            {retryAttempts.length > 0 ? (
+              <Button
+                type='tertiary'
+                theme='borderless'
+                size='small'
+                style={{ padding: 0, height: 'auto', alignSelf: 'flex-start' }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openRetryAttemptsDrawer(record);
+                }}
+              >
+                {t('重试详情')}
+              </Button>
+            ) : null}
+          </div>
+        ) : <></>;
       },
     },
     {

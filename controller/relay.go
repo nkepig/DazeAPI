@@ -29,6 +29,36 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+func relayAttemptStatusCode(c *gin.Context, err *types.NewAPIError) int {
+	if err != nil && err.StatusCode > 0 {
+		return err.StatusCode
+	}
+	if c != nil && c.Writer != nil {
+		if statusCode := c.Writer.Status(); statusCode > 0 {
+			return statusCode
+		}
+	}
+	return http.StatusOK
+}
+
+func appendRelayRetryAttempt(c *gin.Context, channel *model.Channel, retryIndex int, err *types.NewAPIError, success bool, useTimeSeconds int) {
+	if c == nil || channel == nil {
+		return
+	}
+	attempt := service.RetryAttemptLog{
+		RetryIndex:     retryIndex,
+		ChannelId:      channel.Id,
+		ChannelName:    channel.Name,
+		StatusCode:     relayAttemptStatusCode(c, err),
+		Success:        success,
+		UseTimeSeconds: useTimeSeconds,
+	}
+	if err != nil {
+		attempt.Error = err.MaskSensitiveErrorWithStatusCode()
+	}
+	service.AppendRetryAttempt(c, attempt)
+}
+
 func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
 	var err *types.NewAPIError
 	switch info.RelayMode {
@@ -220,15 +250,20 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 
 		if newAPIError == nil {
+			if len(c.GetStringSlice("use_channel")) > 1 {
+				appendRelayRetryAttempt(c, channel, relayInfo.RetryIndex, nil, true, int(time.Since(relayInfo.StartTime).Seconds()))
+			}
 			relayInfo.LastError = nil
 			return
 		}
 
 		relayInfo.LastError = newAPIError
+		willRetry := shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry())
+		appendRelayRetryAttempt(c, channel, relayInfo.RetryIndex, newAPIError, false, int(time.Since(relayInfo.StartTime).Seconds()))
 
-		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
+		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError, !willRetry)
 
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if !willRetry {
 			break
 		}
 	}
@@ -385,7 +420,7 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	return operation_setting.ShouldRetryByStatusCode(code)
 }
 
-func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {
+func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError, recordPrimaryLog bool) {
 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, err.Error()))
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
@@ -395,7 +430,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		})
 	}
 
-	if constant.ErrorLogEnabled && types.IsRecordErrorLog(err) {
+	if recordPrimaryLog && constant.ErrorLogEnabled && types.IsRecordErrorLog(err) {
 		// 保存错误日志到mysql中
 		userId := c.GetInt("id")
 		tokenName := c.GetString("token_name")
@@ -413,15 +448,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		other["channel_id"] = channelId
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = c.GetInt("channel_type")
-		adminInfo := make(map[string]interface{})
-		adminInfo["use_channel"] = c.GetStringSlice("use_channel")
-		isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)
-		if isMultiKey {
-			adminInfo["is_multi_key"] = true
-			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
-		}
-		service.AppendChannelAffinityAdminInfo(c, adminInfo)
-		other["admin_info"] = adminInfo
+		other["admin_info"] = service.BuildLogAdminInfo(c)
 		startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 		if startTime.IsZero() {
 			startTime = time.Now()
@@ -489,6 +516,7 @@ func RelayTask(c *gin.Context) {
 
 	var result *relay.TaskSubmitResult
 	var taskErr *dto.TaskError
+	var finalChannel *model.Channel
 	defer func() {
 		if taskErr != nil && relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(c)
@@ -536,16 +564,25 @@ func RelayTask(c *gin.Context) {
 		defer bodyStorage.Close()
 		c.Request.Body = io.NopCloser(bodyStorage)
 
+		relayInfo.RetryIndex = retryParam.GetRetry()
+		finalChannel = channel
 		result, taskErr = relay.RelayTaskSubmit(c, relayInfo)
 		if taskErr == nil {
 			break
 		}
 
 		if !taskErr.LocalError {
+			upstreamErr := types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode)
+			willRetry := shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry())
+			appendRelayRetryAttempt(c, channel, retryParam.GetRetry(), upstreamErr, false, int(time.Since(relayInfo.StartTime).Seconds()))
 			processChannelError(c,
 				*types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey,
 					common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()),
-				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode))
+				upstreamErr, !willRetry)
+			if !willRetry {
+				break
+			}
+			continue
 		}
 
 		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
@@ -559,8 +596,15 @@ func RelayTask(c *gin.Context) {
 		logger.LogInfo(c, retryLogStr)
 	}
 
-	// ── 成功：结算 + 日志 + 插入任务 ──
+	if taskErr != nil && taskErr.LocalError && len(service.GetRetryAttempts(c)) > 0 {
+		localErr := types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode)
+		appendRelayRetryAttempt(c, finalChannel, retryParam.GetRetry(), localErr, false, int(time.Since(relayInfo.StartTime).Seconds()))
+	}
+
 	if taskErr == nil {
+		if len(c.GetStringSlice("use_channel")) > 1 && finalChannel != nil {
+			appendRelayRetryAttempt(c, finalChannel, retryParam.GetRetry(), nil, true, int(time.Since(relayInfo.StartTime).Seconds()))
+		}
 		if settleErr := service.SettleBilling(c, relayInfo, result.Quota); settleErr != nil {
 			common.SysError("settle task billing error: " + settleErr.Error())
 		}

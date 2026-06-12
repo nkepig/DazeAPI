@@ -41,6 +41,7 @@ const LogsTable = (logsData) => {
     copyText,
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
+    openRetryAttemptsDrawer,
     hasExpandableRows,
     isAdminUser,
     billingDisplayMode,
@@ -53,11 +54,12 @@ const LogsTable = (logsData) => {
     return getLogsColumns({
       t,
       COLUMN_KEYS,
-      copyText,
-      showUserInfoFunc,
-      openChannelAffinityUsageCacheModal,
-      isAdminUser,
-      billingDisplayMode,
+        copyText,
+        showUserInfoFunc,
+        openChannelAffinityUsageCacheModal,
+        openRetryAttemptsDrawer,
+        isAdminUser,
+        billingDisplayMode,
     });
   }, [
     t,
@@ -65,6 +67,7 @@ const LogsTable = (logsData) => {
     copyText,
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
+    openRetryAttemptsDrawer,
     isAdminUser,
     billingDisplayMode,
   ]);

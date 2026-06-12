@@ -42,6 +42,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	if info.PriceData.GroupDiscountInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupDiscountInfo.GroupSpecialRatio
 	}
+	other["admin_info"] = BuildLogAdminInfo(c)
 	if info.IsModelMapped {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName

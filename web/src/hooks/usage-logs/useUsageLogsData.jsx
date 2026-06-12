@@ -94,6 +94,8 @@ export const useLogsData = () => {
   const [logType, setLogType] = useState(0);
   const [groupFilter, setGroupFilter] = useState('all');
   const [groupOptions, setGroupOptions] = useState([]);
+  const [showRetryAttemptsDrawer, setShowRetryAttemptsDrawer] = useState(false);
+  const [retryAttemptsTarget, setRetryAttemptsTarget] = useState(null);
 
   // User and admin
   const isAdminUser = isAdmin();
@@ -394,6 +396,28 @@ export const useLogsData = () => {
       requestPath: other?.request_path || '',
     });
     setShowParamOverrideModal(true);
+  };
+
+  const openRetryAttemptsDrawer = (log) => {
+    const other = getLogOther(log?.other);
+    const adminInfo = other?.admin_info || {};
+    const attempts = Array.isArray(adminInfo?.retry_attempts)
+      ? adminInfo.retry_attempts.filter(Boolean)
+      : [];
+    if (attempts.length === 0) {
+      return;
+    }
+    setRetryAttemptsTarget({
+      requestId: log?.request_id || '',
+      modelName: log?.model_name || '',
+      logType: log?.type,
+      finalChannel: log?.channel,
+      finalChannelName: log?.channel_name || '',
+      finalStatus: log?.type === 5 ? 'error' : 'success',
+      useChannel: Array.isArray(adminInfo?.use_channel) ? adminInfo.use_channel : [],
+      attempts,
+    });
+    setShowRetryAttemptsDrawer(true);
   };
 
   // Format logs data
@@ -733,6 +757,9 @@ export const useLogsData = () => {
     showParamOverrideModal,
     setShowParamOverrideModal,
     paramOverrideTarget,
+    showRetryAttemptsDrawer,
+    setShowRetryAttemptsDrawer,
+    retryAttemptsTarget,
 
     // Functions
     loadLogs,
@@ -745,6 +772,7 @@ export const useLogsData = () => {
     hasExpandableRows,
     setLogType,
     openParamOverrideModal,
+    openRetryAttemptsDrawer,
     groupFilter,
     setGroupFilter,
     groupOptions,

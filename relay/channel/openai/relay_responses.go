@@ -43,12 +43,23 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
-	// compute usage
 	usage := dto.Usage{}
 	if responsesResponse.Usage != nil {
-		usage.PromptTokens = responsesResponse.Usage.InputTokens
-		usage.CompletionTokens = responsesResponse.Usage.OutputTokens
-		usage.TotalTokens = responsesResponse.Usage.TotalTokens
+		if responsesResponse.Usage.InputTokens != 0 {
+			usage.PromptTokens = responsesResponse.Usage.InputTokens
+		} else {
+			usage.PromptTokens = responsesResponse.Usage.PromptTokens
+		}
+		if responsesResponse.Usage.OutputTokens != 0 {
+			usage.CompletionTokens = responsesResponse.Usage.OutputTokens
+		} else {
+			usage.CompletionTokens = responsesResponse.Usage.CompletionTokens
+		}
+		if responsesResponse.Usage.TotalTokens != 0 {
+			usage.TotalTokens = responsesResponse.Usage.TotalTokens
+		} else {
+			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+		}
 		if responsesResponse.Usage.InputTokensDetails != nil {
 			usage.PromptTokensDetails.CachedTokens = responsesResponse.Usage.InputTokensDetails.CachedTokens
 		}
@@ -91,9 +102,13 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 					if streamResponse.Response.Usage != nil {
 						if streamResponse.Response.Usage.InputTokens != 0 {
 							usage.PromptTokens = streamResponse.Response.Usage.InputTokens
+						} else if streamResponse.Response.Usage.PromptTokens != 0 {
+							usage.PromptTokens = streamResponse.Response.Usage.PromptTokens
 						}
 						if streamResponse.Response.Usage.OutputTokens != 0 {
 							usage.CompletionTokens = streamResponse.Response.Usage.OutputTokens
+						} else if streamResponse.Response.Usage.CompletionTokens != 0 {
+							usage.CompletionTokens = streamResponse.Response.Usage.CompletionTokens
 						}
 						if streamResponse.Response.Usage.TotalTokens != 0 {
 							usage.TotalTokens = streamResponse.Response.Usage.TotalTokens

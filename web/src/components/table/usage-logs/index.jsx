@@ -26,6 +26,7 @@ import ColumnSelectorModal from './modals/ColumnSelectorModal';
 import UserInfoModal from './modals/UserInfoModal';
 import ChannelAffinityUsageCacheModal from './modals/ChannelAffinityUsageCacheModal';
 import ParamOverrideModal from './modals/ParamOverrideModal';
+import RetryAttemptsDrawer from './modals/RetryAttemptsDrawer';
 import { useLogsData } from '../../../hooks/usage-logs/useUsageLogsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -36,13 +37,12 @@ const LogsPage = () => {
 
   return (
     <>
-      {/* Modals */}
       <ColumnSelectorModal {...logsData} />
       <UserInfoModal {...logsData} />
       <ChannelAffinityUsageCacheModal {...logsData} />
       <ParamOverrideModal {...logsData} />
+      <RetryAttemptsDrawer {...logsData} />
 
-      {/* Main Content */}
       <CardPro
         type='type2'
         statsArea={<LogsActions {...logsData} />}
