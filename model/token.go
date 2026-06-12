@@ -273,9 +273,17 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 	return token, err
 }
 
-func (token *Token) Insert() error {
+func (token *Token) Insert() (err error) {
 	token.Group = NormalizeGroupField(token.Group)
-	var err error
+	defer func() {
+		if shouldUpdateRedis(true, err) {
+			gopool.Go(func() {
+				if err := cacheSetToken(*token); err != nil {
+					common.SysLog("failed to update token cache: " + err.Error())
+				}
+			})
+		}
+	}()
 	err = DB.Create(token).Error
 	return err
 }
