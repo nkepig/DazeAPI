@@ -35,7 +35,7 @@ const TopUp = () => {
   const [statusState] = useContext(StatusContext);
 
   const [minTopUp, setMinTopUp] = useState(statusState?.status?.min_topup || 1);
-  const [payAmount, setPayAmount] = useState(1);
+	const [payAmount, setPayAmount] = useState(10);
   const [enableAlipayTopUp, setEnableAlipayTopUp] = useState(false);
   const [enableEpayTopUp, setEnableEpayTopUp] = useState(false);
   const [epayPayTypes, setEpayPayTypes] = useState([]);

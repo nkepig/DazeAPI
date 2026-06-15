@@ -45,10 +45,18 @@ func appendRelayRetryAttempt(c *gin.Context, channel *model.Channel, retryIndex 
 	if c == nil || channel == nil {
 		return
 	}
+	var multiKeyIndex *int
+	isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)
+	if isMultiKey {
+		index := common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
+		multiKeyIndex = &index
+	}
 	attempt := service.RetryAttemptLog{
 		RetryIndex:     retryIndex,
 		ChannelId:      channel.Id,
 		ChannelName:    channel.Name,
+		IsMultiKey:     isMultiKey,
+		MultiKeyIndex:  multiKeyIndex,
 		StatusCode:     relayAttemptStatusCode(c, err),
 		Success:        success,
 		UseTimeSeconds: useTimeSeconds,

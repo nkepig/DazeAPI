@@ -12,6 +12,8 @@ type RetryAttemptLog struct {
 	RetryIndex     int    `json:"retry_index"`
 	ChannelId      int    `json:"channel_id"`
 	ChannelName    string `json:"channel_name,omitempty"`
+	IsMultiKey     bool   `json:"is_multi_key,omitempty"`
+	MultiKeyIndex  *int   `json:"multi_key_index,omitempty"`
 	StatusCode     int    `json:"status_code"`
 	Success        bool   `json:"success"`
 	Error          string `json:"error,omitempty"`
