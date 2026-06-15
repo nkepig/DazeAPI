@@ -142,6 +142,11 @@ function AttemptCard({ attempt, index, isLast }) {
                 {isSuccess ? '✓' : '✗'}
               </Tag>
               <Text strong size='small'>{channelLabel}</Text>
+              {attempt?.multi_key_index != null && (
+                <Tag size='small' style={{ fontWeight: 600, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+                  K{attempt.multi_key_index}
+                </Tag>
+              )}
             </Space>
             <Space size={4}>
               {attempt?.retry_index != null && (
@@ -250,7 +255,7 @@ const RetryAttemptsDrawer = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {attempts.map((attempt, index) => (
               <AttemptCard
-                key={`${attempt?.retry_index ?? index}-${attempt?.channel_id ?? index}`}
+                key={`${attempt?.retry_index ?? index}-${attempt?.channel_id ?? index}-K${attempt?.multi_key_index ?? ''}`}
                 attempt={attempt}
                 index={index}
                 isLast={index === attempts.length - 1}
