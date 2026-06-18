@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   API, getLogo, showError, showInfo, showSuccess, updateAPI, getSystemName,
   setUserData, onDiscordOAuthClicked,
@@ -78,6 +78,7 @@ const RegisterForm = () => {
   let navigate = useNavigate();
   const { t } = useTranslation();
   const canvasRef = useRef(null);
+  const [searchParams] = useSearchParams();
 
   const [inputs, setInputs] = useState({ username: '', password: '', password2: '', email: '', verification_code: '', wechat_verification_code: '', aff_code: localStorage.getItem('aff') || '' });
   const { username, password, password2 } = inputs;
@@ -145,6 +146,14 @@ const RegisterForm = () => {
     window.addEventListener('resize', resize);
     return () => { clearInterval(timer); window.removeEventListener('resize', resize); };
   }, []);
+
+  useEffect(() => {
+    const affFromUrl = searchParams.get('aff');
+    if (affFromUrl) {
+      localStorage.setItem('aff', affFromUrl);
+      setInputs((p) => ({ ...p, aff_code: affFromUrl }));
+    }
+  }, [searchParams]);
 
   function handleChange(name, value) { setInputs((p) => ({ ...p, [name]: value })); }
 

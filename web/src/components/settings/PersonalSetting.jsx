@@ -26,6 +26,7 @@ import {
   setUserData,
   renderQuota,
   goToRecharge,
+  copy,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
@@ -111,6 +112,18 @@ const PersonalSetting = () => {
   const username = user?.display_name || user?.username || '';
   const initials = username ? username.slice(0, 2).toUpperCase() : 'NA';
 
+  const inviteUrl = user?.aff_code
+    ? `${window.location.origin}/register?aff=${user.aff_code}`
+    : '';
+
+  const handleInviteCodeClick = async () => {
+    if (!inviteUrl) return;
+    if (await copy(inviteUrl)) {
+      showSuccess(t('邀请链接已复制，正在跳转注册页'));
+    }
+    navigate(`/register?aff=${user.aff_code}`);
+  };
+
   return (
     <div className='px-6 lg:px-10 py-10'>
       <div className='max-w-[520px] mx-auto'>
@@ -143,7 +156,25 @@ const PersonalSetting = () => {
           <InfoRow icon={Wallet} label={t('已用额度')} value={renderQuota(user?.used_quota, 2)} />
           <InfoRow icon={Mail} label={t('邮箱')} value={user?.email || t('未绑定')} />
           <InfoRow icon={KeyRound} label={t('请求次数')} value={String(user?.request_count || 0)} />
-          <InfoRow icon={Users} label={t('邀请码')} value={user?.aff_code || t('暂无')} />
+          <InfoRow
+            icon={Users}
+            label={t('邀请码')}
+            value={
+              user?.aff_code ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className='text-[14px] font-medium text-[#2563eb] hover:text-[#1d4ed8] cursor-pointer underline'
+                  onClick={handleInviteCodeClick}
+                  onKeyDown={(e) => e.key === 'Enter' && handleInviteCodeClick()}
+                >
+                  {user.aff_code}
+                </span>
+              ) : (
+                <span className='text-[14px] font-medium text-[#1A1A1A]'>{t('暂无')}</span>
+              )
+            }
+          />
           <InfoRow icon={Users} label={t('邀请人数')} value={String(user?.aff_count || 0)} />
         </div>
 
