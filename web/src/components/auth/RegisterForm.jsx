@@ -78,6 +78,7 @@ const RegisterForm = () => {
   let navigate = useNavigate();
   const { t } = useTranslation();
   const canvasRef = useRef(null);
+  const formApiRef = useRef(null);
   const [searchParams] = useSearchParams();
 
   const [inputs, setInputs] = useState({ username: '', password: '', password2: '', email: '', verification_code: '', wechat_verification_code: '', aff_code: localStorage.getItem('aff') || '' });
@@ -148,10 +149,11 @@ const RegisterForm = () => {
   }, []);
 
   useEffect(() => {
-    const affFromUrl = searchParams.get('aff');
+    const affFromUrl = searchParams.get('aff') || searchParams.get('aff_code');
     if (affFromUrl) {
       localStorage.setItem('aff', affFromUrl);
       setInputs((p) => ({ ...p, aff_code: affFromUrl }));
+      formApiRef.current?.setValue('aff_code', affFromUrl);
     }
   }, [searchParams]);
 
@@ -278,14 +280,14 @@ const RegisterForm = () => {
             </>
           ) : (
             <>
-              <Form className='space-y-1'>
+              <Form className='space-y-1' getFormApi={(api) => (formApiRef.current = api)}>
                 <Form.Input field='username' label={t('用户名')} placeholder={t('请输入用户名')} onChange={(v) => handleChange('username', v)} prefix={<IconUser />} />
                 <Form.Input field='password' label={t('密码')} placeholder={t('最短 8 位')} mode='password' onChange={(v) => handleChange('password', v)} prefix={<IconLock />} />
                 <Form.Input field='password2' label={t('确认密码')} placeholder={t('确认密码')} mode='password' onChange={(v) => handleChange('password2', v)} prefix={<IconLock />} />
                 <Form.Input field='email' label={t('邮箱')} placeholder={t('输入邮箱，支持： Gmail、QQ、163等主流邮箱')} type='email' onChange={(v) => handleChange('email', v)} prefix={<IconMail />}
                   suffix={<Button onClick={sendVerificationCode} loading={verificationCodeLoading} disabled={disableButton}>{disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}</Button>} />
                 <Form.Input field='verification_code' label={t('验证码')} placeholder={t('输入验证码')} onChange={(v) => handleChange('verification_code', v)} prefix={<IconKey />} />
-                <Form.Input field='aff_code' label={t('邀请码')} placeholder={t('填写邀请码（可选）')} onChange={(v) => handleChange('aff_code', v)} value={inputs.aff_code} />
+                <Form.Input id='aff_code' field='aff_code' label={t('邀请码')} placeholder={t('填写邀请码（可选）')} onChange={(v) => handleChange('aff_code', v)} value={inputs.aff_code} />
               </Form>
 
               {(hasUserAgreement || hasPrivacyPolicy) && (

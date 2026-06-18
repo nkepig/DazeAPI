@@ -27,6 +27,7 @@ import {
   renderQuota,
   goToRecharge,
   copy,
+  removeTrailingSlash,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
@@ -112,16 +113,28 @@ const PersonalSetting = () => {
   const username = user?.display_name || user?.username || '';
   const initials = username ? username.slice(0, 2).toUpperCase() : 'NA';
 
+  const serverBase = (() => {
+    let address = statusState?.status?.server_address;
+    if (!address) {
+      try {
+        address = JSON.parse(localStorage.getItem('status') || '{}').server_address;
+      } catch {
+        address = '';
+      }
+    }
+    return removeTrailingSlash(address || window.location.origin);
+  })();
+
   const inviteUrl = user?.aff_code
-    ? `${window.location.origin}/register?aff=${user.aff_code}`
+    ? `${serverBase}/register?aff=${user.aff_code}`
     : '';
 
   const handleInviteCodeClick = async () => {
     if (!inviteUrl) return;
     if (await copy(inviteUrl)) {
-      showSuccess(t('邀请链接已复制，正在跳转注册页'));
+      showSuccess(t('邀请链接已复制'));
     }
-    navigate(`/register?aff=${user.aff_code}`);
+    window.location.href = inviteUrl;
   };
 
   return (
