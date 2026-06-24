@@ -509,7 +509,7 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	}
 	info.SetEstimatePromptTokens(usage.PromptTokens)
 
-quota := 0
+	quota := 0
 	if !priceData.UsePerCallPricing {
 		promptTokens := usage.PromptTokens
 		completionTokens := usage.CompletionTokens
@@ -705,17 +705,17 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 			if constant.EndpointType(endpointType) == constant.EndpointTypeGemini {
 				maxTokens = 3000
 			}
-req := &dto.GeneralOpenAIRequest{
-			Model:  model,
-			Stream: lo.ToPtr(isStream),
-			Messages: []dto.Message{
-				{
-					Role:    "user",
-					Content: channelTestPrompt,
+			req := &dto.GeneralOpenAIRequest{
+				Model:  model,
+				Stream: lo.ToPtr(isStream),
+				Messages: []dto.Message{
+					{
+						Role:    "user",
+						Content: channelTestPrompt,
+					},
 				},
-			},
-			MaxTokens: lo.ToPtr(maxTokens),
-		}
+				MaxTokens: lo.ToPtr(maxTokens),
+			}
 			if isStream {
 				req.StreamOptions = &dto.StreamOptions{IncludeUsage: true}
 			}
@@ -753,13 +753,12 @@ req := &dto.GeneralOpenAIRequest{
 	}
 
 	// Responses-only models (e.g. codex series)
-if strings.Contains(strings.ToLower(model), "codex") {
+	if strings.Contains(strings.ToLower(model), "codex") {
 		return &dto.OpenAIResponsesRequest{
 			Model:  model,
 			Input:  json.RawMessage(fmt.Sprintf(`[{"role":"user","content":%q}]`, channelTestPrompt)),
 			Stream: lo.ToPtr(isStream),
 		}
-	}
 	}
 
 	// Chat/Completion 请求 - 返回 GeneralOpenAIRequest
@@ -908,7 +907,7 @@ func testAllChannels(notify bool) error {
 
 			// disable channel
 			if isChannelEnabled && shouldBanChannel && channel.GetAutoBan() {
-		processChannelError(result.context, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError, true)
+				processChannelError(result.context, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError, true)
 			}
 
 			// enable channel
