@@ -21,12 +21,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Banner,
   Button,
-  Card,
   Empty,
   Form,
   Popconfirm,
   Row,
   Spin,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -220,7 +220,7 @@ export default function SettingsChannelAffinityQuick(props) {
         const skip = !!value;
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Form.Switch
+            <Switch
               checked={skip}
               onChange={(v) => toggleRuleSkipRetry(record.name, v)}
               checkedText={t('不重试')}
