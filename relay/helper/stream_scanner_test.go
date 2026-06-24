@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -518,4 +519,85 @@ func TestStreamScannerHandler_PingInterleavesWithSlowUpstream(t *testing.T) {
 	t.Logf("received %d pings interleaved with 10 chunks over 5s", pingCount)
 	assert.GreaterOrEqual(t, pingCount, 3,
 		"expected at least 3 pings during 5s stream with 1s ping interval; got %d", pingCount)
+}
+
+// TestStreamScannerHandler_ClientDisconnectDrainsUpstream verifies that when the
+// downstream client disconnects mid-stream, the scanner continues reading from
+// upstream (drain mode) so that the final usage-bearing chunk — which arrives
+// after the client gave up — can still be captured for billing.
+//
+// Without drain mode, a client disconnect would tear down the upstream
+// connection immediately, losing the final usage event even though the upstream
+// provider has already billed for the request.
+func TestStreamScannerHandler_ClientDisconnectDrainsUpstream(t *testing.T) {
+	t.Parallel()
+
+	// Upstream sends 3 chunks, then we cancel the client context, then the
+	// upstream sends a final "usage" chunk and [DONE]. Drain mode must keep
+	// reading so the post-disconnect chunks are still delivered to dataHandler.
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		for i := 0; i < 3; i++ {
+			fmt.Fprintf(pw, "data: pre_disconnect_%d\n", i)
+		}
+		// Give the test a moment to cancel the client context.
+		time.Sleep(200 * time.Millisecond)
+		// These chunks arrive AFTER the client has disconnected.
+		fmt.Fprint(pw, "data: post_disconnect_usage\n")
+		fmt.Fprint(pw, "data: [DONE]\n")
+	}()
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	ctx, cancel := context.WithCancel(context.Background())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(ctx)
+
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() {
+		constant.StreamingTimeout = oldTimeout
+		cancel()
+	})
+
+	resp := &http.Response{Body: pr}
+	info := &relaycommon.RelayInfo{
+		DisablePing: true,
+		ChannelMeta: &relaycommon.ChannelMeta{},
+	}
+
+	var (
+		mu       sync.Mutex
+		received []string
+	)
+	done := make(chan struct{})
+	go func() {
+		StreamScannerHandler(c, resp, info, func(data string) bool {
+			mu.Lock()
+			received = append(received, data)
+			mu.Unlock()
+			return true
+		})
+		close(done)
+	}()
+
+	// Let the first 3 chunks flow through, then simulate client disconnect.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("timed out waiting for drain to complete")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 4, len(received),
+		"expected 3 pre-disconnect chunks + 1 post-disconnect usage chunk; got %v", received)
+	assert.Equal(t, "pre_disconnect_0", received[0])
+	assert.Equal(t, "pre_disconnect_1", received[1])
+	assert.Equal(t, "pre_disconnect_2", received[2])
+	assert.Equal(t, "post_disconnect_usage", received[3],
+		"drain mode must continue reading upstream after client disconnect to capture usage")
 }
