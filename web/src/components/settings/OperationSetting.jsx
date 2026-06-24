@@ -22,6 +22,7 @@ import { Card, Spin } from '@douyinfe/semi-ui';
 import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
+import SettingsChannelAffinityQuick from '../../pages/Setting/Operation/SettingsChannelAffinityQuick';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
 import PaymentSetting from './PaymentSetting';
 import { API, showError, toBoolean } from '../../helpers';
@@ -52,6 +53,10 @@ const OperationSetting = () => {
     AutomaticDisableStatusCodes: '401',
     AutomaticRetryStatusCodes:
       '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
+
+    // Channel affinity (quick retry control) — only fields the simplified card uses.
+    'channel_affinity_setting.enabled': true,
+    'channel_affinity_setting.rules': '[]',
 
     'token_setting.max_user_tokens': 1000,
 
@@ -113,6 +118,9 @@ const OperationSetting = () => {
       </Card>
       <Card style={{ marginTop: '10px' }}>
         <SettingsMonitoring options={inputs} refresh={onRefresh} />
+      </Card>
+      <Card style={{ marginTop: '10px' }}>
+        <SettingsChannelAffinityQuick options={inputs} refresh={onRefresh} />
       </Card>
       <Card style={{ marginTop: '10px' }}>
         <SettingsCreditLimit options={inputs} refresh={onRefresh} />
