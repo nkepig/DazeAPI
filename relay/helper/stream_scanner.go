@@ -25,6 +25,17 @@ const (
 	InitialScannerBufferSize    = 64 << 10 // 64KB (64*1024)
 	DefaultMaxScannerBufferSize = 64 << 20 // 64MB (64*1024*1024) default SSE buffer size
 	DefaultPingInterval         = 10 * time.Second
+	// DefaultStreamDrainTimeout is the overall budget for continuing to read
+	// from upstream after the downstream client has disconnected, so that
+	// usage/billing events (e.g. OpenAI Responses `response.completed`) that
+	// arrive after the client gives up can still be captured for billing.
+	//
+	// Without this drain window, a client disconnect mid-stream causes the
+	// upstream connection to be torn down immediately, losing the final
+	// usage event even though the upstream provider has already billed for
+	// the request. The drain deadline is a hard cap; if upstream does not
+	// finish within this window, we give up and close the connection.
+	DefaultStreamDrainTimeout = 60 * time.Second
 )
 
 func getScannerBufferSize() int {
@@ -213,13 +224,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		}()
 
 		for scanner.Scan() {
-			// 检查是否需要停止
+			// 检查是否需要停止。注意：此处故意不监听
+			// c.Request.Context().Done() —— 客户端断开后我们仍要继续读上游
+			// 以便拿到最终的 usage 事件，由主循环的 drain 逻辑统一兜底。
 			select {
 			case <-stopChan:
 				return
 			case <-ctx.Done():
-				return
-			case <-c.Request.Context().Done():
 				return
 			default:
 			}
@@ -268,16 +279,40 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		}
 	})
 
-	// 主循环等待完成或超时
-	select {
-	case <-ticker.C:
-		// 超时处理逻辑
-		logger.LogError(c, "streaming timeout")
-	case <-stopChan:
-		// 正常结束
-		logger.LogInfo(c, "streaming finished")
-	case <-c.Request.Context().Done():
-		// 客户端断开连接
-		logger.LogInfo(c, "client disconnected")
+	// nil channel 在 select 中永远阻塞，赋值后才生效
+	var drainDeadline <-chan time.Time
+	drainMode := false
+
+	for {
+		select {
+		case <-ticker.C:
+			// 流式无数据超时（任意模式下都适用）
+			if drainMode {
+				logger.LogError(c, "drain timeout: no upstream data after client disconnect")
+			} else {
+				logger.LogError(c, "streaming timeout")
+			}
+			return
+		case <-stopChan:
+			// scanner 自然结束（读到 [DONE] 或上游 EOF）
+			if drainMode {
+				logger.LogInfo(c, "drain completed after client disconnect")
+			} else {
+				logger.LogInfo(c, "streaming finished")
+			}
+			return
+		case <-drainDeadline:
+			// 客户端断开后的排空总时长超限，放弃提取 usage
+			logger.LogError(c, "drain deadline exceeded, giving up usage extraction")
+			return
+		case <-c.Request.Context().Done():
+			// 客户端断开连接：进入排空模式，继续读上游
+			if !drainMode {
+				drainMode = true
+				logger.LogInfo(c, "client disconnected, draining upstream for usage")
+				drainDeadline = time.After(DefaultStreamDrainTimeout)
+			}
+			// 后续 context.Done 触发被忽略（channel 关闭后会持续触发）
+		}
 	}
 }
