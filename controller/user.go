@@ -206,7 +206,8 @@ func Register(c *gin.Context) {
 
 func GetAllUsers(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
-	users, total, err := model.GetAllUsers(pageInfo)
+	idWhitelist := adminUserWhitelistFor(c)
+	users, total, err := model.GetAllUsers(pageInfo, idWhitelist)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -223,7 +224,8 @@ func SearchUsers(c *gin.Context) {
 	keyword := c.Query("keyword")
 	group := c.Query("group")
 	pageInfo := common.GetPageQuery(c)
-	users, total, err := model.SearchUsers(keyword, group, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	idWhitelist := adminUserWhitelistFor(c)
+	users, total, err := model.SearchUsers(keyword, group, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), idWhitelist)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -250,6 +252,20 @@ func GetUser(c *gin.Context) {
 	if myRole <= user.Role && myRole != common.RoleRootUser {
 		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
 		return
+	}
+	// 管理员细粒度权限：manage_users 白名单内才可查看
+	if wl := adminUserWhitelistFor(c); wl != nil {
+		allowed := false
+		for _, wid := range wl {
+			if wid == id {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
+			return
+		}
 	}
 	responseData := buildUserResponseData(user, true)
 	if myRole == common.RoleRootUser {
@@ -371,6 +387,8 @@ func GetSelf(c *gin.Context) {
 	responseData["setting"] = user.Setting
 	responseData["sidebar_modules"] = settingObj.SidebarModules
 	responseData["permissions"] = permissions
+	// 细粒度管理员权限（5项）— 由 root 配置，前端用于控制页面/导航可见性
+	responseData["admin_permissions"] = calculateAdminFineGrainedPermissions(user)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -482,6 +500,34 @@ func calculateUserPermissions(userRole int) map[string]interface{} {
 	return permissions
 }
 
+// calculateAdminFineGrainedPermissions builds the fine-grained admin permission map
+// (view_usage_logs / manage_users / manage_channels / view_group_success_rate /
+// configure_operation_settings) from the user's stored AdminPermission column.
+//   - root: always all-allowed (authoritative).
+//   - admin: parsed from column; empty column => default (all allowed) for backward compat.
+//   - common/guest: no admin permissions at all.
+func calculateAdminFineGrainedPermissions(user *model.User) map[string]interface{} {
+	if user == nil {
+		return nil
+	}
+	if user.Role == common.RoleRootUser {
+		p := common.DefaultAdminPermission()
+		return p.AsMap()
+	}
+	if user.Role != common.RoleAdminUser {
+		// non-admins get no admin permissions
+		return map[string]interface{}{
+			"view_usage_logs":               false,
+			"manage_users":                  "none",
+			"manage_channels":               "none",
+			"view_group_success_rate":       false,
+			"configure_operation_settings":  false,
+		}
+	}
+	p := common.ParseAdminPermission(user.AdminPermission)
+	return p.AsMap()
+}
+
 // 根据用户角色生成默认的边栏配置
 func generateDefaultSidebarConfig(userRole int) string {
 	defaultConfig := map[string]interface{}{}
@@ -559,6 +605,23 @@ func UpdateUser(c *gin.Context) {
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	// 管理员细粒度权限：manage_users 白名单内才可修改
+	if wl := adminUserWhitelistFor(c); wl != nil {
+		allowed := false
+		for _, wid := range wl {
+			if wid == updatedUser.Id {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "无权修改该用户：不在白名单内",
+			})
+			return
+		}
 	}
 	myRole := c.GetInt("role")
 	if myRole <= originUser.Role && myRole != common.RoleRootUser {
@@ -745,6 +808,23 @@ func DeleteUser(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	// 管理员细粒度权限：manage_users 白名单内才可删除
+	if wl := adminUserWhitelistFor(c); wl != nil {
+		allowed := false
+		for _, wid := range wl {
+			if wid == id {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "无权删除该用户：不在白名单内",
+			})
+			return
+		}
+	}
 	originUser, err := model.GetUserByIdUnscoped(id, false)
 	if err != nil {
 		common.ApiError(c, err)
@@ -853,6 +933,23 @@ func ManageUser(c *gin.Context) {
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
+	}
+	// 管理员细粒度权限：manage_users 白名单内才可操作
+	if wl := adminUserWhitelistFor(c); wl != nil {
+		allowed := false
+		for _, wid := range wl {
+			if wid == req.Id {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "无权操作该用户：不在白名单内",
+			})
+			return
+		}
 	}
 	user := model.User{
 		Id: req.Id,
@@ -1212,4 +1309,245 @@ func AdminUpdateDefaultVendorRatios(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, nil)
+}
+
+// ============================================================
+// 细粒度管理员权限（由 root 配置）
+// ============================================================
+
+// GetAdminPermissions returns the stored fine-grained admin permissions for a given user.
+// Root-only. Returns the parsed permission object (defaults to all-allowed if unset).
+func GetAdminPermissions(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	user, err := model.GetUserById(id, false)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	p := common.ParseAdminPermission(user.AdminPermission)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    p.AsMap(),
+	})
+}
+
+// UpdateAdminPermissions writes the fine-grained admin permissions for a given user.
+// Root-only. Body: the AdminPermission JSON. Cannot restrict root users (root is always all-allowed).
+func UpdateAdminPermissions(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	user, err := model.GetUserById(id, false)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if user.Role == common.RoleRootUser {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无法为超级管理员配置权限限制",
+		})
+		return
+	}
+	if user.Role != common.RoleAdminUser {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "目标用户不是管理员",
+		})
+		return
+	}
+
+	var req common.AdminPermission
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	stored, err := common.SerializeAdminPermission(req)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	// 计算权限变化描述（用于日志）
+	oldPerm := common.ParseAdminPermission(user.AdminPermission)
+	changeDesc := diffAdminPermission(oldPerm, req)
+	if err := model.UpdateUserAdminPermission(user.Id, stored); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var logContent string
+	if changeDesc != "" {
+		logContent = "超级管理员更新了 " + user.Username + " (#" + strconv.Itoa(user.Id) + ") 的细粒度权限：" + changeDesc
+	} else {
+		logContent = "超级管理员更新了 " + user.Username + " (#" + strconv.Itoa(user.Id) + ") 的细粒度权限配置（无变化）"
+	}
+	model.RecordLog(c.GetInt("id"), model.LogTypeManage, logContent)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
+// adminUserWhitelistFor returns the user-id whitelist for the calling admin.
+// Returns nil if the caller is root (no restriction) or if manage_users is "all".
+// Returns []int{} (empty, restricted to nothing) if whitelist is empty.
+func adminUserWhitelistFor(c *gin.Context) []int {
+	role := c.GetInt("role")
+	if role == common.RoleRootUser {
+		return nil
+	}
+	if role != common.RoleAdminUser {
+		return []int{} // non-admin sees nothing
+	}
+	callerId := c.GetInt("id")
+	caller, err := model.GetUserById(callerId, false)
+	if err != nil {
+		return []int{}
+	}
+	p := common.ParseAdminPermission(caller.AdminPermission)
+	ids, restricted := p.ManageUsersWhitelist()
+	if !restricted {
+		return nil
+	}
+	// Admin should always be able to see themselves
+	seen := false
+	for _, id := range ids {
+		if id == callerId {
+			seen = true
+			break
+		}
+	}
+	if !seen {
+		ids = append([]int{callerId}, ids...)
+	}
+	return ids
+}
+
+// adminChannelWhitelistFor returns the channel-id whitelist for the calling admin.
+// Semantics mirror adminUserWhitelistFor.
+func adminChannelWhitelistFor(c *gin.Context) []int {
+	role := c.GetInt("role")
+	if role == common.RoleRootUser {
+		return nil
+	}
+	if role != common.RoleAdminUser {
+		return []int{}
+	}
+	callerId := c.GetInt("id")
+	caller, err := model.GetUserById(callerId, false)
+	if err != nil {
+		return []int{}
+	}
+	p := common.ParseAdminPermission(caller.AdminPermission)
+	ids, restricted := p.ManageChannelsWhitelist()
+	if !restricted {
+		return nil
+	}
+	return ids
+}
+
+// diffAdminPermission builds a human-readable summary of changes between old and new
+// permission sets. Returns "" if no observable change.
+func diffAdminPermission(oldP, newP common.AdminPermission) string {
+	var parts []string
+	if oldP.ViewUsageLogs != newP.ViewUsageLogs {
+		parts = append(parts, "查看使用日志: "+boolStr(oldP.ViewUsageLogs)+" → "+boolStr(newP.ViewUsageLogs))
+	}
+	if !permListEqual(oldP.ManageUsers, newP.ManageUsers) {
+		parts = append(parts, "管理用户: "+permListLabel(oldP.ManageUsers)+" → "+permListLabel(newP.ManageUsers))
+	}
+	if !permListEqual(oldP.ManageChannels, newP.ManageChannels) {
+		parts = append(parts, "管理渠道: "+permListLabel(oldP.ManageChannels)+" → "+permListLabel(newP.ManageChannels))
+	}
+	if oldP.ViewGroupSuccessRate != newP.ViewGroupSuccessRate {
+		parts = append(parts, "查看分组模型成功率: "+boolStr(oldP.ViewGroupSuccessRate)+" → "+boolStr(newP.ViewGroupSuccessRate))
+	}
+	if oldP.ConfigureOperationSettings != newP.ConfigureOperationSettings {
+		parts = append(parts, "配置运营设置: "+boolStr(oldP.ConfigureOperationSettings)+" → "+boolStr(newP.ConfigureOperationSettings))
+	}
+	return strings.Join(parts, "；")
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "允许"
+	}
+	return "禁止"
+}
+
+func permListLabel(v any) string {
+	switch x := v.(type) {
+	case string:
+		if x == "all" || x == "" {
+			return "全部"
+		}
+		return x
+	case []any:
+		return fmt.Sprintf("白名单(%d 项)", len(x))
+	case []float64:
+		return fmt.Sprintf("白名单(%d 项)", len(x))
+	case []int:
+		return fmt.Sprintf("白名单(%d 项)", len(x))
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func permListEqual(a, b any) bool {
+	aIds, aRestr := idWhitelistAny(a)
+	bIds, bRestr := idWhitelistAny(b)
+	if aRestr != bRestr {
+		return false
+	}
+	if !aRestr {
+		return true
+	}
+	if len(aIds) != len(bIds) {
+		return false
+	}
+	set := make(map[int]struct{}, len(aIds))
+	for _, id := range aIds {
+		set[id] = struct{}{}
+	}
+	for _, id := range bIds {
+		if _, ok := set[id]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// idWhitelistAny mirrors common.idWhitelist but accepts any input. Reimplemented
+// locally to avoid exporting the common helper.
+func idWhitelistAny(v any) ([]int, bool) {
+	switch x := v.(type) {
+	case string:
+		return nil, false
+	case []any:
+		ids := make([]int, 0, len(x))
+		for _, item := range x {
+			switch n := item.(type) {
+			case float64:
+				ids = append(ids, int(n))
+			case int:
+				ids = append(ids, n)
+			}
+		}
+		return ids, true
+	case []float64:
+		ids := make([]int, 0, len(x))
+		for _, n := range x {
+			ids = append(ids, int(n))
+		}
+		return ids, true
+	case []int:
+		return x, true
+	}
+	return nil, false
 }

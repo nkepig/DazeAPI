@@ -48,6 +48,60 @@ export function isRoot() {
   return user.role >= 100;
 }
 
+// 细粒度管理员权限（5项）。由 root 配置，通过 /api/user/self 返回 admin_permissions。
+// 缓存到 localStorage('admin_permissions') 以便在 helpers 中同步读取。
+// 返回结构：{ view_usage_logs, manage_users, manage_channels, view_group_success_rate, configure_operation_settings }
+//   - 布尔字段缺省视为 true（向后兼容：root 与未配置的 admin 默认全部允许）
+//   - manage_users / manage_channels: "all" | []int (白名单)
+export function getAdminPermissions() {
+  let raw = localStorage.getItem('admin_permissions');
+  if (!raw) {
+    // 默认全部允许（root 或未配置的 admin）
+    return {
+      view_usage_logs: true,
+      manage_users: 'all',
+      manage_channels: 'all',
+      view_group_success_rate: true,
+      configure_operation_settings: true,
+    };
+  }
+  try {
+    const p = JSON.parse(raw);
+    return {
+      view_usage_logs: p.view_usage_logs !== false,
+      manage_users: p.manage_users === 'all' || Array.isArray(p.manage_users) ? p.manage_users : 'all',
+      manage_channels: p.manage_channels === 'all' || Array.isArray(p.manage_channels) ? p.manage_channels : 'all',
+      view_group_success_rate: p.view_group_success_rate !== false,
+      configure_operation_settings: p.configure_operation_settings !== false,
+    };
+  } catch (_) {
+    return {
+      view_usage_logs: true,
+      manage_users: 'all',
+      manage_channels: 'all',
+      view_group_success_rate: true,
+      configure_operation_settings: true,
+    };
+  }
+}
+
+// 便捷判定：是否有某项布尔权限（仅对 admin 有意义；root 永远 true）
+export function hasPermission(key) {
+  if (isRoot()) return true;
+  if (!isAdmin()) return false;
+  const perms = getAdminPermissions();
+  return perms[key] === true;
+}
+
+// 缓存 admin_permissions（在登录/刷新用户信息后调用）
+export function setAdminPermissions(perms) {
+  if (!perms) {
+    localStorage.removeItem('admin_permissions');
+    return;
+  }
+  localStorage.setItem('admin_permissions', JSON.stringify(perms));
+}
+
 export function getSystemName() {
   let system_name = localStorage.getItem('system_name');
   if (!system_name) return 'API';

@@ -96,6 +96,14 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)
 		}
 
+		// 细粒度管理员权限配置（仅 root 可访问）
+		permissionRoute := apiRouter.Group("/permission")
+		permissionRoute.Use(middleware.RootAuth())
+		{
+			permissionRoute.GET("/user/:id", controller.GetAdminPermissions)
+			permissionRoute.PUT("/user/:id", controller.UpdateAdminPermissions)
+		}
+
 		performanceRoute := apiRouter.Group("/performance")
 		performanceRoute.Use(middleware.RootAuth())
 		{
@@ -176,6 +184,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.DELETE("/", middleware.AdminAuth(), controller.DeleteHistoryLogs)
 		logRoute.GET("/stat", middleware.AdminAuth(), controller.GetLogsStat)
 		logRoute.GET("/channel_success_rate", middleware.AdminAuth(), controller.GetChannelSuccessRate)
+		logRoute.GET("/group_success_rate", middleware.AdminAuth(), controller.GetGroupSuccessRate)
 		logRoute.GET("/self/stat", middleware.UserAuth(), controller.GetLogsSelfStat)
 		logRoute.GET("/channel_affinity_usage_cache", middleware.AdminAuth(), controller.GetChannelAffinityUsageCacheStats)
 		logRoute.GET("/search", middleware.AdminAuth(), controller.SearchAllLogs)

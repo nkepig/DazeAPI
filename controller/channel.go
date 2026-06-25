@@ -68,6 +68,30 @@ func clearChannelInfo(channel *model.Channel) {
 	}
 }
 
+// assertChannelAllowed checks whether the calling admin is permitted to access
+// the given channel id under their manage_channels whitelist. Returns true if
+// access is allowed; otherwise writes a 403 response and returns false.
+//   - root: always allowed
+//   - admin with manage_channels = "all": allowed
+//   - admin with manage_channels = [ids...]: allowed only if channelId is in the list
+//   - non-admin: denied
+func assertChannelAllowed(c *gin.Context, channelId int) bool {
+	wl := adminChannelWhitelistFor(c)
+	if wl == nil {
+		return true // root or manage_channels=all
+	}
+	for _, id := range wl {
+		if id == channelId {
+			return true
+		}
+	}
+	c.JSON(http.StatusForbidden, gin.H{
+		"success": false,
+		"message": "无权访问该渠道：不在白名单内",
+	})
+	return false
+}
+
 func GetAllChannels(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	channelData := make([]*model.Channel, 0)
@@ -87,6 +111,10 @@ func GetAllChannels(c *gin.Context) {
 	// group filter
 	groupFilter := c.Query("group")
 
+	// 管理员细粒度权限：manage_channels 白名单过滤
+	// nil = 不限制（root 或 manage_channels=all）；[]int{} = 限制为空（普通用户/无权限管理员）
+	channelWhitelist := adminChannelWhitelistFor(c)
+
 	var total int64
 
 	if enableTagMode {
@@ -96,6 +124,12 @@ func GetAllChannels(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
 			return
 		}
+		allowedSet := make(map[int]struct{})
+		if channelWhitelist != nil {
+			for _, id := range channelWhitelist {
+				allowedSet[id] = struct{}{}
+			}
+		}
 		for _, tag := range tags {
 			if tag == nil || *tag == "" {
 				continue
@@ -104,27 +138,35 @@ func GetAllChannels(c *gin.Context) {
 			if err != nil {
 				continue
 			}
-			filtered := make([]*model.Channel, 0)
-			for _, ch := range tagChannels {
-				if statusFilter == common.ChannelStatusEnabled && ch.Status != common.ChannelStatusEnabled {
+filtered := make([]*model.Channel, 0)
+		for _, ch := range tagChannels {
+			if channelWhitelist != nil {
+				if _, ok := allowedSet[ch.Id]; !ok {
 					continue
 				}
-				if statusFilter == 0 && ch.Status == common.ChannelStatusEnabled {
-					continue
-				}
-				if typeFilter >= 0 && ch.Type != typeFilter {
-					continue
-				}
-				if groupFilter != "" && !channelHasGroup(ch.Group, groupFilter) {
-					continue
-				}
-				filtered = append(filtered, ch)
 			}
-			channelData = append(channelData, filtered...)
+			if statusFilter == common.ChannelStatusEnabled && ch.Status != common.ChannelStatusEnabled {
+				continue
+			}
+			if statusFilter == 0 && ch.Status == common.ChannelStatusEnabled {
+				continue
+			}
+			if typeFilter >= 0 && ch.Type != typeFilter {
+				continue
+			}
+			if groupFilter != "" && !channelHasGroup(ch.Group, groupFilter) {
+				continue
+			}
+			filtered = append(filtered, ch)
 		}
-		total, _ = model.CountAllTags()
+		channelData = append(channelData, filtered...)
+	}
+	total, _ = model.CountAllTags()
 	} else {
 		baseQuery := model.DB.Model(&model.Channel{})
+		if channelWhitelist != nil {
+			baseQuery = baseQuery.Where("id IN ?", channelWhitelist)
+		}
 		if typeFilter >= 0 {
 			baseQuery = baseQuery.Where("type = ?", typeFilter)
 		}
@@ -157,6 +199,9 @@ func GetAllChannels(c *gin.Context) {
 	}
 
 	countQuery := model.DB.Model(&model.Channel{})
+	if channelWhitelist != nil {
+		countQuery = countQuery.Where("id IN ?", channelWhitelist)
+	}
 	if statusFilter == common.ChannelStatusEnabled {
 		countQuery = countQuery.Where("status = ?", common.ChannelStatusEnabled)
 	} else if statusFilter == 0 {
@@ -217,6 +262,9 @@ func FetchUpstreamModels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if !assertChannelAllowed(c, id) {
+		return
+	}
 
 	channel, err := model.GetChannelById(id, true)
 	if err != nil {
@@ -265,6 +313,14 @@ func SearchChannels(c *gin.Context) {
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
 	channelData := make([]*model.Channel, 0)
+	// 管理员细粒度权限白名单
+	channelWhitelist := adminChannelWhitelistFor(c)
+	allowedSet := make(map[int]struct{})
+	if channelWhitelist != nil {
+		for _, id := range channelWhitelist {
+			allowedSet[id] = struct{}{}
+		}
+	}
 	if enableTagMode {
 		tags, err := model.SearchTags(keyword, group, modelKeyword, idSort)
 		if err != nil {
@@ -292,6 +348,17 @@ func SearchChannels(c *gin.Context) {
 			return
 		}
 		channelData = channels
+	}
+
+	// 应用白名单过滤
+	if channelWhitelist != nil {
+		filtered := make([]*model.Channel, 0, len(channelData))
+		for _, ch := range channelData {
+			if _, ok := allowedSet[ch.Id]; ok {
+				filtered = append(filtered, ch)
+			}
+		}
+		channelData = filtered
 	}
 
 	if statusFilter == common.ChannelStatusEnabled || statusFilter == 0 {
@@ -373,6 +440,9 @@ func GetChannel(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		common.ApiError(c, err)
+		return
+	}
+	if !assertChannelAllowed(c, id) {
 		return
 	}
 	channel, err := model.GetChannelById(id, false)
@@ -492,6 +562,9 @@ func RefreshCodexChannelCredential(c *gin.Context) {
 	channelId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		common.ApiError(c, fmt.Errorf("invalid channel id: %w", err))
+		return
+	}
+	if !assertChannelAllowed(c, channelId) {
 		return
 	}
 
@@ -670,6 +743,9 @@ func AddChannel(c *gin.Context) {
 
 func DeleteChannel(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	if !assertChannelAllowed(c, id) {
+		return
+	}
 	channel := model.Channel{Id: id}
 	err := channel.Delete()
 	if err != nil {
@@ -829,6 +905,12 @@ func DeleteChannelBatch(c *gin.Context) {
 		})
 		return
 	}
+	// 管理员细粒度权限：每个 id 都必须在白名单内
+	for _, id := range channelBatch.Ids {
+		if !assertChannelAllowed(c, id) {
+			return
+		}
+	}
 	err = model.BatchDeleteChannels(channelBatch.Ids)
 	if err != nil {
 		common.ApiError(c, err)
@@ -855,6 +937,9 @@ func UpdateChannel(c *gin.Context) {
 	err := c.ShouldBindJSON(&channel)
 	if err != nil {
 		common.ApiError(c, err)
+		return
+	}
+	if !assertChannelAllowed(c, channel.Id) {
 		return
 	}
 
@@ -1162,6 +1247,9 @@ func CopyChannel(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "invalid id"})
 		return
 	}
+	if !assertChannelAllowed(c, id) {
+		return
+	}
 
 	suffix := c.DefaultQuery("suffix", "_复制")
 	resetBalance := true
@@ -1245,6 +1333,10 @@ func ManageMultiKeys(c *gin.Context) {
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		common.ApiError(c, err)
+		return
+	}
+
+	if !assertChannelAllowed(c, request.ChannelId) {
 		return
 	}
 
@@ -1396,10 +1488,16 @@ func ManageMultiKeys(c *gin.Context) {
 					}
 				}
 			}
-			keyPreview := channel.Key
-			if len(keyPreview) > 10 {
-				keyPreview = keyPreview[:10] + "..."
+keyPreview := channel.Key
+		// 非 root 管理员看到的密钥预览一律遮盖，防止通过 F12 网络面板窃取
+		roleVal, _ := c.Get("role")
+		if roleInt, ok := roleVal.(int); !ok || roleInt < common.RoleRootUser {
+			if len(keyPreview) > 0 {
+				keyPreview = "****"
 			}
+		} else if len(keyPreview) > 10 {
+			keyPreview = keyPreview[:10] + "..."
+		}
 			enabledCount, manualDisabledCount, autoDisabledCount := 0, 0, 0
 			switch status {
 			case 1:
@@ -1477,11 +1575,17 @@ func ManageMultiKeys(c *gin.Context) {
 				}
 			}
 
-			// Create key preview (first 10 chars)
-			keyPreview := key
-			if len(key) > 10 {
-				keyPreview = key[:10] + "..."
+// Create key preview (first 10 chars)
+		keyPreview := key
+		// 非 root 管理员看到的密钥预览一律遮盖
+		roleVal, _ := c.Get("role")
+		if roleInt, ok := roleVal.(int); !ok || roleInt < common.RoleRootUser {
+			if len(keyPreview) > 0 {
+				keyPreview = "****"
 			}
+		} else if len(keyPreview) > 10 {
+			keyPreview = keyPreview[:10] + "..."
+		}
 
 			allKeyStatusList = append(allKeyStatusList, KeyStatus{
 				Index:        i,
@@ -2223,6 +2327,9 @@ func OllamaVersion(c *gin.Context) {
 			"success": false,
 			"message": "Invalid channel id",
 		})
+		return
+	}
+	if !assertChannelAllowed(c, id) {
 		return
 	}
 

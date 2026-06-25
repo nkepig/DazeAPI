@@ -16,7 +16,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { UserContext } from '../../context/User';
-import { isRoot, isAdmin, getSystemName, stringToColor } from '../../helpers';
+import { isRoot, isAdmin, getSystemName, stringToColor, getAdminPermissions } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
 import { Avatar } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
@@ -159,6 +159,10 @@ const NavBar = () => {
           </Link>
           {navItems.map((item) => {
             const isActive = isLoggedIn && activeKey === item.key;
+            // 使用日志受 view_usage_logs 权限控制（仅对非 root 的 admin 生效）
+            if (item.key === 'logs' && isLoggedIn && isAdmin() && !isRoot()) {
+              if (!getAdminPermissions().view_usage_logs) return null;
+            }
             return (
               <Link
                 key={item.key}
@@ -184,7 +188,7 @@ const NavBar = () => {
               </Link>
             );
           })}
-          {isLoggedIn && isAdmin() && (
+          {isLoggedIn && isAdmin() && getAdminPermissions().manage_channels !== 'none' && (
             <Link
               to='/console/channel'
               className='relative px-4 py-2 text-sm font-medium rounded-lg no-underline transition-colors duration-150'
@@ -201,7 +205,7 @@ const NavBar = () => {
               )}
             </Link>
           )}
-          {isLoggedIn && isAdmin() && (
+          {isLoggedIn && isAdmin() && getAdminPermissions().manage_users !== 'none' && (
             <Link
               to='/console/user'
               className='relative px-4 py-2 text-sm font-medium rounded-lg no-underline transition-colors duration-150'
@@ -214,6 +218,23 @@ const NavBar = () => {
             >
               {t('用户管理')}
               {location.pathname.startsWith('/console/user') && (
+                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+              )}
+            </Link>
+          )}
+          {isLoggedIn && isRoot() && (
+            <Link
+              to='/console/permission'
+              className='relative px-4 py-2 text-sm font-medium rounded-lg no-underline transition-colors duration-150'
+              style={{
+                color: location.pathname.startsWith('/console/permission') ? '#1A1A1A' : '#999',
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => { if (!location.pathname.startsWith('/console/permission')) e.currentTarget.style.backgroundColor = '#F5F5F5'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              {t('权限管理')}
+              {location.pathname.startsWith('/console/permission') && (
                 <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
               )}
             </Link>
@@ -295,7 +316,7 @@ const NavBar = () => {
                       <Settings size={15} strokeWidth={1.5} />
                       {t('个人设置')}
                     </Link>
-                    {isRoot() && (
+                    {isRoot() ? (
                       <Link
                         to='/console/setting'
                         onClick={() => setDropdownOpen(false)}
@@ -304,6 +325,17 @@ const NavBar = () => {
                         <Settings size={15} strokeWidth={1.5} />
                         {t('运营设置')}
                       </Link>
+                    ) : (
+                      isAdmin() && getAdminPermissions().configure_operation_settings && (
+                        <Link
+                          to='/console/setting'
+                          onClick={() => setDropdownOpen(false)}
+                          className='flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A] no-underline hover:bg-[#F5F5F5] transition-colors'
+                        >
+                          <Settings size={15} strokeWidth={1.5} />
+                          {t('运营设置')}
+                        </Link>
+                      )
                     )}
                     <div className='border-t border-[#F0F0F0] mt-1 pt-1'>
                       <button

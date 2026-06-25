@@ -69,6 +69,9 @@ func StartCodexOAuthForChannel(c *gin.Context) {
 		common.ApiError(c, fmt.Errorf("invalid channel id: %w", err))
 		return
 	}
+	if !assertChannelAllowed(c, channelID) {
+		return
+	}
 	startCodexOAuthWithChannelID(c, channelID)
 }
 
@@ -118,6 +121,9 @@ func CompleteCodexOAuthForChannel(c *gin.Context) {
 	channelID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		common.ApiError(c, fmt.Errorf("invalid channel id: %w", err))
+		return
+	}
+	if !assertChannelAllowed(c, channelID) {
 		return
 	}
 	completeCodexOAuthWithChannelID(c, channelID)
