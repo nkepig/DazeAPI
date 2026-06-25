@@ -289,7 +289,12 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	enqueueLog(log)
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string) (logs []*Log, total int64, err error) {
+// GetAllLogs returns logs across all users. When userWhitelist != nil, results
+// are restricted to logs whose user_id is in the whitelist (admin fine-grained
+// permission: manage_users whitelist). When maskChannelName is true, the
+// ChannelName field is cleared before returning (non-root admins must not see
+// channel names, only IDs).
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, userWhitelist []int, maskChannelName bool) (logs []*Log, total int64, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
@@ -321,6 +326,9 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if group != "" {
 		tx = tx.Where("logs."+logGroupCol+" = ?", group)
 	}
+	if userWhitelist != nil {
+		tx = tx.Where("logs.user_id IN ?", userWhitelist)
+	}
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -337,7 +345,9 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		}
 	}
 
-	if channelIds.Len() > 0 {
+	// Only resolve channel names when not masked. When masked, leave ChannelName
+	// as empty string so the frontend only sees the channel id.
+	if !maskChannelName && channelIds.Len() > 0 {
 		channelMap := make(map[int]string, channelIds.Len())
 		if common.MemoryCacheEnabled {
 			channelSyncLock.RLock()
@@ -420,7 +430,9 @@ type Stat struct {
 	Tpm   int `json:"tpm"`
 }
 
-func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
+// SumUsedQuota aggregates quota/rpm/tpm stats. When userWhitelist != nil, stats
+// are restricted to logs whose user_id is in the whitelist.
+func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, userWhitelist []int) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
 
 	// 为rpm和tpm创建单独的查询
@@ -436,9 +448,11 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 	if startTimestamp != 0 {
 		tx = tx.Where("created_at >= ?", startTimestamp)
+		rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", startTimestamp)
 	}
 	if endTimestamp != 0 {
 		tx = tx.Where("created_at <= ?", endTimestamp)
+		rpmTpmQuery = rpmTpmQuery.Where("created_at <= ?", endTimestamp)
 	}
 	if modelName != "" {
 		modelNamePattern, err := sanitizeLikePattern(modelName)
@@ -455,6 +469,10 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	if group != "" {
 		tx = tx.Where(logGroupCol+" = ?", group)
 		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
+	}
+	if userWhitelist != nil {
+		tx = tx.Where("user_id IN ?", userWhitelist)
+		rpmTpmQuery = rpmTpmQuery.Where("user_id IN ?", userWhitelist)
 	}
 
 	tx = tx.Where("type = ?", LogTypeConsume)
@@ -591,4 +609,62 @@ func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccess
 	}
 
 	return result, nil
+}
+
+// GroupSuccessRate is the per-group, per-model success-rate row returned by
+// GetGroupSuccessRate. Aggregation key is (group, model_name) — not channel.
+type GroupSuccessRate struct {
+	Group         string  `json:"group"`
+	ModelName     string  `json:"model_name"`
+	TotalCount    int64   `json:"total_count"`
+	SuccessCount  int64   `json:"success_count"`
+	SuccessRate   float64 `json:"success_rate"`
+}
+
+// GetGroupSuccessRate aggregates consume/error logs by (group, model_name) within
+// the given [start, end] timestamp window. This replaces the channel-centric view
+// with a group-centric one ("分组模型成功率").
+//
+// Cross-DB note: logGroupCol quotes the reserved column name correctly across
+// SQLite/MySQL (backtick) and PostgreSQL (double quote). The GROUP BY uses the
+// raw column name via logGroupCol to stay portable.
+func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate, error) {
+	type countResult struct {
+		Group        string
+		ModelName    string
+		TotalCount   int64
+		SuccessCount int64
+	}
+
+	var results []countResult
+	err := LOG_DB.Table("logs").
+		Select(logGroupCol+", model_name, COUNT(*) AS total_count, SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) AS success_count",
+			LogTypeConsume).
+		Where("type IN ? AND created_at >= ? AND created_at <= ?",
+			[]int{LogTypeConsume, LogTypeError}, startTimestamp, endTimestamp).
+		Group(logGroupCol + ", model_name").
+		Scan(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]GroupSuccessRate, 0, len(results))
+	for _, r := range results {
+		var rate float64
+		if r.TotalCount > 0 {
+			rate = math.Round(float64(r.SuccessCount)/float64(r.TotalCount)*10000) / 100
+		}
+		group := r.Group
+		if group == "" {
+			group = "default"
+		}
+		out = append(out, GroupSuccessRate{
+			Group:        group,
+			ModelName:    r.ModelName,
+			TotalCount:   r.TotalCount,
+			SuccessCount: r.SuccessCount,
+			SuccessRate:  rate,
+		})
+	}
+	return out, nil
 }

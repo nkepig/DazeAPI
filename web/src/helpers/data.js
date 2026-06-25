@@ -41,4 +41,11 @@ export function setStatusData(data) {
 
 export function setUserData(data) {
   localStorage.setItem('user', JSON.stringify(data));
+  // 缓存细粒度管理员权限（5项）— 由后端 GetSelf 返回 admin_permissions
+  // 缺省视为全部允许（root 或未配置的 admin）
+  if (data && data.admin_permissions) {
+    localStorage.setItem('admin_permissions', JSON.stringify(data.admin_permissions));
+  } else {
+    localStorage.removeItem('admin_permissions');
+  }
 }

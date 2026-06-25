@@ -23,6 +23,9 @@ func GetCodexChannelUsage(c *gin.Context) {
 		common.ApiError(c, fmt.Errorf("invalid channel id: %w", err))
 		return
 	}
+	if !assertChannelAllowed(c, channelId) {
+		return
+	}
 
 	ch, err := model.GetChannelById(channelId, true)
 	if err != nil {

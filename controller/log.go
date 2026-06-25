@@ -22,7 +22,14 @@ func GetAllLogs(c *gin.Context) {
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
 	requestId := c.Query("request_id")
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId)
+	// 管理员细粒度权限：非 root 只能看 manage_users 白名单内用户的日志；
+	// 当管理员有 manage_channels 白名单时，不返回 channel_name（只显示 channel id），
+	// 防止通过日志接口响应泄露未授权的渠道名称。manage_channels=all 的管理员不受影响。
+	callerRole := c.GetInt("role")
+	userWhitelist := adminUserWhitelistFor(c)
+	// 仅当该管理员存在渠道白名单限制时才遮盖渠道名；root 与 manage_channels=all 不遮盖
+	maskChannelName := callerRole != common.RoleRootUser && adminChannelWhitelistFor(c) != nil
+	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, userWhitelist, maskChannelName)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -103,7 +110,8 @@ func GetLogsStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	userWhitelist := adminUserWhitelistFor(c)
+	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, userWhitelist)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -130,7 +138,7 @@ func GetLogsSelfStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -162,6 +170,33 @@ func GetChannelSuccessRate(c *gin.Context) {
 	}
 
 	data, err := model.GetChannelSuccessRate(startTimestamp, endTimestamp)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    data,
+	})
+}
+
+// GetGroupSuccessRate returns per-group, per-model success rate. This is the
+// group-centric replacement for the channel-centric GetChannelSuccessRate,
+// used by the dashboard panel renamed "分组模型成功率".
+func GetGroupSuccessRate(c *gin.Context) {
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+
+	if startTimestamp == 0 {
+		now := time.Now()
+		startTimestamp = now.AddDate(0, 0, -7).Unix()
+	}
+	if endTimestamp == 0 {
+		endTimestamp = time.Now().Unix()
+	}
+
+	data, err := model.GetGroupSuccessRate(startTimestamp, endTimestamp)
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -4,7 +4,7 @@ Copyright (C) 2025 QuantumNous
 
 import React, { lazy, Suspense } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
-import { PrivateRoute, AdminRoute } from './helpers';
+import { PrivateRoute, AdminRoute, RootRoute } from './helpers';
 import NotFound from './pages/NotFound';
 import SetupCheck from './components/layout/SetupCheck';
 
@@ -17,6 +17,7 @@ const Log = lazy(() => import('./pages/Log'));
 const User = lazy(() => import('./pages/User'));
 const Setting = lazy(() => import('./pages/Setting'));
 const PersonalSetting = lazy(() => import('./components/settings/PersonalSetting'));
+const PermissionManagement = lazy(() => import('./pages/Permission'));
 const Setup = lazy(() => import('./pages/Setup'));
 const RegisterForm = lazy(() => import('./components/auth/RegisterForm'));
 const LoginForm = lazy(() => import('./components/auth/LoginForm'));
@@ -47,6 +48,10 @@ function App() {
         />
         <Route path='/console/channel' element={<AdminRoute><Suspense fallback={<Loading />}><Channel /></Suspense></AdminRoute>} />
         <Route path='/console/user' element={<AdminRoute><Suspense fallback={<Loading />}><User /></Suspense></AdminRoute>} />
+        <Route
+          path='/console/permission'
+          element={<RootRoute><Suspense fallback={<Loading />}><PermissionManagement /></Suspense></RootRoute>}
+        />
         <Route path='/console/token' element={<PrivateRoute><Suspense fallback={<Loading />}><Token /></Suspense></PrivateRoute>} />
         <Route path='/console/log' element={<PrivateRoute><Suspense fallback={<Loading />}><Log /></Suspense></PrivateRoute>} />
         <Route

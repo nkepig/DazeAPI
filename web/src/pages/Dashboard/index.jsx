@@ -9,7 +9,7 @@ import {
 import { API, isAdmin, renderQuota, goToRecharge, getTodayStartTimestamp } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
-import ChannelSuccessRatePanel from '../../components/dashboard/ChannelSuccessRatePanel';
+import ChannelSuccessRatePanel from '../../components/dashboard/GroupSuccessRatePanel';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },

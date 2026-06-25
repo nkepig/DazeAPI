@@ -65,4 +65,21 @@ export function AdminRoute({ children }) {
   return <Navigate to='/console/dashboard' replace />;
 }
 
+// RootRoute 仅供 root(role>=100) 访问（如权限管理页）
+export function RootRoute({ children }) {
+  const raw = localStorage.getItem('user');
+  if (!raw) {
+    return <Navigate to='/login' state={{ from: history.location }} />;
+  }
+  try {
+    const user = JSON.parse(raw);
+    if (user && typeof user.role === 'number' && user.role >= 100) {
+      return children;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return <Navigate to='/console/dashboard' replace />;
+}
+
 export { PrivateRoute };
