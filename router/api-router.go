@@ -67,24 +67,26 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 			}
 
-			adminRoute := userRoute.Group("/")
-			adminRoute.Use(middleware.AdminAuth())
-			{
-				adminRoute.GET("/", controller.GetAllUsers)
-				adminRoute.GET("/search", controller.SearchUsers)
-				// 必须在 /:id 之前注册，否则 "topup" 会被当成用户 id
-				adminRoute.GET("/topup", controller.GetAllTopUps)
-				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
-				adminRoute.POST("/", controller.CreateUser)
-				adminRoute.POST("/manage", controller.ManageUser)
-				adminRoute.PUT("/", controller.UpdateUser)
-				adminRoute.DELETE("/:id", controller.DeleteUser)
-				adminRoute.GET("/default-registration-group-ratio", controller.AdminGetDefaultRegistrationGroupRatio)
-				adminRoute.PUT("/default-registration-group-ratio", controller.AdminUpdateDefaultRegistrationGroupRatio)
-				adminRoute.GET("/default-vendor-ratios", controller.AdminGetDefaultVendorRatios)
-				adminRoute.PUT("/default-vendor-ratios", controller.AdminUpdateDefaultVendorRatios)
-				adminRoute.GET("/:id", controller.GetUser)
-			}
+adminRoute := userRoute.Group("/")
+		adminRoute.Use(middleware.AdminAuth())
+		{
+			adminRoute.GET("/", controller.GetAllUsers)
+			adminRoute.GET("/search", controller.SearchUsers)
+			// 必须在 /:id 之前注册，否则 "topup" 会被当成用户 id
+			adminRoute.GET("/topup", controller.GetAllTopUps)
+			// 必须在 /:id 之前注册；列出所有管理员用于权限管理页（仅 root 能配置权限，但任何管理员都可枚举其他管理员 id/用户名用于白名单选择；不暴露密钥/邮箱等敏感字段）
+			adminRoute.GET("/admins", controller.GetAllAdmins)
+			adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
+			adminRoute.POST("/", controller.CreateUser)
+			adminRoute.POST("/manage", controller.ManageUser)
+			adminRoute.PUT("/", controller.UpdateUser)
+			adminRoute.DELETE("/:id", controller.DeleteUser)
+			adminRoute.GET("/default-registration-group-ratio", controller.AdminGetDefaultRegistrationGroupRatio)
+			adminRoute.PUT("/default-registration-group-ratio", controller.AdminUpdateDefaultRegistrationGroupRatio)
+			adminRoute.GET("/default-vendor-ratios", controller.AdminGetDefaultVendorRatios)
+			adminRoute.PUT("/default-vendor-ratios", controller.AdminUpdateDefaultVendorRatios)
+			adminRoute.GET("/:id", controller.GetUser)
+		}
 		}
 
 		optionRoute := apiRouter.Group("/option")

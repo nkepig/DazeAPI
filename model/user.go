@@ -245,6 +245,24 @@ func fillInviterUsernames(users []*User) {
 	}
 }
 
+// GetAllAdmins returns all users with role == 10 (admin), without pagination.
+// Used by the permission management page which needs the full list of
+// configurable admins regardless of the 100-per-page cap imposed by
+// GetPageQuery. Sensitive columns (password, access_token) are omitted.
+func GetAllAdmins() ([]*User, error) {
+	var users []*User
+	err := DB.Unscoped().
+		Where("role = ?", 10).
+		Order("id desc").
+		Omit("password", "access_token").
+		Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	fillInviterUsernames(users)
+	return users, nil
+}
+
 // SearchUsers searches users by keyword/group. If idWhitelist is non-nil, only
 // users with id in the whitelist are returned.
 func SearchUsers(keyword string, group string, startIdx int, num int, idWhitelist []int) ([]*User, int64, error) {

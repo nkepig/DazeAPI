@@ -237,6 +237,23 @@ func SearchUsers(c *gin.Context) {
 	return
 }
 
+// GetAllAdmins returns the full list of admin users (role == 10), bypassing
+// the 100-per-page cap of GetAllUsers. Used by the permission management page
+// which needs every configurable admin in one request.
+func GetAllAdmins(c *gin.Context) {
+	users, err := model.GetAllAdmins()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    users,
+	})
+	return
+}
+
 func GetUser(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

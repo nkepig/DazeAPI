@@ -54,10 +54,10 @@ const PermissionManagement = () => {
   const fetchAdmins = async () => {
     setLoading(true);
     try {
-      const res = await API.get('/api/user/?p=1&page_size=500');
+      const res = await API.get('/api/user/admins');
       if (res.data.success) {
-        const items = res.data.data?.items || [];
-        const adminList = items.filter((u) => u.role >= 10 && u.role < 100);
+        // 后端直接返回 role == 10 的管理员数组（非分页）
+        const adminList = res.data.data || [];
         setAdmins(adminList);
       } else {
         showError(res.data.message);
