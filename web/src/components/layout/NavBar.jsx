@@ -63,8 +63,6 @@ const NavBar = () => {
         const { content, version } = res.data.data || {};
         setAnnouncementContent(content || '');
         setAnnouncementVersion(version || '');
-        const readVersion = localStorage.getItem('announcement_read_version') || '';
-        setHasUnread(content && !!version && readVersion !== version);
       }
     } catch {
     }
@@ -74,12 +72,16 @@ const NavBar = () => {
     fetchAnnouncement();
   }, []);
 
-  // 未读（含更新）时自动弹窗展示公告；读完关闭后即不再弹，直到下次更新
+  // 每次路由切换都重新判定未读状态：未读（含更新）则自动弹窗
+  // 读完关闭后 localStorage 已记录当前版本，后续路由切换不会再弹，直到下次公告更新
   useEffect(() => {
-    if (hasUnread && announcementContent) {
+    if (!announcementVersion || !announcementContent) return;
+    const readVersion = localStorage.getItem('announcement_read_version') || '';
+    if (readVersion !== String(announcementVersion)) {
+      setHasUnread(true);
       setAnnouncementVisible(true);
     }
-  }, [hasUnread, announcementContent]);
+  }, [location.pathname, announcementVersion, announcementContent]);
 
   const markAnnouncementRead = () => {
     if (hasUnread && announcementVersion) {
