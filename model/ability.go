@@ -58,6 +58,44 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
+// mapRetryToPriorityIndex maps a retry attempt index to a priority bucket index,
+// distributing `totalAttempts` across `numPriorities` buckets (priorities are
+// ordered from highest to lowest). Each priority gets at least one attempt;
+// all extra attempts (totalAttempts - numPriorities) are front-loaded onto the
+// first (highest-priority) bucket, so the primary channel is retried before
+// falling back to lower priorities.
+//
+// 之前的行为：多出的重试次数会堆到最后（最低优先级），
+//   例如 totalAttempts=3, numPriorities=2 → retry=0→p0, 1→p1, 2→p1，即 1-2-2。
+// 现在改为多出的次数全堆到最前（最高优先级），
+//   例如 totalAttempts=3, numPriorities=2 → retry=0→p0, 1→p0, 2→p1，即 1-1-2。
+func mapRetryToPriorityIndex(retry, numPriorities, totalAttempts int) int {
+	if numPriorities <= 0 {
+		return 0
+	}
+	if retry < 0 {
+		return 0
+	}
+	if totalAttempts < numPriorities {
+		totalAttempts = numPriorities
+	}
+	extras := totalAttempts - numPriorities
+	if extras < 0 {
+		extras = 0
+	}
+	// 第一个（最高）优先级吸收所有多出的尝试次数
+	firstBucketCount := 1 + extras
+	if retry < firstBucketCount {
+		return 0
+	}
+	remaining := retry - firstBucketCount
+	idx := 1 + remaining
+	if idx >= numPriorities {
+		idx = numPriorities - 1
+	}
+	return idx
+}
+
 func getPriority(group string, model string, retry int) (int, error) {
 
 	var priorities []int
@@ -77,14 +115,9 @@ func getPriority(group string, model string, retry int) (int, error) {
 		return 0, errors.New("数据库一致性被破坏")
 	}
 
-	// 确定要使用的优先级
-	var priorityToUse int
-	if retry >= len(priorities) {
-		// 如果重试次数大于优先级数，则使用最小的优先级
-		priorityToUse = priorities[len(priorities)-1]
-	} else {
-		priorityToUse = priorities[retry]
-	}
+	// 确定要使用的优先级：多出的重试次数堆到最前（最高优先级），而不是最后
+	priorityIdx := mapRetryToPriorityIndex(retry, len(priorities), common.RetryTimes+1)
+	priorityToUse := priorities[priorityIdx]
 	return priorityToUse, nil
 }
 

@@ -18,7 +18,7 @@ import {
 import { UserContext } from '../../context/User';
 import { isRoot, isAdmin, getSystemName, stringToColor } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
-import { Avatar, Badge } from '@douyinfe/semi-ui';
+import { Avatar } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
 import AnnouncementModal from './AnnouncementModal';
 import { API } from '../../helpers/api';
@@ -73,6 +73,25 @@ const NavBar = () => {
   useEffect(() => {
     fetchAnnouncement();
   }, []);
+
+  // 未读（含更新）时自动弹窗展示公告；读完关闭后即不再弹，直到下次更新
+  useEffect(() => {
+    if (hasUnread && announcementContent) {
+      setAnnouncementVisible(true);
+    }
+  }, [hasUnread, announcementContent]);
+
+  const markAnnouncementRead = () => {
+    if (hasUnread && announcementVersion) {
+      localStorage.setItem('announcement_read_version', String(announcementVersion));
+      setHasUnread(false);
+    }
+  };
+
+  const closeAnnouncement = () => {
+    setAnnouncementVisible(false);
+    markAnnouncementRead();
+  };
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -205,16 +224,11 @@ const NavBar = () => {
             onClick={() => {
               fetchAnnouncement();
               setAnnouncementVisible(true);
-              if (hasUnread && announcementVersion) {
-                localStorage.setItem('announcement_read_version', String(announcementVersion));
-                setHasUnread(false);
-              }
             }}
             className='relative flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 hover:bg-[#F5F5F5] transition-colors'
+            aria-label={t('系统公告')}
           >
-            <Badge dot={hasUnread} type='danger'>
-              <Megaphone size={18} strokeWidth={1.5} color='#999' />
-            </Badge>
+            <Megaphone size={18} strokeWidth={1.5} color='#999' />
           </button>
 
           <div className='relative' ref={langRef}>
@@ -414,7 +428,7 @@ const NavBar = () => {
         visible={announcementVisible}
         content={announcementContent}
         version={announcementVersion}
-        onClose={() => setAnnouncementVisible(false)}
+        onClose={closeAnnouncement}
         isMobile={false}
       />
     </nav>

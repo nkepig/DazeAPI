@@ -164,10 +164,10 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
 
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
-	}
-	targetPriority := int64(sortedUniquePriorities[retry])
+	// 多出的重试次数堆到最前（最高优先级），而不是最后
+	// 例如 RetryTimes=2（共3次尝试）且只有2个优先级时：1-1-2 而非 1-2-2
+	priorityIdx := mapRetryToPriorityIndex(retry, len(sortedUniquePriorities), common.RetryTimes+1)
+	targetPriority := int64(sortedUniquePriorities[priorityIdx])
 
 	var sumWeight = 0
 	var targetChannels []*Channel
