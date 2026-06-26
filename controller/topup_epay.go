@@ -41,16 +41,14 @@ type EpayTopUpRequest struct {
 }
 
 // xunhuPayResponse 虎皮椒 do.html 接口的响应结构
+// 注意: 平台返回的是扁平结构, url/url_qrcode/errcode/errmsg/hash 都在顶层,
+// 不存在 data 嵌套对象 (查询接口 query.html 才有 data 字段).
 type xunhuPayResponse struct {
-	ErrCode int             `json:"errcode"`
-	ErrMsg  string          `json:"errmsg"`
-	Data    xunhuPayRespData `json:"data"`
-	Hash    string          `json:"hash"`
-}
-
-type xunhuPayRespData struct {
+	ErrCode   int    `json:"errcode"`
+	ErrMsg    string `json:"errmsg"`
 	URL       string `json:"url"`
 	URLQrcode string `json:"url_qrcode"`
+	Hash      string `json:"hash"`
 }
 
 func RequestEpayTopUp(c *gin.Context) {
@@ -253,10 +251,10 @@ func requestEpayPayURL(ps *operation_setting.PaymentSetting, tradeNo string, mon
 	if payResp.ErrCode != 0 {
 		return "", fmt.Errorf("易支付下单失败: %s", payResp.ErrMsg)
 	}
-	if payResp.Data.URL == "" {
+	if payResp.URL == "" {
 		return "", fmt.Errorf("易支付响应缺少支付链接")
 	}
-	return payResp.Data.URL, nil
+	return payResp.URL, nil
 }
 
 func verifyXunhuSign(params map[string]string, appSecret string) bool {
