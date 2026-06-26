@@ -37,6 +37,7 @@ const RechargeCard = ({
   enableAlipayTopUp,
   enableEpayTopUp,
   epayPayTypes = [],
+  epayLoading = false,
   minTopUp,
   payAmount,
   onPayAmountChange,
@@ -70,6 +71,7 @@ const RechargeCard = ({
     return `${t('易支付')}-${type}`;
   };
   return (
+    <Spin spinning={epayLoading} tip={t('正在跳转支付界面...')} size='large' childStyle={{ height: '100%' }}>
     <Card className='!rounded-2xl shadow-sm border border-[var(--semi-color-border)]'>
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-3'>
@@ -172,6 +174,7 @@ const RechargeCard = ({
                 type='primary'
                 size='large'
                 block
+                disabled={epayLoading}
                 icon={<CreditCard size={20} />}
                 onClick={() => handleOpenEpay(type)}
                 style={{ background: '#16a34a', borderColor: '#16a34a' }}
@@ -192,6 +195,7 @@ const RechargeCard = ({
         />
       )}
     </Card>
+    </Spin>
   );
 };
 

@@ -35,6 +35,18 @@ const (
 	xunhuHTTPTimeout   = 15 * time.Second
 )
 
+// xunhuHTTPClient 复用 TCP/TLS 连接，避免每次下单都走完整握手流程。
+// Transport 启用 keep-alive，MaxIdleConnsPerHost 让同一网关域名能保留空闲连接池。
+// 这样后续请求会复用已建立的连接，省掉约 100-300ms 的 TLS 握手开销。
+var xunhuHTTPClient = &http.Client{
+	Timeout: xunhuHTTPTimeout,
+	Transport: &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 type EpayTopUpRequest struct {
 	Amount float64 `json:"amount"`
 	Type   string  `json:"type"`
@@ -230,8 +242,7 @@ func requestEpayPayURL(ps *operation_setting.PaymentSetting, tradeNo string, mon
 		return "", fmt.Errorf("构造易支付请求失败: %v", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: xunhuHTTPTimeout}
-	resp, err := client.Do(httpReq)
+	resp, err := xunhuHTTPClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("调用易支付网关失败: %v", err)
 	}
