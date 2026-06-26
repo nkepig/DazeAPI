@@ -27,6 +27,53 @@ import {
 } from '@douyinfe/semi-illustrations';
 import { API, showError, showSuccess } from '../../helpers';
 
+const PAGE_SIZE = 100;
+const MAX_PAGES = 200;
+
+const fetchAllPages = async (path, { throwOnFirstPageFailure = false } = {}) => {
+  const items = [];
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    let pageItems = [];
+    let total = 0;
+
+    try {
+      const res = await API.get(`${path}?p=${page}&page_size=${PAGE_SIZE}`);
+      if (!res.data.success) {
+        if (page === 1 && throwOnFirstPageFailure) {
+          throw new Error(res.data.message || 'fetch failed');
+        }
+        break;
+      }
+
+      const data = res.data.data || {};
+      pageItems = Array.isArray(data.items) ? data.items : [];
+      total = typeof data.total === 'number' ? data.total : 0;
+    } catch (e) {
+      if (page === 1 && throwOnFirstPageFailure) {
+        throw e;
+      }
+      break;
+    }
+
+    if (pageItems.length === 0) {
+      break;
+    }
+
+    items.push(...pageItems);
+
+    if (total > 0 && items.length >= total) {
+      break;
+    }
+
+    if (pageItems.length < PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return items;
+};
+
 // 默认权限（全部允许）
 const DEFAULT_PERMISSIONS = {
   view_usage_logs: true,
@@ -71,18 +118,12 @@ const PermissionManagement = () => {
 
   const fetchOptions = async () => {
     try {
-      const [uRes, cRes] = await Promise.all([
-        API.get('/api/user/?p=1&page_size=500'),
-        API.get('/api/channel/?p=1&page_size=500'),
+      const [users, channels] = await Promise.all([
+        fetchAllPages('/api/user/'),
+        fetchAllPages('/api/channel/'),
       ]);
-      if (uRes.data.success) {
-        const items = uRes.data.data?.items || [];
-        setUserOptions(items.map((u) => ({ value: u.id, label: `${u.username} (#${u.id})` })));
-      }
-      if (cRes.data.success) {
-        const items = cRes.data.data?.items || [];
-        setChannelOptions(items.map((c) => ({ value: c.id, label: `${c.name || '未命名'} (#${c.id})` })));
-      }
+      setUserOptions(users.map((u) => ({ value: u.id, label: `${u.username} (#${u.id})` })));
+      setChannelOptions(channels.map((c) => ({ value: c.id, label: `${c.name || '未命名'} (#${c.id})` })));
     } catch (e) {
       // 静默失败
     }
