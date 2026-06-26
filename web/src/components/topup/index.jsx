@@ -43,6 +43,7 @@ const TopUp = () => {
   const [statusLoading, setStatusLoading] = useState(true);
 
   const [openHistory, setOpenHistory] = useState(false);
+  const [epayLoading, setEpayLoading] = useState(false);
 
   const getUserQuota = async () => {
     const res = await API.get(`/api/user/self`);
@@ -113,16 +114,20 @@ const TopUp = () => {
       showError(t('金额不能低于最低充值限额'));
       return;
     }
+    if (epayLoading) return;
+    setEpayLoading(true);
     try {
       const res = await API.post('/api/user/epay/pay', { amount: y, type });
       const { success, message, data } = res.data;
       if (success && data?.pay_url) {
         window.location.href = data.pay_url;
-      } else {
-        showError(message || t('创建支付订单失败'));
+        return;
       }
+      showError(message || t('创建支付订单失败'));
     } catch (error) {
       showError(t('支付请求失败'));
+    } finally {
+      setEpayLoading(false);
     }
   };
 
@@ -153,6 +158,7 @@ const TopUp = () => {
         onPayAmountChange={setPayAmount}
         onOpenAlipay={() => setAlipayQRVisible(true)}
         onOpenEpay={handleOpenEpay}
+        epayLoading={epayLoading}
         userState={userState}
         renderQuota={renderQuota}
         statusLoading={statusLoading}
