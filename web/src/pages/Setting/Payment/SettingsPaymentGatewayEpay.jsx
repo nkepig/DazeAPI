@@ -82,7 +82,7 @@ export default function SettingsPaymentGatewayEpay(props) {
       >
         <Form.Section text={t('易支付设置')}>
           <Text style={{ marginBottom: 12, display: 'block' }}>
-            {t('配置易支付网关、商户 ID 和密钥后，用户可通过易支付跳转充值。')}
+            {t('配置虎皮椒（xunhupay）易支付网关后，用户可通过易支付跳转充值。')}
           </Text>
           <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}>
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>
@@ -92,18 +92,18 @@ export default function SettingsPaymentGatewayEpay(props) {
               <Form.Input
                 field='epay_api_url'
                 label={t('易支付网关地址')}
-                placeholder='https://pay.example.com'
+                placeholder='https://api.dpweixin.com/payment/do.html'
               />
             </Col>
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>
-              <Form.Input field='epay_pid' label={t('易支付商户 ID')} />
+              <Form.Input field='epay_pid' label={t('易支付商户 ID (AppID)')} />
             </Col>
           </Row>
           <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }} style={{ marginTop: 16 }}>
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>
               <Form.Input
                 field='epay_key'
-                label={t('易支付商户密钥')}
+                label={t('易支付商户密钥 (AppSecret)')}
                 type='password'
                 placeholder={keySaved ? t('密钥已保存，输入新内容可替换，留空不修改') : ''}
               />
@@ -111,7 +111,7 @@ export default function SettingsPaymentGatewayEpay(props) {
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>
               <Form.Input
                 field='epay_pay_types'
-                label={t('支付类型')}
+                label={t('前端支付方式按钮 (仅展示)')}
                 placeholder='alipay,wxpay'
               />
             </Col>
