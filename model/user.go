@@ -544,9 +544,19 @@ func (user *User) Edit(updatePassword bool, includeQuota bool) error {
 	updates := map[string]interface{}{
 		"username":     newUser.Username,
 		"display_name": newUser.DisplayName,
-		"group":        newUser.Group,
-		"groupratio":   newUser.GroupRatio,
 		"remark":       newUser.Remark,
+	}
+	// Only overwrite group/groupratio when the caller explicitly provides a non-empty
+	// value. GORM map-based Updates writes ALL keys (including zero/empty), so
+	// unconditionally including these would wipe existing values whenever the
+	// admin edit form omits them (e.g. non-root admin editing other fields).
+	// The intentional "clear all groups" case sends "{}" (non-empty), which still
+	// goes through. See controller/user.go UpdateUser -> adminUserWhitelistFor.
+	if newUser.Group != "" {
+		updates["group"] = newUser.Group
+	}
+	if newUser.GroupRatio != "" {
+		updates["groupratio"] = newUser.GroupRatio
 	}
 	if includeQuota {
 		updates["quota"] = newUser.Quota

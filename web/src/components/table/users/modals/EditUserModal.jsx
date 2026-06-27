@@ -24,7 +24,7 @@ import {
   showError,
   showSuccess,
   getCurrencyConfig,
-  isRoot,
+  isAdmin,
 } from '../../../../helpers';
 import {
   quotaToDisplayAmount,
@@ -151,7 +151,7 @@ const EditUserModal = (props) => {
       if (delta !== 0) {
         payload.quota_delta = displayAmountToQuota(delta);
       }
-      if (isRoot()) {
+      if (isAdmin()) {
         const fullGroupRatio = {};
         groupList.forEach((item) => {
           if (item.name && item.name.trim() !== '') {
@@ -315,8 +315,8 @@ const EditUserModal = (props) => {
                   </Card>
                 )}
 
-                {/* 分组倍率配置 — 仅超级管理员可见 */}
-                {userId && isRoot() && (
+                {/* 分组倍率配置 — 管理员可见（受 manage_users 白名单约束） */}
+                {userId && isAdmin() && (
                   <Card className='!rounded-2xl shadow-sm border-0'>
                     <div className='flex items-center mb-2'>
                       <Avatar size='small' color='orange' className='mr-2 shadow-md'>
