@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Button, Form, Select, Space, TagInput } from '@douyinfe/semi-ui';
-import { IconSearch } from '@douyinfe/semi-icons';
+import { IconSearch, IconDownload } from '@douyinfe/semi-icons';
 
 import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
 
@@ -30,6 +30,8 @@ const LogsFilters = ({
   formApi,
   setLogType,
   loading,
+  exportLoading,
+  exportCsv,
   isAdminUser,
   groupFilter,
   groupOptions,
@@ -106,6 +108,15 @@ const LogsFilters = ({
               type='primary'
             >
               {t('查询')}
+            </Button>
+            <Button
+              loading={exportLoading}
+              type='primary'
+              theme='light'
+              icon={<IconDownload />}
+              onClick={exportCsv}
+            >
+              {t('导出CSV')}
             </Button>
           </div>
 

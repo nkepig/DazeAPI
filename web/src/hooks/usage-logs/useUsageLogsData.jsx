@@ -88,6 +88,7 @@ export const useLogsData = () => {
   const [showStat, setShowStat] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStat, setLoadingStat] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [activePage, setActivePage] = useState(1);
   const [logCount, setLogCount] = useState(0);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
@@ -356,6 +357,55 @@ export const useLogsData = () => {
     }
     setShowStat(true);
     setLoadingStat(false);
+  };
+
+  const exportCsv = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    const { username, token_name, model_name, start_timestamp, end_timestamp, channel, request_id, logType: formLogType } = getFormValues();
+    const currentLogType = formLogType !== undefined ? formLogType : logType;
+    const localStartTimestamp = Date.parse(start_timestamp) / 1000;
+    const localEndTimestamp = Date.parse(end_timestamp) / 1000;
+    let url;
+    if (isAdminUser) {
+      url = `/api/log/?p=1&page_size=10000&type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
+    } else {
+      url = `/api/log/self/?p=1&page_size=10000&type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${groupFilter !== 'all' ? groupFilter : ''}&request_id=${request_id}`;
+    }
+    url = encodeURI(url);
+    try {
+      const res = await API.get(url);
+      const { success, message, data } = res.data;
+      if (!success) { showError(message); return; }
+      const LOG_TYPE_MAP = { 1: t('充值'), 2: t('消费'), 3: t('管理'), 4: t('系统'), 5: t('错误'), 6: t('退款') };
+      const headers = [t('时间'), ...(isAdminUser ? [t('用户名'), t('渠道')] : []), t('令牌名'), t('类型'), t('模型'), t('耗时(s)'), t('提示词Token'), t('补全Token'), t('消耗额度'), t('详情')];
+      const csvRows = (data.items || []).map((row) => {
+        const cells = [
+          timestamp2string(row.created_at),
+          ...(isAdminUser ? [row.username || '', row.channel || ''] : []),
+          row.token_name || '',
+          LOG_TYPE_MAP[row.type] || row.type,
+          row.model_name || '',
+          row.use_time ? (row.use_time / 1000).toFixed(2) : '',
+          row.prompt_tokens || 0,
+          row.completion_tokens || 0,
+          row.quota || 0,
+          row.content || '',
+        ];
+        return cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',');
+      });
+      const csvContent = [headers.join(','), ...csvRows].join('\n');
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `usage-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (e) {
+      showError(e?.message || t('导出失败'));
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   // User info function
@@ -715,6 +765,8 @@ export const useLogsData = () => {
     showStat,
     loading,
     loadingStat,
+    exportLoading,
+    exportCsv,
     activePage,
     logCount,
     pageSize,
