@@ -378,7 +378,7 @@ export const useLogsData = () => {
       const { success, message, data } = res.data;
       if (!success) { showError(message); return; }
       const LOG_TYPE_MAP = { 1: t('充值'), 2: t('消费'), 3: t('管理'), 4: t('系统'), 5: t('错误'), 6: t('退款') };
-      const headers = [t('时间'), ...(isAdminUser ? [t('用户名'), t('渠道')] : []), t('令牌名'), t('类型'), t('模型'), t('耗时(s)'), t('提示词Token'), t('补全Token'), t('消耗额度')];
+      const headers = [t('时间'), ...(isAdminUser ? [t('用户名'), t('渠道')] : []), t('令牌名'), t('类型'), t('模型'), t('耗时(s)'), t('提示词Token'), t('补全Token'), t('消耗额度'), t('详情')];
       const csvRows = (data.items || []).map((row) => {
         const cells = [
           timestamp2string(row.created_at),
@@ -390,6 +390,7 @@ export const useLogsData = () => {
           row.prompt_tokens || 0,
           row.completion_tokens || 0,
           row.quota || 0,
+          row.content || '',
         ];
         return cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',');
       });
