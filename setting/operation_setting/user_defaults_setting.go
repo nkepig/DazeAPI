@@ -19,19 +19,3 @@ func init() {
 func GetUserDefaultsSetting() *UserDefaultsSetting {
 	return &userDefaultsSetting
 }
-
-// VendorRatioMultiplier 返回供应商对应的新用户默认倍率乘数；无效或未配置时为 1.0
-func VendorRatioMultiplier(vendorID int) float64 {
-	if vendorID <= 0 {
-		return 1.0
-	}
-	s := GetUserDefaultsSetting()
-	if s == nil || len(s.DefaultVendorRatioMultipliers) == 0 {
-		return 1.0
-	}
-	m, ok := s.DefaultVendorRatioMultipliers[vendorID]
-	if !ok || m <= 0 {
-		return 1.0
-	}
-	return m
-}

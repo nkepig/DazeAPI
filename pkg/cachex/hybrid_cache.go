@@ -52,10 +52,6 @@ func NewHybridCache[V any](cfg HybridCacheConfig[V]) *HybridCache[V] {
 	}
 }
 
-func (c *HybridCache[V]) FullKey(key string) string {
-	return c.ns.FullKey(key)
-}
-
 func (c *HybridCache[V]) redisOn() bool {
 	if c.redis == nil || c.redisCodec == nil {
 		return false
@@ -154,23 +150,6 @@ func (c *HybridCache[V]) scanKeys(match string) ([]string, error) {
 		}
 	}
 	return keys, nil
-}
-
-func (c *HybridCache[V]) Purge() error {
-	if c.redisOn() {
-		keys, err := c.scanKeys(c.ns.MatchPattern())
-		if err != nil {
-			return err
-		}
-		if len(keys) == 0 {
-			return nil
-		}
-		_, err = c.DeleteMany(keys)
-		return err
-	}
-
-	c.memCache().Purge()
-	return nil
 }
 
 func (c *HybridCache[V]) DeleteByPrefix(prefix string) (int, error) {

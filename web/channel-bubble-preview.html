@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>渠道管理 · 花瓣气泡筛选 v2</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181b24;
+    --surface-2: #1e2230;
+    --border: #2a2f3e;
+    --text: #e8ecf4;
+    --text-dim: #8b92a8;
+    --accent: #6366f1;
+    --accent-glow: rgba(99,102,241,0.4);
+    --glass-fill: rgba(255,255,255,0.1);
+    --glass-fill-strong: rgba(255,255,255,0.16);
+    --glass-border: rgba(255,255,255,0.18);
+    --glass-border-strong: rgba(255,255,255,0.34);
+    --glass-shadow: rgba(5,8,18,0.24);
+    --glass-shadow-soft: rgba(8,12,24,0.14);
+    --green: #22c55e;
+    --red: #ef4444;
+    --orange: #f59e0b;
+    --radius: 14px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(129, 140, 248, 0.14), transparent 26%),
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 24%),
+      linear-gradient(180deg, #0d1018 0%, #0f1117 45%, #10131d 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 40px;
+    overflow-x: hidden;
+  }
+
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 {
+    font-size: 22px; font-weight: 600; letter-spacing: -0.3px;
+  }
+  .page-header p {
+    font-size: 13px; color: var(--text-dim); margin-top: 6px;
+  }
+
+  .filter-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 100;
+  }
+
+  .bubble-filter {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .bubble-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 17px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.05) 62%, rgba(99,102,241,0.08));
+    border: 1px solid var(--glass-border);
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    user-select: none;
+    white-space: nowrap;
+    position: relative;
+    z-index: 2;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      0 18px 38px -24px var(--glass-shadow),
+      0 8px 20px -18px rgba(99,102,241,0.35);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+  }
+  .bubble-trigger:hover {
+    border-color: rgba(167, 180, 255, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.26),
+      0 18px 36px -22px var(--glass-shadow),
+      0 0 28px rgba(99,102,241,0.2);
+    transform: translateY(-2px) scale(1.01);
+  }
+  .bubble-trigger.active {
+    background: linear-gradient(135deg, rgba(140,152,255,0.2), rgba(255,255,255,0.09) 55%, rgba(99,102,241,0.12));
+    border-color: rgba(164, 177, 255, 0.58);
+  }
+  .bubble-trigger .label {
+    font-size: 13px; font-weight: 500; color: rgba(225,232,248,0.72);
+  }
+  .bubble-trigger .value {
+    font-size: 13px; font-weight: 600; color: rgba(248,250,255,0.98);
+  }
+  .bubble-trigger .count-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+    border-radius: 10px;
+    font-size: 11px; font-weight: 700; color: rgba(245,247,255,0.92);
+  }
+  .bubble-trigger .chevron {
+    width: 14px; height: 14px;
+    transition: transform 0.3s ease;
+    opacity: 0.72;
+  }
+  .bubble-filter.open .chevron { transform: rotate(180deg); }
+
+  /* ===== Petal cloud — no container, just positioning anchor ===== */
+  .petal-cloud {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* Each petal: positioned via JS transform (polar coordinates) */
+  .petal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(0, 0) scale(0);
+    opacity: 0;
+    z-index: var(--pz, 1);
+    transition:
+      transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.3s ease;
+    transition-delay: 0s;
+  }
+  .bubble-filter.open .petal {
+    opacity: 1;
+  }
+
+  /* petal-inner: carries the float animation, decoupled from positioning transform */
+  .petal-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 84px;
+    justify-content: center;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05) 58%, rgba(129,140,248,0.08));
+    border: 1px solid var(--glass-border);
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(246,248,255,0.95);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: petalFloat 3s ease-in-out infinite;
+    pointer-events: auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.24),
+      0 16px 34px -24px var(--glass-shadow),
+      0 10px 22px -20px rgba(99,102,241,0.32);
+    text-shadow: 0 1px 1px rgba(7,10,18,0.22);
+    backdrop-filter: blur(18px) saturate(165%);
+    -webkit-backdrop-filter: blur(18px) saturate(165%);
+  }
+  .petal-inner:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.07) 58%, rgba(129,140,248,0.12));
+    border-color: var(--glass-border-strong);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.28),
+      0 18px 34px -18px var(--glass-shadow),
+      0 0 26px rgba(99,102,241,0.16);
+    transform: translateY(-2px) scale(1.04);
+  }
+  .petal-inner.selected {
+    background: linear-gradient(135deg, rgba(134,146,255,0.28), rgba(255,255,255,0.12) 55%, rgba(99,102,241,0.14));
+    border-color: rgba(176, 188, 255, 0.62);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.34),
+      0 18px 36px -18px rgba(10,14,28,0.32),
+      0 0 24px rgba(99,102,241,0.22);
+    color: rgba(255,255,255,0.98);
+    font-weight: 600;
+    animation: none;
+  }
+  .petal-inner .ball-count {
+    font-size: 10px;
+    opacity: 0.7;
+    font-weight: 700;
+    color: rgba(232,237,252,0.78);
+  }
+  .petal-inner.selected .ball-count { opacity: 0.85; }
+
+  @keyframes petalFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+
+  /* Stagger bloom — each petal delays by index * 30ms */
+  .petal:nth-child(1)  { transition-delay: 0.00s; }
+  .petal:nth-child(2)  { transition-delay: 0.03s; }
+  .petal:nth-child(3)  { transition-delay: 0.06s; }
+  .petal:nth-child(4)  { transition-delay: 0.09s; }
+  .petal:nth-child(5)  { transition-delay: 0.12s; }
+  .petal:nth-child(6)  { transition-delay: 0.15s; }
+  .petal:nth-child(7)  { transition-delay: 0.18s; }
+  .petal:nth-child(8)  { transition-delay: 0.21s; }
+  .petal:nth-child(9)  { transition-delay: 0.24s; }
+  .petal:nth-child(n+10) { transition-delay: 0.27s; }
+
+  /* Search + button */
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+  }
+  .search-box input {
+    background: none; border: none; outline: none;
+    color: var(--text); font-size: 13px; flex: 1;
+  }
+  .search-box input::placeholder { color: var(--text-dim); }
+
+  .btn-add {
+    padding: 8px 18px;
+    background: linear-gradient(135deg, var(--accent), #4f46e5);
+    border: none; border-radius: 40px;
+    color: #fff; font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+  }
+  .btn-add:hover {
+    box-shadow: 0 4px 20px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  /* Table */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .table-card table { width: 100%; border-collapse: collapse; }
+  .table-card th {
+    text-align: left; padding: 12px 16px;
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .table-card td {
+    padding: 12px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(42,47,62,0.5);
+  }
+  .table-card tr:last-child td { border-bottom: none; }
+  .table-card tr:hover td { background: rgba(99,102,241,0.04); }
+
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: 6px;
+  }
+  .status-dot.enabled { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+  .status-dot.disabled { background: var(--red); }
+
+  .type-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; margin-right: 8px;
+  }
+
+  .bubble-mask {
+    position: fixed; inset: 0;
+    z-index: 90;
+    display: none;
+  }
+  .bubble-mask.show { display: block; }
+
+  @media (max-width: 768px) {
+    body { padding: 16px; }
+    .filter-bar { gap: 10px; }
+    .search-box { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>渠道管理</h1>
+  <p>花瓣气泡 · 无容器 · 极坐标定位 · 延迟关闭</p>
+</div>
+
+<div class="filter-bar" id="filterBar">
+
+  <div class="bubble-filter" data-filter="type">
+    <div class="bubble-trigger" tabindex="0">
+      <span class="label">类别</span>
+      <span class="value">全部</span>
+      <span class="count-badge" id="typeCount">12</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>
+    </div>
+    <div class="petal-cloud" id="typeCloud"></div>
+  </div>
+
+  <div class="bubble-filter" data-filter="group">
+    <div class="bubble-trigger" tabindex="0">
+      <span class="label">分组</span>
+      <span class="value">全部</span>
+      <span class="count-badge" id="groupCount">5</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>
+    </div>
+    <div class="petal-cloud" id="groupCloud"></div>
+  </div>
+
+  <div class="bubble-filter" data-filter="status">
+    <div class="bubble-trigger" tabindex="0">
+      <span class="label">状态</span>
+      <span class="value">全部</span>
+      <span class="count-badge" id="statusCount">3</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>
+    </div>
+    <div class="petal-cloud" id="statusCloud"></div>
+  </div>
+
+  <div class="search-box">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </svg>
+    <input type="text" placeholder="搜索名称 / 密钥" />
+  </div>
+
+  <button class="btn-add">+ 添加渠道</button>
+</div>
+
+<div class="bubble-mask" id="bubbleMask"></div>
+
+<div class="table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>类别</th>
+        <th>分组</th>
+        <th>状态</th>
+        <th>响应时间</th>
+        <th>余额</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<script>
+const typeOptions = [
+  { value: 'all', label: '全部', count: 12 },
+  { value: 'openai', label: 'OpenAI', count: 4, color: '#10a37f' },
+  { value: 'claude', label: 'Claude', count: 2, color: '#d97706' },
+  { value: 'gemini', label: 'Gemini', count: 2, color: '#4285f4' },
+  { value: 'azure', label: 'Azure', count: 1, color: '#0078d4' },
+  { value: 'bedrock', label: 'AWS Bedrock', count: 1, color: '#ff9900' },
+  { value: 'deepseek', label: 'DeepSeek', count: 1, color: '#5b6eee' },
+  { value: 'mistral', label: 'Mistral', count: 1, color: '#ff7000' },
+];
+
+const groupOptions = [
+  { value: 'all', label: '全部', count: 12 },
+  { value: 'default', label: 'default', count: 5 },
+  { value: 'vip', label: 'vip', count: 3 },
+  { value: 'trial', label: 'trial', count: 2 },
+  { value: 'enterprise', label: 'enterprise', count: 2 },
+];
+
+const statusOptions = [
+  { value: 'all', label: '全部', count: 12 },
+  { value: 'enabled', label: '已启用', count: 9 },
+  { value: 'disabled', label: '已禁用', count: 3 },
+];
+
+const channels = [
+  { id: 1, name: 'OpenAI 主渠道', type: 'openai', group: 'default', status: 'enabled', latency: 320, balance: '$128.50' },
+  { id: 2, name: 'Claude 3.5 Sonnet', type: 'claude', group: 'vip', status: 'enabled', latency: 450, balance: '$89.20' },
+  { id: 3, name: 'Gemini Pro', type: 'gemini', group: 'default', status: 'enabled', latency: 280, balance: '—' },
+  { id: 4, name: 'Azure GPT-4o', type: 'azure', group: 'enterprise', status: 'disabled', latency: 0, balance: '$0.00' },
+  { id: 5, name: 'DeepSeek R1', type: 'deepseek', group: 'trial', status: 'enabled', latency: 510, balance: '¥45.00' },
+  { id: 6, name: 'Mistral Large', type: 'mistral', group: 'vip', status: 'enabled', latency: 390, balance: '€12.80' },
+];
+
+const selected = { type: 'all', group: 'all', status: 'all' };
+
+const CLOSE_DELAY = 400;
+const closeTimers = new Map();
+
+function calcPetalPositions(count, angleRange, radius) {
+  const positions = [];
+  if (count <= 1) {
+    positions.push({ x: 0, y: -radius, z: 12 });
+    return positions;
+  }
+  const step = 360 / count;
+  const startAngle = -90;
+  for (let i = 0; i < count; i++) {
+    const angleDeg = startAngle + step * i;
+    const angleRad = angleDeg * Math.PI / 180;
+    const ringOffset = i % 2 === 0 ? 0 : 18;
+    const spreadRadius = radius + ringOffset;
+    const x = Math.cos(angleRad) * spreadRadius;
+    const y = Math.sin(angleRad) * spreadRadius;
+    const normalizedY = (Math.sin(angleRad) + 1) / 2;
+    positions.push({
+      x,
+      y,
+      z: Math.round(6 + normalizedY * 12)
+    });
+  }
+  return positions;
+}
+
+function renderPetals(containerId, options, filterKey) {
+  const cloud = document.getElementById(containerId);
+  const positions = calcPetalPositions(options.length, 360, 126);
+  cloud.innerHTML = options.map((opt, i) => {
+    const pos = positions[i];
+    return `
+      <div class="petal ${selected[filterKey] === opt.value ? 'selected' : ''}"
+           data-value="${opt.value}" data-filter="${filterKey}"
+           style="--tx: ${pos.x}px; --ty: ${pos.y}px; --pz: ${pos.z};">
+        <div class="petal-inner ${selected[filterKey] === opt.value ? 'selected' : ''}">
+          ${opt.label}
+          <span class="ball-count">${opt.count}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  cloud.querySelectorAll('.petal').forEach(petal => {
+    const tx = petal.style.getPropertyValue('--tx');
+    const ty = petal.style.getPropertyValue('--ty');
+    petal.style.transform = `translate(${tx}, ${ty}) scale(0)`;
+    requestAnimationFrame(() => {
+      if (petal.closest('.bubble-filter').classList.contains('open')) {
+        petal.style.transform = `translate(${tx}, ${ty}) scale(1)`;
+      }
+    });
+  });
+}
+
+renderPetals('typeCloud', typeOptions, 'type');
+renderPetals('groupCloud', groupOptions, 'group');
+renderPetals('statusCloud', statusOptions, 'status');
+
+const mask = document.getElementById('bubbleMask');
+const filters = document.querySelectorAll('.bubble-filter');
+
+function openFilter(f) {
+  closeAllExcept(f);
+  f.classList.add('open');
+  mask.classList.add('show');
+  f.querySelectorAll('.petal').forEach(petal => {
+    const tx = petal.style.getPropertyValue('--tx');
+    const ty = petal.style.getPropertyValue('--ty');
+    petal.style.transform = `translate(${tx}, ${ty}) scale(1)`;
+  });
+}
+
+function closeFilter(f) {
+  f.classList.remove('open');
+  f.querySelectorAll('.petal').forEach(petal => {
+    petal.style.transform = `translate(0, 0) scale(0)`;
+  });
+}
+
+function closeAllExcept(except) {
+  filters.forEach(f => {
+    if (f !== except) {
+      closeFilter(f);
+      closeTimers.delete(f);
+    }
+  });
+  if (!document.querySelector('.bubble-filter.open')) {
+    mask.classList.remove('show');
+  }
+}
+
+filters.forEach(f => {
+  f.addEventListener('mouseenter', () => {
+    if (closeTimers.has(f)) {
+      clearTimeout(closeTimers.get(f));
+      closeTimers.delete(f);
+    }
+    openFilter(f);
+  });
+
+  f.addEventListener('mouseleave', () => {
+    const timer = setTimeout(() => {
+      closeFilter(f);
+      closeTimers.delete(f);
+      if (!document.querySelector('.bubble-filter.open')) {
+        mask.classList.remove('show');
+      }
+    }, CLOSE_DELAY);
+    closeTimers.set(f, timer);
+  });
+});
+
+mask.addEventListener('click', () => {
+  filters.forEach(f => {
+    closeFilter(f);
+    closeTimers.delete(f);
+  });
+  mask.classList.remove('show');
+});
+
+document.addEventListener('click', (e) => {
+  const petalInner = e.target.closest('.petal-inner');
+  if (!petalInner) return;
+
+  const petal = petalInner.closest('.petal');
+  const filterKey = petal.dataset.filter;
+  const value = petal.dataset.value;
+  selected[filterKey] = value;
+
+  const filterEl = petal.closest('.bubble-filter');
+  const valueLabel = filterEl.querySelector('.value');
+  const opt = Object.values(
+    filterKey === 'type' ? typeOptions :
+    filterKey === 'group' ? groupOptions :
+    statusOptions
+  ).find(o => o.value === value);
+  valueLabel.textContent = opt ? opt.label : '全部';
+
+  filterEl.querySelectorAll('.petal-inner').forEach(b => b.classList.remove('selected'));
+  filterEl.querySelectorAll('.petal').forEach(p => p.classList.remove('selected'));
+  petalInner.classList.add('selected');
+  petal.classList.add('selected');
+
+  const trigger = filterEl.querySelector('.bubble-trigger');
+  trigger.classList.toggle('active', value !== 'all');
+
+  closeFilter(filterEl);
+  closeTimers.delete(filterEl);
+  if (!document.querySelector('.bubble-filter.open')) {
+    mask.classList.remove('show');
+  }
+
+  renderTable();
+});
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const filtered = channels.filter(ch => {
+    if (selected.type !== 'all' && ch.type !== selected.type) return false;
+    if (selected.group !== 'all' && ch.group !== selected.group) return false;
+    if (selected.status !== 'all' && ch.status !== selected.status) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-dim)">无匹配渠道</td></tr>`;
+    return;
+  }
+
+  const typeMap = Object.fromEntries(typeOptions.map(o => [o.value, o]));
+  tbody.innerHTML = filtered.map(ch => {
+    const t = typeMap[ch.type] || { label: ch.type, color: '#666' };
+    return `
+      <tr>
+        <td style="color:var(--text-dim)">#${ch.id}</td>
+        <td style="font-weight:500">${ch.name}</td>
+        <td>
+          <span class="type-icon" style="background:${t.color}22;color:${t.color}">${t.label[0]}</span>
+          ${t.label}
+        </td>
+        <td><span style="color:var(--text-dim)">${ch.group}</span></td>
+        <td>
+          <span class="status-dot ${ch.status}"></span>
+          ${ch.status === 'enabled' ? '已启用' : '已禁用'}
+        </td>
+        <td style="color:var(--text-dim)">${ch.latency > 0 ? ch.latency + 'ms' : '—'}</td>
+        <td style="font-weight:600">${ch.balance}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+renderTable();
+</script>
+</body>
+</html>

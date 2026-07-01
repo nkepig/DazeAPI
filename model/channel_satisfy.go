@@ -32,18 +32,6 @@ func IsChannelEnabledForGroupModel(group string, modelName string, channelID int
 	return false
 }
 
-func IsChannelEnabledForAnyGroupModel(groups []string, modelName string, channelID int) bool {
-	if len(groups) == 0 {
-		return false
-	}
-	for _, g := range groups {
-		if IsChannelEnabledForGroupModel(g, modelName, channelID) {
-			return true
-		}
-	}
-	return false
-}
-
 // ResolveChannelBillingGroup 返回该渠道上实际承载 modelName 的分组名，用于选路后将 UsingGroup 与 groupratio 的 key 对齐。
 func ResolveChannelBillingGroup(channel *Channel, modelName string) string {
 	if channel == nil {

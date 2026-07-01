@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"net/url"
 	"regexp"
@@ -51,20 +50,6 @@ func StrToMap(str string) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func StrToJsonArray(str string) ([]interface{}, error) {
-	var js []interface{}
-	err := json.Unmarshal([]byte(str), &js)
-	if err != nil {
-		return nil, err
-	}
-	return js, nil
-}
-
-func IsJsonArray(str string) bool {
-	var js []interface{}
-	return json.Unmarshal([]byte(str), &js) == nil
-}
-
 func IsJsonObject(str string) bool {
 	var js map[string]interface{}
 	return json.Unmarshal([]byte(str), &js) == nil
@@ -94,27 +79,12 @@ func StringToByteSlice(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&tmp2))
 }
 
-func EncodeBase64(str string) string {
-	return base64.StdEncoding.EncodeToString([]byte(str))
-}
-
 func GetJsonString(data any) string {
 	if data == nil {
 		return ""
 	}
 	b, _ := json.Marshal(data)
 	return string(b)
-}
-
-// NormalizeBillingPreference clamps the billing preference to valid values.
-// Subscription-based preferences are no longer supported; they fall back to wallet.
-func NormalizeBillingPreference(pref string) string {
-	switch strings.TrimSpace(pref) {
-	case "wallet_first", "wallet_only":
-		return strings.TrimSpace(pref)
-	default:
-		return "wallet_only"
-	}
 }
 
 // MaskEmail masks a user email to prevent PII leakage in logs

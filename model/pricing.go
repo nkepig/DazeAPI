@@ -85,18 +85,6 @@ func GetVendors() []PricingVendor {
 	return vendorsList
 }
 
-func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
-	if model == "" {
-		return make([]constant.EndpointType, 0)
-	}
-	modelSupportEndpointsLock.RLock()
-	defer modelSupportEndpointsLock.RUnlock()
-	if endpoints, ok := modelSupportEndpointTypes[model]; ok {
-		return endpoints
-	}
-	return make([]constant.EndpointType, 0)
-}
-
 func updatePricing() {
 	enableAbilities, err := GetAllEnableAbilityWithChannels()
 	if err != nil {

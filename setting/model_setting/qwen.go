@@ -34,11 +34,6 @@ func init() {
 	config.GlobalConfig.Register("qwen", &qwenSettings)
 }
 
-// GetQwenSettings
-func GetQwenSettings() *QwenSettings {
-	return &qwenSettings
-}
-
 // IsSyncImageModel
 func IsSyncImageModel(model string) bool {
 	for _, m := range qwenSettings.SyncImageModels {

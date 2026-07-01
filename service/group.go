@@ -59,53 +59,6 @@ func splitChannelGroups(groupStr string) []string {
 	return result
 }
 
-func GroupExistsInChannels(groupName string) bool {
-	groupName = strings.TrimSpace(groupName)
-	if groupName == "" {
-		return false
-	}
-	channels, err := model.GetAllChannels(0, 0, true, false)
-	if err != nil {
-		return false
-	}
-	for _, ch := range channels {
-		for _, g := range splitChannelGroups(ch.Group) {
-			if g == groupName {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func GetUserAccessibleChannelGroups(userGroup string) map[string]string {
-	usable := GetUserUsableGroups(userGroup)
-	filtered := make(map[string]string)
-	channels, err := model.GetAllChannelsFromCache()
-	if err != nil {
-		return filtered
-	}
-	for _, ch := range channels {
-		for _, g := range splitChannelGroups(ch.Group) {
-			if desc, ok := usable[g]; ok {
-				filtered[g] = desc
-			}
-		}
-		}
-	return filtered
-}
-
-func HasAccessibleModelInGroup(userGroup, tokenGroup string) bool {
-	if strings.TrimSpace(tokenGroup) == "" {
-		return false
-	}
-	if _, ok := GetUserAccessibleChannelGroups(userGroup)[tokenGroup]; !ok {
-		return false
-	}
-	models := model.GetGroupEnabledModels(tokenGroup)
-	return len(models) > 0
-}
-
 func GetUserAccessibleChannelGroupsByRatio(groupRatio map[string]float64) map[string]string {
 	filtered := make(map[string]string)
 	channels, err := model.GetAllChannelsFromCache()

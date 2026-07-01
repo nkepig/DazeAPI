@@ -1,10 +1,6 @@
 package ratio_setting
 
 import (
-	"encoding/json"
-	"errors"
-
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/types"
 )
@@ -44,50 +40,10 @@ func GetGroupRatioSetting() *GroupRatioSetting {
 	return &groupRatioSetting
 }
 
-func GetGroupRatioCopy() map[string]float64 {
-	return groupRatioMap.ReadAll()
-}
-
-func ContainsGroupRatio(name string) bool {
-	_, ok := groupRatioMap.Get(name)
-	return ok
-}
-
 func GroupRatio2JSONString() string {
 	return groupRatioMap.MarshalJSONString()
 }
 
 func UpdateGroupRatioByJSONString(jsonStr string) error {
 	return types.LoadFromJsonString(groupRatioMap, jsonStr)
-}
-
-func GetGroupRatio(name string) float64 {
-	ratio, ok := groupRatioMap.Get(name)
-	if !ok {
-		common.SysLog("group ratio not found: " + name)
-		return 1
-	}
-	return ratio
-}
-
-func EnsureGroupRatio(name string, ratio float64) bool {
-	if ContainsGroupRatio(name) {
-		return false
-	}
-	groupRatioMap.Set(name, ratio)
-	return true
-}
-
-func CheckGroupRatio(jsonStr string) error {
-	checkGroupRatio := make(map[string]float64)
-	err := json.Unmarshal([]byte(jsonStr), &checkGroupRatio)
-	if err != nil {
-		return err
-	}
-	for name, ratio := range checkGroupRatio {
-		if ratio < 0 {
-			return errors.New("group ratio must be not less than 0: " + name)
-		}
-	}
-	return nil
 }
