@@ -354,8 +354,8 @@ const BubbleFilter = ({
   const [position, setPosition] = useState({ left: 0, top: 0 });
 
   const isSmall = size === 'small';
-  const innerRadius = isSmall ? 88 : 104;
-  const outerRadius = isSmall ? 156 : 182;
+  const innerRadius = isSmall ? 96 : 112;
+  const outerRadius = isSmall ? 176 : 206;
 
   const normalizedOptions = useMemo(
     () =>
@@ -391,40 +391,20 @@ const BubbleFilter = ({
     [sortedOptions.length, innerRadius, outerRadius],
   );
 
-  const ringLabelMetrics = useMemo(() => {
-    if (sortedOptions.length === 0) {
-      return { inner: { fontSize: 12, minW: 84 }, outer: { fontSize: 12, minW: 84 } };
-    }
-
-    const computeRingMetrics = (opts) => {
-      if (opts.length === 0) {
-        return { fontSize: isSmall ? 11 : 12, minW: isSmall ? 72 : 84 };
-      }
-      const maxLen = Math.max(...opts.map((o) => o._labelLen));
+  const perPetalMetrics = useMemo(() => {
+    return sortedOptions.map((option) => {
+      const len = option._labelLen;
       let fontSize = isSmall ? 11 : 12;
-      if (maxLen > 8) fontSize = isSmall ? 10 : 11;
-      if (maxLen > 12) fontSize = isSmall ? 9 : 10;
-      if (maxLen > 18) fontSize = isSmall ? 8 : 9;
+      if (len > 6) fontSize = isSmall ? 10 : 11;
+      if (len > 10) fontSize = isSmall ? 9 : 10;
+      if (len > 14) fontSize = isSmall ? 8 : 9;
+      if (len > 20) fontSize = isSmall ? 7 : 8;
       const charWidth = fontSize * 0.62;
       const padding = 42;
-      const minW = Math.max(isSmall ? 72 : 84, Math.ceil(maxLen * charWidth + padding));
+      const minW = Math.max(isSmall ? 64 : 76, Math.ceil(len * charWidth + padding));
       return { fontSize, minW };
-    };
-
-    const innerOpts = sortedOptions.filter((o) => {
-      const idx = sortedOptions.indexOf(o);
-      return petalPositions[idx]?.ring === 'inner';
     });
-    const outerOpts = sortedOptions.filter((o) => {
-      const idx = sortedOptions.indexOf(o);
-      return petalPositions[idx]?.ring === 'outer';
-    });
-
-    return {
-      inner: computeRingMetrics(innerOpts),
-      outer: computeRingMetrics(outerOpts.length > 0 ? outerOpts : sortedOptions),
-    };
-  }, [sortedOptions, petalPositions, isSmall]);
+  }, [sortedOptions, isSmall]);
 
   const updatePosition = useCallback(() => {
     if (!rootRef.current) {
@@ -641,10 +621,8 @@ const BubbleFilter = ({
                 const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1, ring: 'inner' };
                 const translatedLabel = option._labelText || translate(option.label);
                 const isSelected = selectedOption?.key === option.key;
-                const ringMetrics = petalPosition.ring === 'outer'
-                  ? ringLabelMetrics.outer
-                  : ringLabelMetrics.inner;
                 const usageClass = option.inUse ? 'in-use' : 'idle';
+                const metrics = perPetalMetrics[index] || { fontSize: 12, minW: 84 };
 
                 return (
                   <div
@@ -665,8 +643,8 @@ const BubbleFilter = ({
                           '--bubble-filter-petal-x': `${petalPosition.x}px`,
                           '--bubble-filter-petal-y': `${petalPosition.y}px`,
                           '--bubble-filter-petal-z': petalPosition.z,
-                          '--bubble-filter-petal-font-size': `${ringMetrics.fontSize}px`,
-                          '--bubble-filter-petal-min-w': `${ringMetrics.minW}px`,
+                          '--bubble-filter-petal-font-size': `${metrics.fontSize}px`,
+                          '--bubble-filter-petal-min-w': `${metrics.minW}px`,
                           transitionDelay: `${Math.min(index, 11) * 28}ms`,
                         }}
                         onClick={() => handleSelect(option.value)}

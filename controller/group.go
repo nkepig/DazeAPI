@@ -42,6 +42,25 @@ func GetAllChannelGroups() []string {
 	return groupNames
 }
 
+func GetAllChannelGroupCounts() map[string]int {
+	channels, err := model.GetAllChannels(0, 0, true, false)
+	if err != nil {
+		return map[string]int{}
+	}
+	counts := make(map[string]int)
+	for _, ch := range channels {
+		if ch.Group == "" {
+			continue
+		}
+		for _, g := range splitGroups(ch.Group) {
+			if g != "" {
+				counts[g]++
+			}
+		}
+	}
+	return counts
+}
+
 func GetGroups(c *gin.Context) {
 	userId := c.GetInt("id")
 	var groupNames []string
@@ -65,6 +84,15 @@ func GetGroups(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    groupNames,
+	})
+}
+
+func GetGroupCounts(c *gin.Context) {
+	counts := GetAllChannelGroupCounts()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    counts,
 	})
 }
 
