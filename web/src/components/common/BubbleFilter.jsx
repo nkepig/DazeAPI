@@ -26,6 +26,16 @@ const STYLE_ID = 'dazeapi-bubble-filter-style';
 const CLOSE_DELAY = 400;
 const CLOSE_ANIMATION_DURATION = 480;
 
+const openInstances = new Set();
+
+const closeAllOtherInstances = (current) => {
+  openInstances.forEach((instance) => {
+    if (instance !== current) {
+      instance.closeImmediate();
+    }
+  });
+};
+
 const ensureBubbleFilterStyles = () => {
   if (typeof document === 'undefined') {
     return;
@@ -52,10 +62,10 @@ const ensureBubbleFilterStyles = () => {
       min-height: 38px;
       border-radius: 999px;
       border: 1px solid var(--semi-color-border);
-      background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06) 62%, rgba(99,102,241,0.08));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 18px 38px -24px rgba(5,8,18,0.26), 0 8px 20px -18px rgba(99,102,241,0.34);
-      backdrop-filter: blur(18px) saturate(160%);
-      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      background: var(--semi-color-bg-1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       color: var(--semi-color-text-0);
       cursor: pointer;
       user-select: none;
@@ -70,14 +80,14 @@ const ensureBubbleFilterStyles = () => {
     }
 
     .bubble-filter360-trigger:hover {
-      border-color: rgba(140, 152, 255, 0.44);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.26), 0 18px 36px -22px rgba(5,8,18,0.28), 0 0 28px rgba(99,102,241,0.18);
-      transform: translateY(-2px) scale(1.01);
+      border-color: var(--semi-color-primary);
+      box-shadow: 0 4px 16px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+      transform: translateY(-1px);
     }
 
     .bubble-filter360-trigger.active {
-      background: linear-gradient(135deg, rgba(140,152,255,0.22), rgba(255,255,255,0.09) 55%, rgba(99,102,241,0.12));
-      border-color: rgba(164,177,255,0.56);
+      background: var(--semi-color-primary-light-default);
+      border-color: var(--semi-color-primary);
     }
 
     .bubble-filter360-trigger:focus-visible {
@@ -122,9 +132,8 @@ const ensureBubbleFilterStyles = () => {
       height: 20px;
       padding: 0 6px;
       border-radius: 999px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
-      border: 1px solid rgba(255,255,255,0.22);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+      background: var(--semi-color-fill-0);
+      border: 1px solid var(--semi-color-border);
       font-size: 11px;
       font-weight: 700;
       color: var(--semi-color-text-0);
@@ -168,45 +177,47 @@ const ensureBubbleFilterStyles = () => {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      min-width: 84px;
+      min-width: var(--bubble-filter-petal-min-w, 84px);
       padding: 8px 14px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05) 58%, rgba(129,140,248,0.08));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), 0 16px 34px -24px rgba(5,8,18,0.28), 0 10px 22px -20px rgba(99,102,241,0.32);
+      border: 1px solid var(--semi-color-border);
+      background: var(--semi-color-bg-1);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1);
       color: var(--semi-color-text-0);
-      font-size: 12px;
+      font-size: var(--bubble-filter-petal-font-size, 12px);
       font-weight: 600;
-      line-height: 1;
-      text-shadow: 0 1px 1px rgba(7,10,18,0.22);
-      backdrop-filter: blur(18px) saturate(165%);
-      -webkit-backdrop-filter: blur(18px) saturate(165%);
+      line-height: 1.2;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       cursor: pointer;
-      white-space: nowrap;
       pointer-events: auto;
       transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
       animation: bubble-filter360-float 3s ease-in-out infinite;
     }
 
     .bubble-filter360-root.small .bubble-filter360-petal-button {
-      min-width: 72px;
+      min-width: var(--bubble-filter-petal-min-w, 72px);
       padding: 7px 12px;
-      font-size: 11px;
+      font-size: var(--bubble-filter-petal-font-size, 11px);
     }
 
     .bubble-filter360-petal-button:hover {
       transform: translateY(-2px) scale(1.04);
-      border-color: rgba(255,255,255,0.32);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 18px 34px -18px rgba(5,8,18,0.3), 0 0 26px rgba(99,102,241,0.16);
-      background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.07) 58%, rgba(129,140,248,0.12));
+      border-color: var(--semi-color-primary);
+      box-shadow: 0 6px 20px rgba(99,102,241,0.2);
+      background: var(--semi-color-bg-2);
     }
 
     .bubble-filter360-petal-button.selected {
       animation: none;
-      color: #ffffff;
-      border-color: rgba(176,188,255,0.62);
-      background: linear-gradient(135deg, rgba(134,146,255,0.28), rgba(255,255,255,0.12) 55%, rgba(99,102,241,0.14));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.34), 0 18px 36px -18px rgba(10,14,28,0.32), 0 0 24px rgba(99,102,241,0.22);
+      color: #fff;
+      border-color: var(--semi-color-primary);
+      background: var(--semi-color-primary);
+      box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+    }
+
+    .bubble-filter360-petal-label-text {
+      white-space: nowrap;
     }
 
     .bubble-filter360-petal-label {
@@ -293,6 +304,7 @@ const BubbleFilter = ({
   const closeDelayRef = useRef(null);
   const closeAnimationRef = useRef(null);
   const rafRef = useRef(null);
+  const instanceRef = useRef({ closeImmediate: () => {} });
 
   const [isRendered, setIsRendered] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -327,6 +339,38 @@ const BubbleFilter = ({
     [normalizedOptions.length, radius, ringOffset],
   );
 
+  const labelMetrics = useMemo(() => {
+    if (normalizedOptions.length === 0) {
+      return { fontSize: 12, minW: 84 };
+    }
+
+    const lengths = normalizedOptions.map((option) => {
+      const text = String(translate(option.label) || '');
+      return text.length;
+    });
+    const maxLen = Math.max(...lengths);
+
+    let fontSize = isSmall ? 11 : 12;
+    if (maxLen > 8) {
+      fontSize = isSmall ? 10 : 11;
+    }
+    if (maxLen > 12) {
+      fontSize = isSmall ? 9 : 10;
+    }
+    if (maxLen > 18) {
+      fontSize = isSmall ? 8 : 9;
+    }
+
+    const charWidth = fontSize * 0.62;
+    const padding = 42;
+    const minW = Math.max(
+      isSmall ? 72 : 84,
+      Math.ceil(maxLen * charWidth + padding),
+    );
+
+    return { fontSize, minW };
+  }, [normalizedOptions, translate, isSmall]);
+
   const updatePosition = useCallback(() => {
     if (!rootRef.current) {
       return;
@@ -353,7 +397,15 @@ const BubbleFilter = ({
     }
   }, []);
 
+  const closeImmediate = useCallback(() => {
+    clearCloseDelay();
+    clearCloseAnimation();
+    setIsOpen(false);
+    setIsRendered(false);
+  }, [clearCloseAnimation, clearCloseDelay]);
+
   const openFilter = useCallback(() => {
+    closeAllOtherInstances(instanceRef.current);
     clearCloseDelay();
     clearCloseAnimation();
     updatePosition();
@@ -371,6 +423,7 @@ const BubbleFilter = ({
   const closeFilter = useCallback(() => {
     clearCloseDelay();
     setIsOpen(false);
+    openInstances.delete(instanceRef.current);
     clearCloseAnimation();
     closeAnimationRef.current = setTimeout(() => {
       setIsRendered(false);
@@ -420,6 +473,19 @@ const BubbleFilter = ({
   }, []);
 
   useEffect(() => {
+    instanceRef.current.closeImmediate = closeImmediate;
+  }, [closeImmediate]);
+
+  useEffect(() => {
+    if (isOpen) {
+      openInstances.add(instanceRef.current);
+    }
+    return () => {
+      openInstances.delete(instanceRef.current);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isRendered) {
       return undefined;
     }
@@ -463,6 +529,7 @@ const BubbleFilter = ({
     return () => {
       clearCloseDelay();
       clearCloseAnimation();
+      openInstances.delete(instanceRef.current);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
@@ -535,6 +602,14 @@ const BubbleFilter = ({
                       <button
                         type='button'
                         className={`bubble-filter360-petal-button ${isSelected ? 'selected' : ''}`}
+                        style={{
+                          '--bubble-filter-petal-x': `${petalPosition.x}px`,
+                          '--bubble-filter-petal-y': `${petalPosition.y}px`,
+                          '--bubble-filter-petal-z': petalPosition.z,
+                          '--bubble-filter-petal-font-size': `${labelMetrics.fontSize}px`,
+                          '--bubble-filter-petal-min-w': `${labelMetrics.minW}px`,
+                          transitionDelay: `${Math.min(index, 9) * 30}ms`,
+                        }}
                         onClick={() => handleSelect(option.value)}
                         onMouseEnter={openFilter}
                         onMouseLeave={scheduleClose}
@@ -547,7 +622,7 @@ const BubbleFilter = ({
                               style={{ '--bubble-filter-color': option.color }}
                             />
                           ) : null}
-                          <span>{translatedLabel}</span>
+                          <span className='bubble-filter360-petal-label-text'>{translatedLabel}</span>
                         </span>
                         {option.count !== undefined ? (
                           <span className='bubble-filter360-petal-count'>
