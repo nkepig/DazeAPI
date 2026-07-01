@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import BubbleFilter from '../../common/BubbleFilter';
+import { API } from '../../../helpers/api';
 
 const ChannelsActions = ({
   statusFilter,
@@ -31,6 +32,25 @@ const ChannelsActions = ({
   setActivePage,
   t,
 }) => {
+  const [groupCounts, setGroupCounts] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get('/api/group/counts');
+        if (!cancelled && res.data?.success) {
+          setGroupCounts(res.data.data || {});
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const statusOptions = useMemo(
     () => [
       { value: 'all', label: '全部', color: '#94a3b8' },
@@ -42,10 +62,14 @@ const ChannelsActions = ({
 
   const groupFilterOptions = useMemo(
     () => [
-      { value: 'all', label: '全部' },
-      ...groupOptions.map((group) => ({ value: group, label: group })),
+      { value: 'all', label: '全部', count: Object.values(groupCounts).reduce((a, b) => a + b, 0) },
+      ...groupOptions.map((group) => ({
+        value: group,
+        label: group,
+        count: groupCounts[group] || 0,
+      })),
     ],
-    [groupOptions],
+    [groupOptions, groupCounts],
   );
 
   return (

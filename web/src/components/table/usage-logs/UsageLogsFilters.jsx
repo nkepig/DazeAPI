@@ -17,12 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form } from '@douyinfe/semi-ui';
 import { IconSearch, IconDownload } from '@douyinfe/semi-icons';
 
 import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
 import BubbleFilter from '../../common/BubbleFilter';
+import { API } from '../../../helpers/api';
 
 const LogsFilters = ({
   formInitValues,
@@ -39,6 +40,28 @@ const LogsFilters = ({
   groupOptions,
   t,
 }) => {
+  const [groupCounts, setGroupCounts] = useState({});
+
+  useEffect(() => {
+    if (!isAdminUser) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get('/api/group/counts');
+        if (!cancelled && res.data?.success) {
+          setGroupCounts(res.data.data || {});
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminUser]);
+
   const logTypeOptions = [
     { value: '0', label: '全部', color: '#94a3b8' },
     { value: '1', label: '充值', color: '#22c55e' },
@@ -50,8 +73,12 @@ const LogsFilters = ({
   ];
 
   const groupFilterOptions = [
-    { value: 'all', label: '全部分组' },
-    ...groupOptions.map((group) => ({ value: group, label: group })),
+    { value: 'all', label: '全部分组', count: Object.values(groupCounts).reduce((a, b) => a + b, 0) },
+    ...groupOptions.map((group) => ({
+      value: group,
+      label: group,
+      count: groupCounts[group] || 0,
+    })),
   ];
 
   return (
