@@ -17,8 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-import { Typography, Select } from '@douyinfe/semi-ui';
+import React, { useMemo } from 'react';
+import BubbleFilter from '../../common/BubbleFilter';
 
 const ChannelsActions = ({
   statusFilter,
@@ -31,51 +31,53 @@ const ChannelsActions = ({
   setActivePage,
   t,
 }) => {
+  const statusOptions = useMemo(
+    () => [
+      { value: 'all', label: '全部', color: '#94a3b8' },
+      { value: 'enabled', label: '已启用', color: '#22c55e' },
+      { value: 'disabled', label: '已禁用', color: '#ef4444' },
+    ],
+    [],
+  );
+
+  const groupFilterOptions = useMemo(
+    () => [
+      { value: 'all', label: '全部' },
+      ...groupOptions.map((group) => ({ value: group, label: group })),
+    ],
+    [groupOptions],
+  );
+
   return (
-    <div className='flex items-center gap-3'>
-      <div className='flex items-center gap-1.5'>
-        <Typography.Text size='small' type='tertiary' className='whitespace-nowrap select-none'>
-          {t('状态')}
-        </Typography.Text>
-        <Select
+    <div className='flex items-center gap-3 flex-wrap'>
+      <BubbleFilter
+        size='small'
+        label='状态'
+        options={statusOptions}
+        value={statusFilter}
+        onChange={(nextValue) => {
+          localStorage.setItem('channel-status-filter', nextValue);
+          setStatusFilter(nextValue);
+          setActivePage(1);
+          loadChannels(1, pageSize, undefined, undefined, nextValue, groupFilter);
+        }}
+        t={t}
+      />
+      {groupOptions.length > 0 ? (
+        <BubbleFilter
           size='small'
-          value={statusFilter}
-          onChange={(v) => {
-            localStorage.setItem('channel-status-filter', v);
-            setStatusFilter(v);
+          label='分组'
+          options={groupFilterOptions}
+          value={groupFilter}
+          onChange={(nextValue) => {
+            localStorage.setItem('channel-group-filter', nextValue);
+            setGroupFilter(nextValue);
             setActivePage(1);
-            loadChannels(1, pageSize, undefined, undefined, v, groupFilter);
+            loadChannels(1, pageSize, undefined, undefined, statusFilter, nextValue);
           }}
-          style={{ minWidth: 72 }}
-        >
-          <Select.Option value='all'>{t('全部')}</Select.Option>
-          <Select.Option value='enabled'>{t('已启用')}</Select.Option>
-          <Select.Option value='disabled'>{t('已禁用')}</Select.Option>
-        </Select>
-      </div>
-      {groupOptions.length > 0 && (
-        <div className='flex items-center gap-1.5'>
-          <Typography.Text size='small' type='tertiary' className='whitespace-nowrap select-none'>
-            {t('分组')}
-          </Typography.Text>
-          <Select
-            size='small'
-            value={groupFilter}
-            onChange={(v) => {
-              localStorage.setItem('channel-group-filter', v);
-              setGroupFilter(v);
-              setActivePage(1);
-              loadChannels(1, pageSize, undefined, undefined, statusFilter, v);
-            }}
-            style={{ minWidth: 90 }}
-          >
-            <Select.Option value='all'>{t('全部')}</Select.Option>
-            {groupOptions.map((g) => (
-              <Select.Option key={g} value={g}>{g}</Select.Option>
-            ))}
-          </Select>
-        </div>
-      )}
+          t={t}
+        />
+      ) : null}
     </div>
   );
 };

@@ -20,10 +20,10 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Space } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
+import BubbleFilter from '../../common/BubbleFilter';
 import ChannelsTable from './ChannelsTable';
 import ChannelsActions from './ChannelsActions';
 import ChannelsFilters from './ChannelsFilters';
-import ChannelsTabs from './ChannelsTabs';
 import { useChannelsData } from '../../../hooks/channels/useChannelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import BatchTagModal from './modals/BatchTagModal';
@@ -34,10 +34,28 @@ import EditTagModal from './modals/EditTagModal';
 import MultiKeyManageModal from './modals/MultiKeyManageModal';
 import ChannelUpstreamUpdateModal from './modals/ChannelUpstreamUpdateModal';
 import { createCardProPagination } from '../../../helpers/utils';
+import { CHANNEL_OPTIONS } from '../../../constants';
+import { getChannelIcon } from '../../../helpers';
 
 const ChannelsPage = () => {
   const channelsData = useChannelsData();
   const isMobile = useIsMobile();
+
+  const channelTypeOptions = [
+    {
+      value: 'all',
+      label: '全部',
+      count: channelsData.channelTypeCounts.all || 0,
+    },
+    ...CHANNEL_OPTIONS.filter((option) =>
+      channelsData.availableTypeKeys.includes(String(option.value)),
+    ).map((option) => ({
+      value: String(option.value),
+      label: option.label,
+      count: channelsData.channelTypeCounts[option.value] || 0,
+      icon: getChannelIcon(option.value),
+    })),
+  ];
 
   return (
     <>
@@ -87,11 +105,34 @@ const ChannelsPage = () => {
 
       <CardPro
         type='type3'
-        tabsArea={<ChannelsTabs {...channelsData} />}
+        tabsArea={null}
         searchArea={
-          <div className='flex items-center gap-2 w-full flex-wrap'>
-            <ChannelsFilters {...channelsData} />
-            <ChannelsActions {...channelsData} />
+          <div className='flex flex-col gap-3 w-full'>
+            <div className='flex items-center gap-3 w-full flex-wrap'>
+              {!channelsData.enableTagMode ? (
+                <BubbleFilter
+                  size='small'
+                  label='类别'
+                  options={channelTypeOptions}
+                  value={channelsData.activeTypeKey}
+                  onChange={(nextValue) => {
+                    channelsData.setActiveTypeKey(nextValue);
+                    channelsData.setActivePage(1);
+                    channelsData.loadChannels(
+                      1,
+                      channelsData.pageSize,
+                      channelsData.enableTagMode,
+                      nextValue,
+                    );
+                  }}
+                  t={channelsData.t}
+                />
+              ) : null}
+              <ChannelsActions {...channelsData} />
+            </div>
+            <div className='flex items-center gap-2 w-full flex-wrap'>
+              <ChannelsFilters {...channelsData} />
+            </div>
           </div>
         }
         paginationArea={createCardProPagination({
