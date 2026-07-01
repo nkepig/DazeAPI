@@ -201,11 +201,27 @@ const ensureBubbleFilterStyles = () => {
       font-size: var(--bubble-filter-petal-font-size, 11px);
     }
 
-    .bubble-filter360-petal-button:hover {
-      transform: translateY(-2px) scale(1.04);
+    .bubble-filter360-petal-button.in-use {
+      background: rgba(99, 102, 241, 0.10);
+      border-color: rgba(99, 102, 241, 0.28);
+    }
+
+    .bubble-filter360-petal-button.idle {
+      background: rgba(148, 156, 170, 0.08);
+      border-color: rgba(148, 156, 170, 0.20);
+      opacity: 0.88;
+    }
+
+    .bubble-filter360-petal-button.in-use:hover {
+      background: rgba(99, 102, 241, 0.16);
       border-color: var(--semi-color-primary);
       box-shadow: 0 6px 20px rgba(99,102,241,0.2);
-      background: var(--semi-color-bg-2);
+    }
+
+    .bubble-filter360-petal-button.idle:hover {
+      background: rgba(148, 156, 170, 0.14);
+      border-color: rgba(148, 156, 170, 0.36);
+      box-shadow: 0 6px 20px rgba(148,156,170,0.18);
     }
 
     .bubble-filter360-petal-button.selected {
@@ -214,6 +230,7 @@ const ensureBubbleFilterStyles = () => {
       border-color: var(--semi-color-primary);
       background: var(--semi-color-primary);
       box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+      opacity: 1;
     }
 
     .bubble-filter360-petal-label-text {
@@ -259,31 +276,57 @@ const ensureBubbleFilterStyles = () => {
 
 const toKey = (value) => `${value}`;
 
-const getPetalPositions = (count, radius, ringOffset) => {
-  if (count <= 0) {
+const getTwoRingPositions = (totalCount, innerRadius, outerRadius) => {
+  if (totalCount <= 0) {
     return [];
   }
 
-  if (count === 1) {
-    return [{ x: 0, y: -radius, z: 12 }];
+  if (totalCount <= 6) {
+    const step = 360 / totalCount;
+    const startAngle = -90;
+    const positions = [];
+    for (let i = 0; i < totalCount; i += 1) {
+      const angleRad = ((startAngle + step * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * innerRadius,
+        y: Math.sin(angleRad) * innerRadius,
+        z: Math.round(8 + normalizedY * 8),
+        ring: 'inner',
+      });
+    }
+    return positions;
   }
 
-  const positions = [];
-  const step = 360 / count;
+  const innerCount = totalCount > 12 ? 6 : 5;
+  const outerCount = totalCount - innerCount;
+
+  const innerStep = 360 / innerCount;
+  const outerStep = 360 / outerCount;
   const startAngle = -90;
 
-  for (let index = 0; index < count; index += 1) {
-    const angleDeg = startAngle + step * index;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const spreadRadius = radius + (index % 2 === 0 ? 0 : ringOffset);
-    const x = Math.cos(angleRad) * spreadRadius;
-    const y = Math.sin(angleRad) * spreadRadius;
-    const normalizedY = (Math.sin(angleRad) + 1) / 2;
+  const positions = [];
 
+  for (let i = 0; i < innerCount; i += 1) {
+    const angleRad = ((startAngle + innerStep * i) * Math.PI) / 180;
+    const normalizedY = (Math.sin(angleRad) + 1) / 2;
     positions.push({
-      x,
-      y,
-      z: Math.round(6 + normalizedY * 12),
+      x: Math.cos(angleRad) * innerRadius,
+      y: Math.sin(angleRad) * innerRadius,
+      z: Math.round(10 + normalizedY * 8),
+      ring: 'inner',
+    });
+  }
+
+  const outerStart = startAngle + outerStep / 2;
+  for (let i = 0; i < outerCount; i += 1) {
+    const angleRad = ((outerStart + outerStep * i) * Math.PI) / 180;
+    const normalizedY = (Math.sin(angleRad) + 1) / 2;
+    positions.push({
+      x: Math.cos(angleRad) * outerRadius,
+      y: Math.sin(angleRad) * outerRadius,
+      z: Math.round(4 + normalizedY * 6),
+      ring: 'outer',
     });
   }
 
@@ -311,14 +354,15 @@ const BubbleFilter = ({
   const [position, setPosition] = useState({ left: 0, top: 0 });
 
   const isSmall = size === 'small';
-  const radius = isSmall ? 108 : 126;
-  const ringOffset = isSmall ? 14 : 18;
+  const innerRadius = isSmall ? 88 : 104;
+  const outerRadius = isSmall ? 156 : 182;
 
   const normalizedOptions = useMemo(
     () =>
       options.map((option) => ({
         ...option,
         key: toKey(option.value),
+        inUse: option.inUse !== undefined ? option.inUse : option.count !== undefined ? option.count > 0 : true,
       })),
     [options],
   );
@@ -334,42 +378,53 @@ const BubbleFilter = ({
       ? defaultOption.key !== selectedOption.key
       : false;
 
+  const sortedOptions = useMemo(() => {
+    const withLengths = normalizedOptions.map((option) => {
+      const text = String(translate(option.label) || '');
+      return { ...option, _labelText: text, _labelLen: text.length };
+    });
+    return withLengths.sort((a, b) => a._labelLen - b._labelLen);
+  }, [normalizedOptions, translate]);
+
   const petalPositions = useMemo(
-    () => getPetalPositions(normalizedOptions.length, radius, ringOffset),
-    [normalizedOptions.length, radius, ringOffset],
+    () => getTwoRingPositions(sortedOptions.length, innerRadius, outerRadius),
+    [sortedOptions.length, innerRadius, outerRadius],
   );
 
-  const labelMetrics = useMemo(() => {
-    if (normalizedOptions.length === 0) {
-      return { fontSize: 12, minW: 84 };
+  const ringLabelMetrics = useMemo(() => {
+    if (sortedOptions.length === 0) {
+      return { inner: { fontSize: 12, minW: 84 }, outer: { fontSize: 12, minW: 84 } };
     }
 
-    const lengths = normalizedOptions.map((option) => {
-      const text = String(translate(option.label) || '');
-      return text.length;
+    const computeRingMetrics = (opts) => {
+      if (opts.length === 0) {
+        return { fontSize: isSmall ? 11 : 12, minW: isSmall ? 72 : 84 };
+      }
+      const maxLen = Math.max(...opts.map((o) => o._labelLen));
+      let fontSize = isSmall ? 11 : 12;
+      if (maxLen > 8) fontSize = isSmall ? 10 : 11;
+      if (maxLen > 12) fontSize = isSmall ? 9 : 10;
+      if (maxLen > 18) fontSize = isSmall ? 8 : 9;
+      const charWidth = fontSize * 0.62;
+      const padding = 42;
+      const minW = Math.max(isSmall ? 72 : 84, Math.ceil(maxLen * charWidth + padding));
+      return { fontSize, minW };
+    };
+
+    const innerOpts = sortedOptions.filter((o) => {
+      const idx = sortedOptions.indexOf(o);
+      return petalPositions[idx]?.ring === 'inner';
     });
-    const maxLen = Math.max(...lengths);
+    const outerOpts = sortedOptions.filter((o) => {
+      const idx = sortedOptions.indexOf(o);
+      return petalPositions[idx]?.ring === 'outer';
+    });
 
-    let fontSize = isSmall ? 11 : 12;
-    if (maxLen > 8) {
-      fontSize = isSmall ? 10 : 11;
-    }
-    if (maxLen > 12) {
-      fontSize = isSmall ? 9 : 10;
-    }
-    if (maxLen > 18) {
-      fontSize = isSmall ? 8 : 9;
-    }
-
-    const charWidth = fontSize * 0.62;
-    const padding = 42;
-    const minW = Math.max(
-      isSmall ? 72 : 84,
-      Math.ceil(maxLen * charWidth + padding),
-    );
-
-    return { fontSize, minW };
-  }, [normalizedOptions, translate, isSmall]);
+    return {
+      inner: computeRingMetrics(innerOpts),
+      outer: computeRingMetrics(outerOpts.length > 0 ? outerOpts : sortedOptions),
+    };
+  }, [sortedOptions, petalPositions, isSmall]);
 
   const updatePosition = useCallback(() => {
     if (!rootRef.current) {
@@ -582,10 +637,14 @@ const BubbleFilter = ({
                 top: `${position.top}px`,
               }}
             >
-              {normalizedOptions.map((option, index) => {
-                const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1 };
-                const translatedLabel = translate(option.label);
+              {sortedOptions.map((option, index) => {
+                const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1, ring: 'inner' };
+                const translatedLabel = option._labelText || translate(option.label);
                 const isSelected = selectedOption?.key === option.key;
+                const ringMetrics = petalPosition.ring === 'outer'
+                  ? ringLabelMetrics.outer
+                  : ringLabelMetrics.inner;
+                const usageClass = option.inUse ? 'in-use' : 'idle';
 
                 return (
                   <div
@@ -595,20 +654,20 @@ const BubbleFilter = ({
                       '--bubble-filter-petal-x': `${petalPosition.x}px`,
                       '--bubble-filter-petal-y': `${petalPosition.y}px`,
                       '--bubble-filter-petal-z': petalPosition.z,
-                      transitionDelay: `${Math.min(index, 9) * 30}ms`,
+                      transitionDelay: `${Math.min(index, 11) * 28}ms`,
                     }}
                   >
                     <Tooltip content={translatedLabel} position='top'>
                       <button
                         type='button'
-                        className={`bubble-filter360-petal-button ${isSelected ? 'selected' : ''}`}
+                        className={`bubble-filter360-petal-button ${isSelected ? 'selected' : usageClass}`}
                         style={{
                           '--bubble-filter-petal-x': `${petalPosition.x}px`,
                           '--bubble-filter-petal-y': `${petalPosition.y}px`,
                           '--bubble-filter-petal-z': petalPosition.z,
-                          '--bubble-filter-petal-font-size': `${labelMetrics.fontSize}px`,
-                          '--bubble-filter-petal-min-w': `${labelMetrics.minW}px`,
-                          transitionDelay: `${Math.min(index, 9) * 30}ms`,
+                          '--bubble-filter-petal-font-size': `${ringMetrics.fontSize}px`,
+                          '--bubble-filter-petal-min-w': `${ringMetrics.minW}px`,
+                          transitionDelay: `${Math.min(index, 11) * 28}ms`,
                         }}
                         onClick={() => handleSelect(option.value)}
                         onMouseEnter={openFilter}
