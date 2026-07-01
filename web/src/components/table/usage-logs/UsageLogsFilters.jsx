@@ -18,16 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button, Form, Select, Space, TagInput } from '@douyinfe/semi-ui';
+import { Button, Form } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
 import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
+import BubbleFilter from '../../common/BubbleFilter';
 
 const LogsFilters = ({
   formInitValues,
   setFormApi,
   refresh,
   formApi,
+  logType,
   setLogType,
   loading,
   isAdminUser,
@@ -35,6 +37,21 @@ const LogsFilters = ({
   groupOptions,
   t,
 }) => {
+  const logTypeOptions = [
+    { value: '0', label: '全部', color: '#94a3b8' },
+    { value: '1', label: '充值', color: '#22c55e' },
+    { value: '2', label: '消费', color: '#6366f1' },
+    { value: '3', label: '管理', color: '#38bdf8' },
+    { value: '4', label: '系统', color: '#f59e0b' },
+    { value: '5', label: '错误', color: '#ef4444' },
+    { value: '6', label: '退款', color: '#a855f7' },
+  ];
+
+  const groupFilterOptions = [
+    { value: 'all', label: '全部分组' },
+    ...groupOptions.map((group) => ({ value: group, label: group })),
+  ];
+
   return (
     <div className='usage-logs-filters mb-4'>
       <Form
@@ -49,7 +66,7 @@ const LogsFilters = ({
         className='!bg-transparent'
       >
         <div className='flex flex-col gap-3'>
-          <div className='flex flex-wrap items-end gap-3'>
+          <div className='flex flex-wrap items-center gap-3'>
             <div className='flex-1 min-w-[260px] max-w-lg'>
               <Form.DatePicker
                 field='dateRange'
@@ -66,37 +83,30 @@ const LogsFilters = ({
               />
             </div>
 
-            <Form.Select
-              field='logType'
-              placeholder={t('类型')}
-              style={{ width: 120 }}
-              showClear
-              pure
-            >
-              <Form.Select.Option value='0'>{t('全部')}</Form.Select.Option>
-              <Form.Select.Option value='1'>{t('充值')}</Form.Select.Option>
-              <Form.Select.Option value='2'>{t('消费')}</Form.Select.Option>
-              <Form.Select.Option value='3'>{t('管理')}</Form.Select.Option>
-              <Form.Select.Option value='4'>{t('系统')}</Form.Select.Option>
-              <Form.Select.Option value='5'>{t('错误')}</Form.Select.Option>
-              <Form.Select.Option value='6'>{t('退款')}</Form.Select.Option>
-            </Form.Select>
+            <BubbleFilter
+              size='small'
+              label='类型'
+              options={logTypeOptions}
+              value={String(logType ?? formInitValues.logType ?? '0')}
+              onChange={(nextValue) => {
+                formApi?.setValue('logType', String(nextValue));
+                setLogType(Number(nextValue));
+                refresh();
+              }}
+              t={t}
+            />
 
             {isAdminUser && (
-              <Select
+              <BubbleFilter
+                size='small'
+                label='分组'
+                options={groupFilterOptions}
                 value={groupFilter}
-                placeholder={t('分组')}
-                style={{ width: 130 }}
-                showClear
-                onChange={(v) => {
-                  refresh(v || 'all');
+                onChange={(nextValue) => {
+                  refresh(nextValue || 'all');
                 }}
-              >
-                <Select.Option value='all'>{t('全部分组')}</Select.Option>
-                {groupOptions.map((g) => (
-                  <Select.Option key={g} value={g}>{g}</Select.Option>
-                ))}
-              </Select>
+                t={t}
+              />
             )}
 
             <Button
