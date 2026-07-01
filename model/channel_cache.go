@@ -270,19 +270,6 @@ func CacheUpdateChannelStatus(id int, status int) {
 	}
 }
 
-func CacheUpdateChannel(channel *Channel) {
-	if !common.MemoryCacheEnabled {
-		return
-	}
-	channelSyncLock.Lock()
-	defer channelSyncLock.Unlock()
-	if channel == nil {
-		return
-	}
-
-	channelsIDM[channel.Id] = channel
-}
-
 // GetAllChannelsFromCache returns all channels from memory cache.
 // If memory cache is disabled, it falls back to database query.
 func GetAllChannelsFromCache() ([]*Channel, error) {

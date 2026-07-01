@@ -39,20 +39,12 @@ type CodexOAuthAuthorizationFlow struct {
 	AuthorizeURL string
 }
 
-func RefreshCodexOAuthToken(ctx context.Context, refreshToken string) (*CodexOAuthTokenResult, error) {
-	return RefreshCodexOAuthTokenWithProxy(ctx, refreshToken, "")
-}
-
 func RefreshCodexOAuthTokenWithProxy(ctx context.Context, refreshToken string, proxyURL string) (*CodexOAuthTokenResult, error) {
 	client, err := getCodexOAuthHTTPClient(proxyURL)
 	if err != nil {
 		return nil, err
 	}
 	return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken)
-}
-
-func ExchangeCodexAuthorizationCode(ctx context.Context, code string, verifier string) (*CodexOAuthTokenResult, error) {
-	return ExchangeCodexAuthorizationCodeWithProxy(ctx, code, verifier, "")
 }
 
 func ExchangeCodexAuthorizationCodeWithProxy(ctx context.Context, code string, verifier string, proxyURL string) (*CodexOAuthTokenResult, error) {

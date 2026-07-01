@@ -94,22 +94,6 @@ func GetTokenKey(c *gin.Context) {
 	})
 }
 
-func GetTokenStatus(c *gin.Context) {
-	tokenId := c.GetInt("token_id")
-	userId := c.GetInt("id")
-	token, err := model.GetTokenByIds(tokenId, userId)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"object":          "credit_summary",
-		"total_granted":   token.RemainQuota,
-		"total_used":      0, // not supported currently
-		"total_available": token.RemainQuota,
-	})
-}
-
 func GetTokenUsage(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {

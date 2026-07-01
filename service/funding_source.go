@@ -1,10 +1,6 @@
 package service
 
-import (
-	"time"
-
-	"github.com/QuantumNous/new-api/model"
-)
+import "github.com/QuantumNous/new-api/model"
 
 // ---------------------------------------------------------------------------
 // FundingSource — 资金来源接口
@@ -60,25 +56,4 @@ func (w *WalletFunding) Refund() error {
 	}
 	// IncreaseUserQuota 是 quota += N 的非幂等操作，不能重试，否则会多退额度。
 	return model.IncreaseUserQuota(w.userId, w.consumed, false)
-}
-
-// refundWithRetry 尝试多次执行退款操作以提高成功率，只能用于基于事务的退款函数！！！！！！
-// try to refund with retries, only for refund functions based on transactions!!!
-func refundWithRetry(fn func() error) error {
-	if fn == nil {
-		return nil
-	}
-	const maxAttempts = 3
-	var lastErr error
-	for i := 0; i < maxAttempts; i++ {
-		if err := fn(); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-		if i < maxAttempts-1 {
-			time.Sleep(time.Duration(200*(i+1)) * time.Millisecond)
-		}
-	}
-	return lastErr
 }

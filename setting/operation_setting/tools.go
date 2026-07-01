@@ -64,23 +64,6 @@ func GetFileSearchPricePerThousand() float64 {
 	return FileSearchPrice
 }
 
-func GetGeminiInputAudioPricePerMillionTokens(modelName string) float64 {
-	if strings.HasPrefix(modelName, "gemini-2.5-flash-preview-native-audio") {
-		return Gemini25FlashNativeAudioInputAudioPrice
-	} else if strings.HasPrefix(modelName, "gemini-2.5-flash-preview-lite") {
-		return Gemini25FlashLitePreviewInputAudioPrice
-	} else if strings.HasPrefix(modelName, "gemini-2.5-flash-preview") {
-		return Gemini25FlashPreviewInputAudioPrice
-	} else if strings.HasPrefix(modelName, "gemini-2.5-flash") {
-		return Gemini25FlashProductionInputAudioPrice
-	} else if strings.HasPrefix(modelName, "gemini-2.0-flash") {
-		return Gemini20FlashInputAudioPrice
-	} else if strings.HasPrefix(modelName, "gemini-robotics-er-1.5") {
-		return GeminiRoboticsER15InputAudioPrice
-	}
-	return 0
-}
-
 func GetGPTImage1PriceOnceCall(quality string, size string) float64 {
 	prices := map[string]map[string]float64{
 		"low": {

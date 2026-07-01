@@ -99,34 +99,4 @@ var defaultCreateCacheRatio = map[string]float64{
 var cacheRatioMap = types.NewRWMap[string, float64]()
 var createCacheRatioMap = types.NewRWMap[string, float64]()
 
-// GetCacheRatioMap returns a copy of the cache ratio map
-func GetCacheRatioMap() map[string]float64 {
-	return cacheRatioMap.ReadAll()
-}
-
-
-
-// UpdateCacheRatioByJSONString updates the cache ratio map from a JSON string
-func UpdateCacheRatioByJSONString(jsonStr string) error {
-	return types.LoadFromJsonStringWithCallback(cacheRatioMap, jsonStr, InvalidateExposedDataCache)
-}
-
-
-// GetCacheRatio returns the cache ratio for a model
-func GetCacheRatio(name string) (float64, bool) {
-	ratio, ok := cacheRatioMap.Get(name)
-	if !ok {
-		return 1, false // Default to 1 if not found
-	}
-	return ratio, true
-}
-
-func GetCreateCacheRatio(name string) (float64, bool) {
-	ratio, ok := createCacheRatioMap.Get(name)
-	if !ok {
-		return 1.25, false // Default to 1.25 if not found
-	}
-	return ratio, true
-}
-
 

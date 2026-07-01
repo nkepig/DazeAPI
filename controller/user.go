@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type LoginRequest struct {
@@ -331,58 +332,9 @@ func GenerateAccessToken(c *gin.Context) {
 	return
 }
 
-type TransferAffQuotaRequest struct {
-	Quota int `json:"quota" binding:"required"`
-}
-
 type UpdateUserRequest struct {
 	model.User
 	QuotaDelta *int `json:"quota_delta"`
-}
-
-func TransferAffQuota(c *gin.Context) {
-	id := c.GetInt("id")
-	user, err := model.GetUserById(id, true)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	tran := TransferAffQuotaRequest{}
-	if err := c.ShouldBindJSON(&tran); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	err = user.TransferAffQuotaToQuota(tran.Quota)
-	if err != nil {
-		common.ApiErrorI18n(c, i18n.MsgUserTransferFailed, map[string]any{"Error": err.Error()})
-		return
-	}
-	common.ApiSuccessI18n(c, i18n.MsgUserTransferSuccess, nil)
-}
-
-func GetAffCode(c *gin.Context) {
-	id := c.GetInt("id")
-	user, err := model.GetUserById(id, true)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if user.AffCode == "" {
-		user.AffCode = common.GetRandomString(4)
-		if err := user.Update(false); err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": err.Error(),
-			})
-			return
-		}
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    user.AffCode,
-	})
-	return
 }
 
 func GetSelf(c *gin.Context) {
@@ -543,45 +495,6 @@ func calculateAdminFineGrainedPermissions(user *model.User) map[string]interface
 	}
 	p := common.ParseAdminPermission(user.AdminPermission)
 	return p.AsMap()
-}
-
-// 根据用户角色生成默认的边栏配置
-func generateDefaultSidebarConfig(userRole int) string {
-	defaultConfig := map[string]interface{}{}
-
-	// 个人中心区域 - 所有用户都可以访问
-	defaultConfig["personal"] = map[string]interface{}{
-		"enabled":  true,
-		"topup":    true,
-		"personal": true,
-	}
-
-	// 管理员区域 - 根据角色决定
-	if userRole == common.RoleAdminUser {
-		// 管理员可以访问管理员区域，但不能访问系统设置
-		defaultConfig["admin"] = map[string]interface{}{
-			"enabled": true,
-			"channel": true,
-			"setting": false, // 管理员不能访问系统设置
-		}
-	} else if userRole == common.RoleRootUser {
-		// 超级管理员可以访问所有功能
-		defaultConfig["admin"] = map[string]interface{}{
-			"enabled": true,
-			"channel": true,
-			"setting": true,
-		}
-	}
-	// 普通用户不包含admin区域
-
-	// 转换为JSON字符串
-	configBytes, err := common.Marshal(defaultConfig)
-	if err != nil {
-		common.SysLog("生成默认边栏配置失败: " + err.Error())
-		return ""
-	}
-
-	return string(configBytes)
 }
 
 func GetUserModels(c *gin.Context) {
@@ -925,9 +838,31 @@ func CreateUser(c *gin.Context) {
 		Group:       groupName,
 		GroupRatio:  "{}",
 	}
-	if err := cleanUser.Insert(0); err != nil {
+	callerId := c.GetInt("id")
+	needWhitelistExtend := myRole == common.RoleAdminUser && callerId != 0
+
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := cleanUser.InsertWithTx(tx, 0); err != nil {
+			return err
+		}
+		if needWhitelistExtend {
+			if err := model.AppendUserToManageWhitelist(tx, callerId, cleanUser.Id); err != nil {
+				return fmt.Errorf("failed to extend manage_users whitelist: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+
+	cleanUser.FinalizeUserCreation(0)
+
+	if needWhitelistExtend {
+		model.RecordLog(callerId, model.LogTypeManage,
+			fmt.Sprintf("创建用户 %s (#%d) 并自动纳入管理白名单",
+				cleanUser.Username, cleanUser.Id))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -1042,37 +977,6 @@ func ManageUser(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    clearUser,
-	})
-	return
-}
-
-func EmailBind(c *gin.Context) {
-	email := c.Query("email")
-	code := c.Query("code")
-	if !common.VerifyCodeWithKey(email, code, common.EmailVerificationPurpose) {
-		common.ApiErrorI18n(c, i18n.MsgUserVerificationCodeError)
-		return
-	}
-	session := sessions.Default(c)
-	id := session.Get("id")
-	user := model.User{
-		Id: id.(int),
-	}
-	err := user.FillUserById()
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	user.Email = email
-	// no need to check if this email already taken, because we have used verification code to check it
-	err = user.Update(false)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
 	})
 	return
 }

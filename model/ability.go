@@ -52,12 +52,6 @@ func GetEnabledModels() []string {
 	return models
 }
 
-func GetAllEnableAbilities() []Ability {
-	var abilities []Ability
-	DB.Find(&abilities, "enabled = ?", true)
-	return abilities
-}
-
 // mapRetryToPriorityIndex maps a retry attempt index to a priority bucket index,
 // distributing `totalAttempts` across `numPriorities` buckets (priorities are
 // ordered from highest to lowest). Each priority gets at least one attempt;

@@ -168,12 +168,6 @@ func CheckUserExistOrDeleted(username string, email string) (bool, error) {
 	return true, nil
 }
 
-func GetMaxUserId() int {
-	var user User
-	DB.Unscoped().Last(&user)
-	return user.Id
-}
-
 // GetAllUsers returns paginated users. If idWhitelist is non-nil, only users
 // with id in the whitelist are returned (used for admin fine-grained permissions:
 // manage_users whitelist). nil means no restriction.
@@ -528,9 +522,10 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 	return nil
 }
 
-// FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.
-// This should be called after the transaction commits successfully.
-func (user *User) FinalizeOAuthUserCreation(inviterId int) {
+// FinalizeUserCreation performs post-transaction tasks for user creation:
+// sidebar config initialization, quota gift logs, and inviter rewards.
+// Must be called AFTER the creation transaction commits successfully.
+func (user *User) FinalizeUserCreation(inviterId int) {
 	// 用户创建成功后，根据角色初始化边栏配置
 	var createdUser User
 	if err := DB.Where("id = ?", user.Id).First(&createdUser).Error; err == nil {
@@ -597,9 +592,19 @@ func (user *User) Edit(updatePassword bool, includeQuota bool) error {
 	updates := map[string]interface{}{
 		"username":     newUser.Username,
 		"display_name": newUser.DisplayName,
-		"group":        newUser.Group,
-		"groupratio":   newUser.GroupRatio,
 		"remark":       newUser.Remark,
+	}
+	// Only overwrite group/groupratio when the caller explicitly provides a non-empty
+	// value. GORM map-based Updates writes ALL keys (including zero/empty), so
+	// unconditionally including these would wipe existing values whenever the
+	// admin edit form omits them (e.g. non-root admin editing other fields).
+	// The intentional "clear all groups" case sends "{}" (non-empty), which still
+	// goes through. See controller/user.go UpdateUser -> adminUserWhitelistFor.
+	if newUser.Group != "" {
+		updates["group"] = newUser.Group
+	}
+	if newUser.GroupRatio != "" {
+		updates["groupratio"] = newUser.GroupRatio
 	}
 	if includeQuota {
 		updates["quota"] = newUser.Quota
@@ -767,26 +772,6 @@ func IsEmailAlreadyTaken(email string) bool {
 	return DB.Unscoped().Where("email = ?", email).Find(&User{}).RowsAffected == 1
 }
 
-func IsWeChatIdAlreadyTaken(wechatId string) bool {
-	return DB.Unscoped().Where("wechat_id = ?", wechatId).Find(&User{}).RowsAffected == 1
-}
-
-func IsGitHubIdAlreadyTaken(githubId string) bool {
-	return DB.Unscoped().Where("github_id = ?", githubId).Find(&User{}).RowsAffected == 1
-}
-
-func IsDiscordIdAlreadyTaken(discordId string) bool {
-	return DB.Unscoped().Where("discord_id = ?", discordId).Find(&User{}).RowsAffected == 1
-}
-
-func IsOidcIdAlreadyTaken(oidcId string) bool {
-	return DB.Where("oidc_id = ?", oidcId).Find(&User{}).RowsAffected == 1
-}
-
-func IsTelegramIdAlreadyTaken(telegramId string) bool {
-	return DB.Unscoped().Where("telegram_id = ?", telegramId).Find(&User{}).RowsAffected == 1
-}
-
 func ResetUserPasswordByEmail(email string, password string) error {
 	if email == "" || password == "" {
 		return errors.New("邮箱地址或密码为空！")
@@ -877,16 +862,6 @@ func GetUserQuota(id int, fromDB bool) (quota int, err error) {
 	}
 
 	return quota, nil
-}
-
-func GetUserUsedQuota(id int) (quota int, err error) {
-	err = DB.Model(&User{}).Where("id = ?", id).Select("used_quota").Find(&quota).Error
-	return quota, err
-}
-
-func GetUserEmail(id int) (email string, err error) {
-	err = DB.Model(&User{}).Where("id = ?", id).Select("email").Find(&email).Error
-	return email, err
 }
 
 // GetUserGroup gets group from Redis first, falls back to DB if needed
@@ -1036,6 +1011,39 @@ func UpdateUserAdminPermission(id int, permissionJSON string) error {
 	return DB.Model(&User{}).Where("id = ?", id).Update("admin_permission", permissionJSON).Error
 }
 
+// AppendUserToManageWhitelist reads the admin's current admin_permission column
+// within the given transaction, appends newUserId to the manage_users whitelist
+// (only if it is a restricted id list and the id is not already present), and
+// writes it back within the same transaction. If manage_users is "all" this is a
+// no-op. Must be called inside a transaction so that user creation and whitelist
+// extension succeed or fail atomically.
+func AppendUserToManageWhitelist(tx *gorm.DB, adminId, newUserId int) error {
+	if adminId == 0 || newUserId == 0 {
+		return nil
+	}
+	var admin User
+	if err := tx.Select("admin_permission").First(&admin, adminId).Error; err != nil {
+		return err
+	}
+	p := common.ParseAdminPermission(admin.AdminPermission)
+	ids, restricted := p.ManageUsersWhitelist()
+	if !restricted {
+		return nil
+	}
+	for _, id := range ids {
+		if id == newUserId {
+			return nil
+		}
+	}
+	p.ManageUsers = append(ids, newUserId)
+	newJSON, err := common.SerializeAdminPermission(p)
+	if err != nil {
+		return err
+	}
+	return tx.Model(&User{}).Where("id = ?", adminId).
+		Update("admin_permission", newJSON).Error
+}
+
 func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {
 	err := DB.Model(&User{}).Where("id = ?", id).Updates(
 		map[string]interface{}{
@@ -1052,24 +1060,6 @@ func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {
 	//if err := invalidateUserCache(id); err != nil {
 	//	common.SysError("failed to invalidate user cache: " + err.Error())
 	//}
-}
-
-func updateUserUsedQuota(id int, quota int) {
-	err := DB.Model(&User{}).Where("id = ?", id).Updates(
-		map[string]interface{}{
-			"used_quota": gorm.Expr("used_quota + ?", quota),
-		},
-	).Error
-	if err != nil {
-		common.SysLog("failed to update user used quota: " + err.Error())
-	}
-}
-
-func updateUserRequestCount(id int, count int) {
-	err := DB.Model(&User{}).Where("id = ?", id).Update("request_count", gorm.Expr("request_count + ?", count)).Error
-	if err != nil {
-		common.SysLog("failed to update user request count: " + err.Error())
-	}
 }
 
 // GetUsernameById gets username from Redis first, falls back to DB if needed
@@ -1098,12 +1088,6 @@ func GetUsernameById(id int, fromDB bool) (username string, err error) {
 	}
 
 	return username, nil
-}
-
-func IsLinuxDOIdAlreadyTaken(linuxDOId string) bool {
-	var user User
-	err := DB.Unscoped().Where("linux_do_id = ?", linuxDOId).First(&user).Error
-	return !errors.Is(err, gorm.ErrRecordNotFound)
 }
 
 func (user *User) FillUserByLinuxDOId() error {

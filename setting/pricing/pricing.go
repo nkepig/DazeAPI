@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 )
 
@@ -89,10 +88,6 @@ func ModelPricing2JSONString() string {
 	return modelPricingMap.MarshalJSONString()
 }
 
-func UpdateModelPricingByJSONString(jsonStr string) error {
-	return types.LoadFromJsonStringWithCallback(modelPricingMap, jsonStr, func() {})
-}
-
 func UpdateExposedModelPricingByJSONString(jsonStr string) error {
 	incoming := make(map[string]ModelPricing)
 	if err := common.UnmarshalJsonStr(jsonStr, &incoming); err != nil {
@@ -117,50 +112,6 @@ func UpdateExposedModelPricingByJSONString(jsonStr string) error {
 	return nil
 }
 
-func GetGroupDiscount(group string) float64 {
-	return ratio_setting.GetGroupRatio(group)
-}
-
-func GetGroupModelDiscount(userGroup, model string) (float64, bool) {
-	modelDiscounts, ok := groupModelDiscountMap.Get(userGroup)
-	if !ok {
-		return -1, false
-	}
-	discount, ok := modelDiscounts[model]
-	if !ok {
-		return -1, false
-	}
-	return discount, true
-}
-
-func GetGroupDiscountCopy() map[string]float64 {
-	return groupDiscountMap.ReadAll()
-}
-
-func GetGroupModelDiscountCopy() map[string]map[string]float64 {
-	result := make(map[string]map[string]float64)
-	for k, v := range groupModelDiscountMap.ReadAll() {
-		result[k] = v
-	}
-	return result
-}
-
-func GroupDiscount2JSONString() string {
-	return groupDiscountMap.MarshalJSONString()
-}
-
-func UpdateGroupDiscountByJSONString(jsonStr string) error {
-	return types.LoadFromJsonStringWithCallback(groupDiscountMap, jsonStr, func() {})
-}
-
-func GroupModelDiscount2JSONString() string {
-	return groupModelDiscountMap.MarshalJSONString()
-}
-
-func UpdateGroupModelDiscountByJSONString(jsonStr string) error {
-	return types.LoadFromJsonStringWithCallback(groupModelDiscountMap, jsonStr, func() {})
-}
-
 func RequireModelPricing(name string) (ModelPricing, error) {
 	pricing, ok := GetModelPricing(name)
 	if !ok {
@@ -182,24 +133,4 @@ func IsModelConfigured(name string) bool {
 	return false
 }
 
-func GetModelPricingCopy() map[string]ModelPricing {
-	return modelPricingMap.ReadAll()
-}
-
 const USD = 500.0
-
-func ContainsGroupDiscount(name string) bool {
-	return ratio_setting.ContainsGroupRatio(name)
-}
-
-func ContainsGroupRatio(name string) bool {
-	return ContainsGroupDiscount(name)
-}
-
-func GetExposedData() map[string]interface{} {
-	return map[string]interface{}{
-		"model_pricing":         GetModelPricingMap(),
-		"group_discount":        GetGroupDiscountCopy(),
-		"group_model_discount":  GetGroupModelDiscountCopy(),
-	}
-}

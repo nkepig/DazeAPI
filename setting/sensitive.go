@@ -34,10 +34,6 @@ func SensitiveWordsFromString(s string) {
 	}
 }
 
-func ShouldCheckPromptSensitive() bool {
-	return CheckSensitiveEnabled && CheckSensitiveOnPromptEnabled
-}
-
 //func ShouldCheckCompletionSensitive() bool {
 //	return CheckSensitiveEnabled && CheckSensitiveOnCompletionEnabled
 //}

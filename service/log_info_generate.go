@@ -202,19 +202,3 @@ func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	}
 	return info
 }
-
-func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.PriceData) map[string]interface{} {
-	other := make(map[string]interface{})
-	if priceData.UsePerCallPricing {
-		other["per_call_price"] = priceData.PerCallPrice
-	} else {
-		other["prompt_price"] = priceData.PromptPrice
-		other["completion_price"] = priceData.CompletionPrice
-	}
-	other["group_discount"] = priceData.GroupDiscountInfo.GroupDiscount
-	if priceData.GroupDiscountInfo.HasSpecialRatio {
-		other["user_group_discount"] = priceData.GroupDiscountInfo.GroupSpecialRatio
-	}
-	appendRequestPath(nil, relayInfo, other)
-	return other
-}

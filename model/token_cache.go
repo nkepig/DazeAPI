@@ -40,15 +40,6 @@ func cacheDecrTokenQuota(key string, decrement int64) error {
 	return cacheIncrTokenQuota(key, -decrement)
 }
 
-func cacheSetTokenField(key string, field string, value string) error {
-	key = common.GenerateHMAC(key)
-	err := common.RedisHSetField(fmt.Sprintf("token:%s", key), field, value)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // tokenCacheLooksComplete rejects partial Redis hashes (e.g. only RemainQuota from HINCRBY on an expired key)
 func tokenCacheLooksComplete(t *Token) bool {
 	return t != nil && t.Id != 0 &&
