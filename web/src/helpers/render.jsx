@@ -1355,8 +1355,13 @@ export function renderModelPrice(
     ]);
   }
 
-  const normalInputTokens = Math.max(inputTokens - cacheTokens - audioInputTokens - imageOutputTokens, 0);
+  // Anthropic 语义下 input_tokens 已是不含缓存读/写的普通输入，不能再扣除 cacheTokens；
+  // OpenAI 语义下 input_tokens 包含缓存读 token，需要扣除以避免重复计费。
+  const isAnthropicSemantic = pricingData?.claude === true || pricingData?.usage_semantic === 'anthropic';
   const cacheInputTokens = Math.max(cacheTokens, 0);
+  const normalInputTokens = isAnthropicSemantic
+    ? Math.max(inputTokens - audioInputTokens - imageOutputTokens, 0)
+    : Math.max(inputTokens - cacheTokens - audioInputTokens - imageOutputTokens, 0);
   const cacheWriteBaseTokens = Math.max(pricingData?.cache_creation_tokens || 0, 0);
   const cacheWrite5mTokens = Math.max(pricingData?.cache_creation_tokens_5m || 0, 0);
   const cacheWrite1hTokens = Math.max(pricingData?.cache_creation_tokens_1h || 0, 0);
