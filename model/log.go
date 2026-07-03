@@ -112,12 +112,12 @@ const (
 func formatUserLogs(logs []*Log, startIdx int) {
 	for i := range logs {
 		logs[i].ChannelName = ""
-		var otherMap map[string]interface{}
-		otherMap, _ = common.StrToMap(logs[i].Other)
+		otherMap, _ := common.StrToMap(logs[i].Other)
 		if otherMap != nil {
-			// Remove admin-only debug fields.
+			// channel_name is admin-only; admin_info (incl. retry_attempts) is dropped wholesale.
 			delete(otherMap, "admin_info")
 			delete(otherMap, "reject_reason")
+			delete(otherMap, "channel_name")
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 		logs[i].Id = startIdx + i + 1
