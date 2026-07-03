@@ -593,11 +593,14 @@ func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccess
 // GroupSuccessRate is the per-group, per-model success-rate row returned by
 // GetGroupSuccessRate. Aggregation key is (group, model_name) — not channel.
 type GroupSuccessRate struct {
-	Group         string  `json:"group"`
-	ModelName     string  `json:"model_name"`
-	TotalCount    int64   `json:"total_count"`
-	SuccessCount  int64   `json:"success_count"`
-	SuccessRate   float64 `json:"success_rate"`
+	Group        string  `json:"group"`
+	ModelName    string  `json:"model_name"`
+	TotalCount   int64   `json:"total_count"`
+	SuccessCount int64   `json:"success_count"`
+	SuccessRate  float64 `json:"success_rate"`
+	// AvgUseTime is the mean per-request wall-clock duration (seconds) across
+	// rows that recorded a non-zero use_time. Zero when no row had timing.
+	AvgUseTime float64 `json:"avg_use_time"`
 }
 
 // GetGroupSuccessRate aggregates consume/error logs by (group, model_name) within
@@ -613,11 +616,17 @@ func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate
 		ModelName    string
 		TotalCount   int64
 		SuccessCount int64
+		SumUseTime   int64
+		TimedCount   int64
 	}
 
 	var results []countResult
 	err := LOG_DB.Table("logs").
-		Select(logGroupCol+", model_name, COUNT(*) AS total_count, SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) AS success_count",
+		Select(logGroupCol+", model_name, "+
+			"COUNT(*) AS total_count, "+
+			"SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) AS success_count, "+
+			"SUM(use_time) AS sum_use_time, "+
+			"SUM(CASE WHEN use_time > 0 THEN 1 ELSE 0 END) AS timed_count",
 			LogTypeConsume).
 		Where("type IN ? AND created_at >= ? AND created_at <= ?",
 			[]int{LogTypeConsume, LogTypeError}, startTimestamp, endTimestamp).
@@ -633,6 +642,10 @@ func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate
 		if r.TotalCount > 0 {
 			rate = math.Round(float64(r.SuccessCount)/float64(r.TotalCount)*10000) / 100
 		}
+		var avgUseTime float64
+		if r.TimedCount > 0 {
+			avgUseTime = math.Round(float64(r.SumUseTime)/float64(r.TimedCount)*10) / 10
+		}
 		group := r.Group
 		if group == "" {
 			group = "default"
@@ -643,6 +656,7 @@ func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate
 			TotalCount:   r.TotalCount,
 			SuccessCount: r.SuccessCount,
 			SuccessRate:  rate,
+			AvgUseTime:   avgUseTime,
 		})
 	}
 	return out, nil
