@@ -115,6 +115,7 @@ export default function ModelPricingEditor({
     previewRows,
     handleNumericFieldChange,
     handleBillingModeChange,
+    handleFixedPriceUnitChange,
     handleSubmit,
     addModel,
     deleteModel,
@@ -369,15 +370,15 @@ export default function ModelPricingEditor({
               ...(isMobile ? { order: 1 } : {}),
             }}
             title={selectedModel ? selectedModel.name : t('模型计费编辑器')}
-            headerExtraContent={
-              selectedModel ? (
-                <Tag color='blue'>
-                  {selectedModel.billingMode === 'per-request'
-                    ? t('固定价格')
-                    : t('按 token 价格')}
-                </Tag>
-              ) : null
-            }
+              headerExtraContent={
+                selectedModel ? (
+                  <Tag color='blue'>
+                    {selectedModel.billingMode === 'per-request'
+                      ? (selectedModel.fixedPriceUnit === 'second' ? t('固定价格·按秒') : t('固定价格'))
+                      : t('按 token 价格')}
+                  </Tag>
+                ) : null
+              }
           >
             {!selectedModel ? (
               <Empty
@@ -423,14 +424,34 @@ export default function ModelPricingEditor({
                 ) : null}
 
                 {selectedModel.billingMode === 'per-request' ? (
-                  <PriceInput
-                    label={t('固定价格')}
-                    value={selectedModel.fixedPrice}
-                    placeholder={t('输入每次调用价格')}
-                    suffix={t('$/次')}
-                    onChange={(value) => handleNumericFieldChange('fixedPrice', value)}
-                    extraText={t('按次计费')}
-                  />
+                  <>
+                    <div className='mb-3'>
+                      <div className='mb-2 font-medium text-gray-700'>
+                        {t('计费单位')}
+                      </div>
+                      <RadioGroup
+                        type='button'
+                        value={selectedModel.fixedPriceUnit || 'call'}
+                        onChange={(event) => handleFixedPriceUnitChange(event.target.value)}
+                      >
+                        <Radio value='call'>{t('按次')}</Radio>
+                        <Radio value='second'>{t('按秒')}</Radio>
+                      </RadioGroup>
+                      <div className='mt-2 text-xs text-gray-500'>
+                        {selectedModel.fixedPriceUnit === 'second'
+                          ? t('按视频时长（秒）计费，不再叠加分辨率等参数')
+                          : t('按请求次数计费')}
+                      </div>
+                    </div>
+                    <PriceInput
+                      label={t('固定价格')}
+                      value={selectedModel.fixedPrice}
+                      placeholder={t('输入每次调用价格')}
+                      suffix={selectedModel.fixedPriceUnit === 'second' ? t('$/秒') : t('$/次')}
+                      onChange={(value) => handleNumericFieldChange('fixedPrice', value)}
+                      extraText={selectedModel.fixedPriceUnit === 'second' ? t('按秒计费') : t('按次计费')}
+                    />
+                  </>
                 ) : (
                   <Card
                     bodyStyle={{ padding: 16 }}
