@@ -9,6 +9,7 @@ const EMPTY_MODEL = {
   name: '',
   billingMode: 'per-token',
   fixedPrice: '',
+  fixedPriceUnit: 'call',
   inputPrice: '',
   outputPrice: '',
   cacheReadPrice: '',
@@ -73,6 +74,7 @@ const dedupeModelPriceMap = (modelPriceMap) => {
 const buildModelState = (name, modelPriceMap) => {
   const storedPrice = modelPriceMap[name] || {};
   const perCallPrice = toNormalizedNumber(storedPrice.per_call_price);
+  const fixedPriceUnit = storedPrice.fixed_price_unit === 'second' ? 'second' : 'call';
   const promptPrice = toNormalizedNumber(storedPrice.prompt_price);
   const completionPrice = toNormalizedNumber(storedPrice.completion_price);
   const cacheReadPrice = toNormalizedNumber(storedPrice.cache_read_price);
@@ -83,6 +85,7 @@ const buildModelState = (name, modelPriceMap) => {
     name,
     billingMode: perCallPrice !== null ? 'per-request' : 'per-token',
     fixedPrice: perCallPrice !== null ? formatNumber(perCallPrice) : '',
+    fixedPriceUnit,
     inputPrice: promptPrice !== null ? formatNumber(promptPrice) : '',
     outputPrice: completionPrice !== null ? formatNumber(completionPrice) : '',
     cacheReadPrice: cacheReadPrice !== null ? formatNumber(cacheReadPrice) : '',
@@ -114,7 +117,8 @@ export const getModelWarnings = (model, t) => {
 
 export const buildSummaryText = (model, t) => {
   if (model.billingMode === 'per-request' && hasValue(model.fixedPrice)) {
-    return `${t('固定价格')} $${model.fixedPrice} / ${t('次')}`;
+    const unit = model.fixedPriceUnit === 'second' ? t('秒') : t('次');
+    return `${t('固定价格')} $${model.fixedPrice} / ${unit}`;
   }
 
   if (hasValue(model.inputPrice)) {
@@ -134,11 +138,12 @@ export const buildPreviewRows = (model, t) => {
   if (!model) return [];
 
   if (model.billingMode === 'per-request') {
+    const unit = model.fixedPriceUnit === 'second' ? t('秒') : t('次');
     return [
       {
         key: 'ModelPrice',
         label: t('固定价格'),
-        value: hasValue(model.fixedPrice) ? `$${model.fixedPrice} / ${t('次')}` : t('空'),
+        value: hasValue(model.fixedPrice) ? `$${model.fixedPrice} / ${unit}` : t('空'),
       },
     ];
   }
@@ -335,6 +340,7 @@ export function useModelPricingEditorState({
       ...model,
       billingMode: value,
       fixedPrice: value === 'per-request' ? model.fixedPrice : '',
+      fixedPriceUnit: value === 'per-request' ? (model.fixedPriceUnit || 'call') : 'call',
       inputPrice: value === 'per-token' ? model.inputPrice : '',
       outputPrice: value === 'per-token' ? model.outputPrice : '',
       cacheReadPrice: value === 'per-token' ? model.cacheReadPrice : '',
@@ -344,6 +350,14 @@ export function useModelPricingEditorState({
         value === 'per-request'
           ? hasValue(model.fixedPrice)
           : hasValue(model.inputPrice) || hasValue(model.outputPrice) || hasValue(model.cacheReadPrice) || hasValue(model.cacheWritePrice) || hasValue(model.imagePrice),
+    }));
+  };
+
+  const handleFixedPriceUnitChange = (value) => {
+    if (!selectedModel) return;
+    upsertModel(selectedModel.name, (model) => ({
+      ...model,
+      fixedPriceUnit: value,
     }));
   };
 
@@ -398,6 +412,7 @@ export function useModelPricingEditorState({
           ...model,
           billingMode: selectedModel.billingMode,
           fixedPrice: selectedModel.fixedPrice,
+          fixedPriceUnit: selectedModel.fixedPriceUnit,
           inputPrice: selectedModel.inputPrice,
           outputPrice: selectedModel.outputPrice,
           cacheReadPrice: selectedModel.cacheReadPrice,
@@ -428,9 +443,11 @@ export function useModelPricingEditorState({
         if (model.billingMode === 'per-request') {
           const fixedPrice = toNormalizedNumber(model.fixedPrice);
           if (fixedPrice !== null) {
+            const fixedPriceUnit = model.fixedPriceUnit === 'second' ? 'second' : 'call';
             output.ModelPrice[model.name] = {
               per_call_price: fixedPrice,
               use_per_call_pricing: true,
+              fixed_price_unit: fixedPriceUnit,
             };
           }
           continue;
@@ -496,6 +513,7 @@ export function useModelPricingEditorState({
     handleOptionalFieldToggle: () => {},
     handleNumericFieldChange,
     handleBillingModeChange,
+    handleFixedPriceUnitChange,
     handleSubmit,
     addModel,
     deleteModel,

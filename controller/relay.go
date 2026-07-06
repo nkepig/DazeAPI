@@ -626,6 +626,7 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.BillingContext = &model.TaskBillingContext{
 			PerCallPrice:      relayInfo.PriceData.PerCallPrice,
 			UsePerCallPricing: relayInfo.PriceData.UsePerCallPricing,
+			FixedPriceUnit:    relayInfo.PriceData.FixedPriceUnit,
 			PromptPrice:       relayInfo.PriceData.PromptPrice,
 			CompletionPrice:   relayInfo.PriceData.CompletionPrice,
 			GroupDiscount:     relayInfo.PriceData.GroupDiscountInfo.GroupDiscount,

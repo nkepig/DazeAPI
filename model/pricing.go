@@ -29,6 +29,7 @@ type Pricing struct {
 	AudioInputPrice        float64                 `json:"audio_input_price,omitempty"`
 	AudioOutputPrice       float64                 `json:"audio_output_price,omitempty"`
 	PerCallPrice           float64                 `json:"per_call_price,omitempty"`
+	FixedPriceUnit         string                  `json:"fixed_price_unit,omitempty"`
 	IsDefaultPrice         bool                    `json:"is_default_price,omitempty"`
 	OwnerBy                string                  `json:"owner_by"`
 	EnableGroup            []string                `json:"enable_groups"`
@@ -285,9 +286,10 @@ func updatePricing() {
 		// 从新的 pricing 包获取定价
 		modelPricing, found := pricing.GetModelPricing(model)
 		if found {
-			if modelPricing.UsePerCallPricing {
-				p.PerCallPrice = modelPricing.PerCallPrice
-				p.PricingType = 1
+		if modelPricing.UsePerCallPricing {
+			p.PerCallPrice = modelPricing.PerCallPrice
+			p.PricingType = 1
+			p.FixedPriceUnit = modelPricing.FixedPriceUnit
 			} else {
 				p.PromptPrice = modelPricing.PromptPrice
 				p.CompletionPrice = modelPricing.CompletionPrice

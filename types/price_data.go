@@ -35,6 +35,8 @@ type PriceData struct {
 	AudioOutputPrice  float64
 	PerCallPrice      float64
 	UsePerCallPricing bool
+	// FixedPriceUnit: "" / "call" = per request; "second" = per second (video duration).
+	FixedPriceUnit string
 
 	// Group discount multiplier (1.0 = full price, 0.8 = 20% off)
 	GroupDiscountInfo GroupDiscountInfo

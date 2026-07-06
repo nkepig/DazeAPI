@@ -105,6 +105,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		AudioOutputPrice:  modelPricing.AudioOutputPrice,
 		PerCallPrice:      modelPricing.PerCallPrice,
 		UsePerCallPricing: modelPricing.UsePerCallPricing,
+		FixedPriceUnit:    modelPricing.FixedPriceUnit,
 		GroupDiscountInfo: groupDiscountInfo,
 		QuotaToPreConsume: preConsumedQuota,
 	}
@@ -141,7 +142,8 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 	priceData := types.PriceData{
 		FreeModel:         freeModel,
 		PerCallPrice:      modelPricing.PerCallPrice,
-		UsePerCallPricing: true,
+		UsePerCallPricing: modelPricing.UsePerCallPricing,
+		FixedPriceUnit:    modelPricing.FixedPriceUnit,
 		GroupDiscountInfo: groupDiscountInfo,
 		Quota:             quota,
 	}

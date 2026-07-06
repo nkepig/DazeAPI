@@ -28,6 +28,21 @@ type ModelPricing struct {
 	AudioOutputPrice  float64 `json:"audio_output_price,omitempty"`
 	PerCallPrice      float64 `json:"per_call_price,omitempty"`
 	UsePerCallPricing bool    `json:"use_per_call_pricing,omitempty"`
+	// FixedPriceUnit controls the unit of fixed-price billing.
+	// "" / "call" = per request (default, backward compatible);
+	// "second" = per second (multiplied by video duration, skips adaptor ratios).
+	FixedPriceUnit string `json:"fixed_price_unit,omitempty"`
+}
+
+// Fixed-price unit constants.
+const (
+	FixedPriceUnitCall   = "call"
+	FixedPriceUnitSecond = "second"
+)
+
+// IsFixedPerSecond reports whether this model uses fixed per-second pricing.
+func (p ModelPricing) IsFixedPerSecond() bool {
+	return p.UsePerCallPricing && p.FixedPriceUnit == FixedPriceUnitSecond
 }
 
 const MicrodollarsPerDollar int64 = 1_000_000

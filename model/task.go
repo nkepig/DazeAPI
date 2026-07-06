@@ -111,6 +111,7 @@ type TaskPrivateData struct {
 type TaskBillingContext struct {
 	PerCallPrice      float64            `json:"per_call_price,omitempty"`
 	UsePerCallPricing bool               `json:"use_per_call_pricing,omitempty"`
+	FixedPriceUnit    string             `json:"fixed_price_unit,omitempty"`
 	PromptPrice       float64            `json:"prompt_price,omitempty"`
 	CompletionPrice   float64            `json:"completion_price,omitempty"`
 	GroupDiscount     float64            `json:"group_discount,omitempty"`

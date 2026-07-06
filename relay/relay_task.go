@@ -19,7 +19,9 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/pricing"
 	"github.com/gin-gonic/gin"
+	"math"
 )
 
 type TaskSubmitResult struct {
@@ -194,7 +196,14 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 6. 将 OtherRatios 应用到基础额度
-	if !common.StringsContains(constant.TaskPricePatches, modelName) {
+	//    按秒计费（FixedPriceUnit=="second"）：用时长乘基础额度，跳过所有 OtherRatios
+	//    （管理员选择了简洁的按秒价，不再叠加分辨率/尺寸等参数）。
+	if info.PriceData.FixedPriceUnit == pricing.FixedPriceUnitSecond {
+		seconds := resolveTaskSeconds(c, info.PriceData.OtherRatios)
+		if seconds > 0 {
+			info.PriceData.Quota = int(float64(info.PriceData.Quota) * float64(seconds))
+		}
+	} else if !common.StringsContains(constant.TaskPricePatches, modelName) {
 		for _, ra := range info.PriceData.OtherRatios {
 			if ra != 1.0 {
 				info.PriceData.Quota = int(float64(info.PriceData.Quota) * ra)
@@ -276,6 +285,24 @@ func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float6
 		}
 	}
 	return int(result)
+}
+
+// resolveTaskSeconds extracts the video duration in seconds for per-second billing.
+// Priority: OtherRatios["seconds"] > req.Duration > req.Seconds > 1.
+// 不足 1 秒按 1 秒计费；非整数秒向上取整（0.5→1, 1.5→2, 3.5→4）。
+func resolveTaskSeconds(c *gin.Context, ratios map[string]float64) float64 {
+	if s, ok := ratios["seconds"]; ok && s > 0 {
+		return math.Ceil(s)
+	}
+	if req, err := relaycommon.GetTaskRequest(c); err == nil {
+		if req.Duration > 0 {
+			return float64(req.Duration)
+		}
+		if s, err := strconv.Atoi(strings.TrimSpace(req.Seconds)); err == nil && s > 0 {
+			return float64(s)
+		}
+	}
+	return 1.0
 }
 
 var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp *dto.TaskError){

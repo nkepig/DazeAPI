@@ -175,11 +175,11 @@ filtered := make([]*model.Channel, 0)
 		} else if statusFilter == 0 {
 			baseQuery = baseQuery.Where("status != ?", common.ChannelStatusEnabled)
 		}
-		if groupFilter != "" {
-			baseQuery = baseQuery.Where("\"group\" LIKE ?", "%"+groupFilter+"%")
-		}
+	if groupFilter != "" {
+		baseQuery = baseQuery.Where("(',' || \"group\" || ',') LIKE ?", "%,"+groupFilter+",%")
+	}
 
-		baseQuery.Count(&total)
+	baseQuery.Count(&total)
 
 		order := "status asc, priority desc"
 		if idSort {
@@ -208,7 +208,7 @@ filtered := make([]*model.Channel, 0)
 		countQuery = countQuery.Where("status != ?", common.ChannelStatusEnabled)
 	}
 	if groupFilter != "" {
-		countQuery = countQuery.Where("\"group\" LIKE ?", "%"+groupFilter+"%")
+		countQuery = countQuery.Where("(',' || \"group\" || ',') LIKE ?", "%,"+groupFilter+",%")
 	}
 	var results []struct {
 		Type  int64
