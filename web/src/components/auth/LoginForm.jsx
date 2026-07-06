@@ -59,18 +59,18 @@ import { SiDiscord } from 'react-icons/si';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const METRICS = [
-  { label: 'UPTIME', value: '99.97%', style: { top: '8%', left: '6%' } },
-  { label: 'RESPONSE_TIME', value: '8ms', style: { top: '14%', right: '8%' } },
-  { label: 'THROUGHPUT', value: '12K/RPS', style: { bottom: '18%', left: '7%' } },
-  { label: 'ACCURACY', value: '99.1%', style: { bottom: '10%', right: '6%' } },
-  { label: 'CACHE_HIT', value: '94.2%', style: { top: '40%', left: '4%' } },
-  { label: 'QUALITY_SCORE', value: '98.6%', style: { top: '36%', right: '4%' } },
-  { label: 'BUILD', value: 'STABLE', style: { top: '4%', left: '44%' } },
-  { label: 'OPTIMIZATION', value: 'ENABLED', style: { bottom: '5%', left: '50%' } },
-  { label: 'EFFECT_RATE', value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
-  { label: 'HEALTH_CHECK', value: 'PASSING', style: { top: '24%', right: '20%', opacity: 0.5 } },
-  { label: 'PERFORMANCE', value: 'OPTIMAL', style: { bottom: '35%', left: '18%', opacity: 0.5 } },
-  { label: 'MAINTENANCE', value: 'SCHEDULED', style: { top: '22%', left: '22%', opacity: 0.5 } },
+  { label: '运行时间', value: '99.97%', style: { top: '8%', left: '6%' } },
+  { label: '响应时间', value: '8ms', style: { top: '14%', right: '8%' } },
+  { label: '吞吐量', value: '12K/RPS', style: { bottom: '18%', left: '7%' } },
+  { label: '准确率', value: '99.1%', style: { bottom: '10%', right: '6%' } },
+  { label: '缓存命中率', value: '94.2%', style: { top: '40%', left: '4%' } },
+  { label: '质量评分', value: '98.6%', style: { top: '36%', right: '4%' } },
+  { label: '构建状态', value: '稳定', style: { top: '4%', left: '44%' } },
+  { label: '优化状态', value: '已启用', style: { bottom: '5%', left: '50%' } },
+  { label: '效果率', value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
+  { label: '健康检查', value: '通过', style: { top: '24%', right: '20%', opacity: 0.5 } },
+  { label: '性能状态', value: '最佳', style: { bottom: '35%', left: '18%', opacity: 0.5 } },
+  { label: '维护状态', value: '已计划', style: { top: '22%', left: '22%', opacity: 0.5 } },
 ];
 
 const LoginForm = () => {
@@ -330,8 +330,8 @@ const LoginForm = () => {
       <div className='auth-metrics-cloud'>
         {METRICS.map((m, i) => (
           <div key={i} ref={(el) => (metricsRef.current[i] = el)} className='auth-metric-item' style={m.style}>
-            <span>{m.label}</span>
-            <strong>{m.value}</strong>
+            <span>{t(m.label)}</span>
+            <strong>{typeof m.value === 'string' && /[\u4e00-\u9fff]/.test(m.value) ? t(m.value) : m.value}</strong>
           </div>
         ))}
       </div>
@@ -339,12 +339,12 @@ const LoginForm = () => {
       {/* Landing hero */}
       <div className='auth-content-overlay'>
         <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
-        <p className='auth-tagline'>MULTI-MODEL API AGGREGATION PLATFORM</p>
+        <p className='auth-tagline'>{t('多模型 API 聚合平台')}</p>
         <nav className='auth-button-matrix'>
           <button className='auth-neo-btn auth-btn-outline' onClick={() => { setShowForm(true); setFormMode('email'); }}>
-            Get Started
+            {t('开始使用')}
           </button>
-          <a href='/docs' className='auth-neo-btn auth-btn-ghost'>View Docs</a>
+          <a href='/docs' className='auth-neo-btn auth-btn-ghost'>{t('查看文档')}</a>
         </nav>
       </div>
 
@@ -368,7 +368,7 @@ const LoginForm = () => {
             >
               <div className='text-center mb-6'>
                 <h2 className='text-[18px] font-bold text-[#1A1A1A]'>{t('登录')}</h2>
-                <p className='text-[12px] text-[#BBB] mt-1'>Welcome!</p>
+                <p className='text-[12px] text-[#BBB] mt-1'>{t('欢迎使用')}</p>
               </div>
 
               {formMode === 'oauth' ? (
@@ -434,7 +434,7 @@ const LoginForm = () => {
 
       {/* new-api credit */}
       <div className='absolute bottom-6 left-6 z-[60] max-w-md text-[11px] text-[#b0b0b0] leading-relaxed'>
-        本项目 基于{' '}
+        {t('本项目基于')}{' '}
         <a
           href='https://github.com/QuantumNous/new-api'
           target='_blank'
@@ -443,7 +443,7 @@ const LoginForm = () => {
         >
           New-API
         </a>
-        {' '}二次开发，仅供个人学习使用。
+        {' '}{t('二次开发，仅供个人学习使用。')}
       </div>
     </div>
   );
