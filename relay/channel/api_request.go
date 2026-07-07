@@ -495,6 +495,16 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		client = service.GetHttpClient()
 	}
 
+	// Per-channel timeout: a request-level deadline that overrides the
+	// global client.Timeout. The resulting DeadlineExceeded error has no
+	// status code, which shouldRetry (code < 100) treats as retryable —
+	// do NOT add a 504 status here, ShouldRetryByStatusCode(504)==false.
+	if info.ChannelSetting.Timeout > 0 {
+		ctx, cancel := context.WithTimeout(req.Context(), time.Duration(info.ChannelSetting.Timeout)*time.Second)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
+
 	var stopPinger context.CancelFunc
 	if info.IsStream {
 		helper.SetEventStreamHeaders(c)
