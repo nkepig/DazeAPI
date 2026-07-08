@@ -420,7 +420,15 @@ try {
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        let msg = `HTTP ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body.message) msg = body.message;
+        } catch {}
+        setStreamingText(msg);
+        setLoading(false);
+        setStreaming(false);
+        return;
       }
 
       const reader = res.body.getReader();
