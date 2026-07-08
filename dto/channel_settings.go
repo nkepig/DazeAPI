@@ -10,6 +10,10 @@ type ChannelSettings struct {
 	ConvertImageBase64ToURL bool  `json:"convert_image_base64_to_url,omitempty"`
 	ConvertImageURLToBase64 bool  `json:"convert_image_url_to_base64,omitempty"`
 	RequestRecordEnabled   bool   `json:"request_record_enabled,omitempty"`
+	// Timeout is the per-channel upstream request timeout in seconds.
+	// 0 means use the global RelayTimeout. When exceeded the upstream
+	// connection is aborted and the request retries on the next channel.
+	Timeout int `json:"timeout,omitempty"`
 }
 
 type VertexKeyType string

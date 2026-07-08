@@ -353,13 +353,37 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.ID,
       title: t('ID'),
       dataIndex: 'id',
+      render: (text, record) => {
+        if (record.children !== undefined) return text;
+        const passThroughEnabled = isRequestPassThroughEnabled(record);
+        if (!passThroughEnabled) return text;
+        return (
+          <Tooltip
+            content={t(
+              '该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
+            )}
+            trigger='hover'
+            position='topLeft'
+            {...HOVER_TOOLTIP_PROPS}
+          >
+            <span
+              style={{
+                color: 'var(--semi-color-primary)',
+                borderBottom: '1px dotted var(--semi-color-primary)',
+                cursor: 'help',
+              }}
+            >
+              {text}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       key: COLUMN_KEYS.NAME,
       title: t('名称'),
       dataIndex: 'name',
       render: (text, record, index) => {
-        const passThroughEnabled = isRequestPassThroughEnabled(record);
         const requestRecordEnabled = isChannelRequestRecordEnabled(record);
         const upstreamUpdateMeta = getUpstreamUpdateMeta(record);
         const pendingAddCount = upstreamUpdateMeta.pendingAddModels.length;
@@ -369,7 +393,58 @@ export const getChannelsColumns = ({
           upstreamUpdateMeta.supported &&
           upstreamUpdateMeta.enabled &&
           (pendingAddCount > 0 || pendingRemoveCount > 0);
-        const nameNode =
+        const clawdGroup =
+          record.channel_info &&
+          (typeof record.channel_info === 'object'
+            ? record.channel_info.clawd_group
+            : (() => {
+                try {
+                  return JSON.parse(record.channel_info)?.clawd_group;
+                } catch {
+                  return 0;
+                }
+              })()) || 0;
+        const clawdScore =
+          (record.channel_info &&
+            (typeof record.channel_info === 'object'
+              ? record.channel_info.clawd_score
+              : (() => {
+                  try {
+                    return JSON.parse(record.channel_info)?.clawd_score;
+                  } catch {
+                    return 0;
+                  }
+                })())) || 0;
+        const clawdReason =
+          record.channel_info &&
+          (typeof record.channel_info === 'object'
+            ? record.channel_info.clawd_tune_reason
+            : '') || '';
+        const showClawdScore = clawdGroup > 0;
+        const clawdWatched = clawdGroup > 0;
+        const clawdNameStyle = clawdWatched
+          ? { color: '#DE886D', fontWeight: 600 }
+          : undefined;
+        const clawdTooltipContent = clawdWatched ? (
+          <div style={{ maxWidth: 260 }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              Clawd {t('评分')} · {t('组别')} {clawdGroup}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: 'var(--semi-color-text-2)',
+                marginBottom: 4,
+              }}
+            >
+              {t('当前分数')}: {clawdScore.toFixed(0)}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)' }}>
+              {clawdReason || t('暂无调整记录')}
+            </div>
+          </div>
+        ) : null;
+        const innerNameNode =
           record.remark && record.remark.trim() !== '' ? (
             <Tooltip
               content={
@@ -398,31 +473,67 @@ export const getChannelsColumns = ({
               trigger='click'
               position='topLeft'
             >
-              <span>{text}</span>
+              <span style={clawdNameStyle}>{text}</span>
             </Tooltip>
           ) : (
-            <span>{text}</span>
+            <span style={clawdNameStyle}>{text}</span>
           );
+        const nameNode = clawdWatched ? (
+          <Tooltip
+            content={clawdTooltipContent}
+            trigger='hover'
+            position='topLeft'
+            {...HOVER_TOOLTIP_PROPS}
+          >
+            {innerNameNode}
+          </Tooltip>
+        ) : (
+          innerNameNode
+        );
 
-        if (!passThroughEnabled && !requestRecordEnabled && !showUpstreamUpdateTag) {
+        if (!requestRecordEnabled && !showUpstreamUpdateTag && !showClawdScore) {
           return nameNode;
         }
 
         return (
           <Space spacing={6} align='center'>
             {nameNode}
-            {passThroughEnabled && (
+            {showClawdScore && (
               <Tooltip
-                content={t(
-                  '该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
-                )}
+                content={
+                  <div style={{ maxWidth: 260 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                      Clawd {t('评分')} · {t('组别')} {clawdGroup}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--semi-color-text-2)',
+                      }}
+                    >
+                      {clawdReason || t('暂无调整记录')}
+                    </div>
+                  </div>
+                }
                 trigger='hover'
                 position='topLeft'
                 {...HOVER_TOOLTIP_PROPS}
               >
-                <span className='inline-flex items-center cursor-default'>
-                  <StatusPill variant='info'>{t('透传')}</StatusPill>
-                </span>
+                <Tag
+                  size='small'
+                  shape='circle'
+                  type='light'
+                  color={
+                    clawdScore >= 80
+                      ? 'green'
+                      : clawdScore >= 50
+                        ? 'orange'
+                        : 'red'
+                  }
+                  className='cursor-default'
+                >
+                  {clawdScore.toFixed(0)}
+                </Tag>
               </Tooltip>
             )}
             {requestRecordEnabled && (

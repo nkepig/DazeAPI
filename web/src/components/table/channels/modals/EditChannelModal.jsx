@@ -164,6 +164,7 @@ const EditChannelModal = (props) => {
     request_record_enabled: false,
     proxy: '',
     image_convert_mode: 'disabled',
+    timeout: 0,
   };
   const [autoBan, setAutoBan] = useState(true);
   const [inputs, setInputs] = useState(originInputs);
@@ -464,6 +465,7 @@ const EditChannelModal = (props) => {
           data.request_record_enabled =
             parsedSetting.request_record_enabled === true;
           data.proxy = parsedSetting.proxy || '';
+          data.timeout = parsedSetting.timeout || 0;
           if (parsedSetting.convert_image_base64_to_url === true) {
             data.image_convert_mode = 'base64_to_url';
           } else if (parsedSetting.convert_image_url_to_base64 === true) {
@@ -477,12 +479,14 @@ const EditChannelModal = (props) => {
           data.request_record_enabled = false;
           data.proxy = '';
           data.image_convert_mode = 'disabled';
+          data.timeout = 0;
         }
       } else {
         data.pass_through_body_enabled = false;
         data.request_record_enabled = false;
         data.proxy = '';
         data.image_convert_mode = 'disabled';
+        data.timeout = 0;
       }
 
       if (
@@ -1053,6 +1057,11 @@ const EditChannelModal = (props) => {
     } else {
       delete channelSetting.proxy;
     }
+    if (localInputs.timeout && localInputs.timeout > 0) {
+      channelSetting.timeout = localInputs.timeout;
+    } else {
+      delete channelSetting.timeout;
+    }
     const mode = localInputs.image_convert_mode || 'disabled';
     if (mode === 'base64_to_url') {
       channelSetting.convert_image_base64_to_url = true;
@@ -1072,6 +1081,7 @@ const EditChannelModal = (props) => {
     delete localInputs.request_record_enabled;
     delete localInputs.proxy;
     delete localInputs.image_convert_mode;
+    delete localInputs.timeout;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -1453,6 +1463,16 @@ const EditChannelModal = (props) => {
                       />
                     </Col>
                   </Row>
+
+                  <Form.InputNumber
+                    field='timeout'
+                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('超时时间')}</span>}
+                    placeholder={t('单位：秒，0 表示使用全局超时')}
+                    min={0}
+                    onNumberChange={(value) => handleInputChange('timeout', value)}
+                    style={{ width: '100%' }}
+                    extraText={t('超出该时间将自动断开上游并重试到后续渠道')}
+                  />
 
                 </div>
               </div>

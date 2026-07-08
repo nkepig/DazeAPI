@@ -157,6 +157,22 @@ adminRoute := userRoute.Group("/")
 			channelRoute.POST("/upstream_updates/apply_all", controller.ApplyAllChannelUpstreamModelUpdates)
 			channelRoute.POST("/upstream_updates/detect", controller.DetectChannelUpstreamModelUpdates)
 			channelRoute.POST("/upstream_updates/detect_all", controller.DetectAllChannelUpstreamModelUpdates)
+
+			channelRoute.GET("/clawd/scores", controller.GetClawdScores)
+			channelRoute.GET("/clawd/watched", controller.GetClawdWatchedChannels)
+			channelRoute.POST("/clawd/watched/:id", controller.SetClawdWatched)
+			channelRoute.GET("/clawd/events", controller.GetClawdTuneEvents)
+			channelRoute.GET("/clawd/events/stream", controller.ClawdTuneEventStream)
+			channelRoute.GET("/clawd/setting", controller.GetClawdSetting)
+			channelRoute.PUT("/clawd/setting", controller.UpdateClawdSetting)
+			channelRoute.POST("/clawd/reset_baseline", controller.ResetClawdBaseline)
+		}
+		clawdChatRoute := apiRouter.Group("/channel/clawd")
+		clawdChatRoute.Use(middleware.GlobalAPIRateLimit())
+		{
+			clawdChatRoute.GET("/models", controller.GetClawdModels)
+			clawdChatRoute.POST("/chat", controller.ClawdChat)
+			clawdChatRoute.POST("/chat/stream", controller.ClawdChatStream)
 		}
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())

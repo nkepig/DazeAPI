@@ -14,6 +14,8 @@ import {
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { normalizeLanguage } from '../../i18n/language';
+import ClawdMascot from '../common/ClawdMascot';
+import { isAdmin } from '../../helpers';
 
 const FULLSCREEN_ROUTES = ['/register', '/reset'];
 
@@ -123,6 +125,7 @@ if (success) {
           newestOnTop
           closeOnClick
         />
+        {isAdmin() && <ClawdMascot />}
       </div>
     );
   }
@@ -143,6 +146,7 @@ if (success) {
         newestOnTop
         closeOnClick
       />
+      {isAdmin() && <ClawdMascot />}
     </div>
   );
 };
