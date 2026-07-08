@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import Any, Dict
 from urllib.parse import urlparse
 
 from agno.agent import Agent
@@ -130,7 +129,8 @@ def build_agent(
     sql_dsn = os.environ["SQL_DSN"]
     pg = _parse_pg_url(sql_dsn)
 
-    tools = [PostgresTools(**pg),FileTools()]
+    tools = [PostgresTools(**pg),FileTools(base_dir=Path(LOG_DIR))]
+
     return Agent(
         model=OpenAILike(
             id=model,

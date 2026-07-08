@@ -50,10 +50,10 @@ func GetClawdScores(c *gin.Context) {
 	}
 
 	type GroupResult struct {
-		ClawdGroup         int                             `json:"clawd_group"`
-		MedianSuccessRate  float64                         `json:"median_success_rate"`
-		MedianUseTime      float64                         `json:"median_use_time"`
-		Channels           []service.ChannelScore          `json:"channels"`
+		ClawdGroup        int                    `json:"clawd_group"`
+		MedianSuccessRate float64                `json:"median_success_rate"`
+		MedianUseTime     float64                `json:"median_use_time"`
+		Channels          []service.ChannelScore `json:"channels"`
 	}
 
 	out := make([]GroupResult, 0, len(stats))
@@ -81,16 +81,16 @@ func GetClawdWatchedChannels(c *gin.Context) {
 	}
 
 	type WatchedItem struct {
-		Id               int     `json:"id"`
-		Name             string  `json:"name"`
-		Group            string  `json:"group"`
-		ClawdGroup       int     `json:"clawd_group"`
-		Priority         int64   `json:"priority"`
-		Weight           uint    `json:"weight"`
-		ClawdScore       float64 `json:"clawd_score"`
-		ClawdTuneReason  string  `json:"clawd_tune_reason"`
-		ClawdLastTuneAt  int64   `json:"clawd_last_tune_at"`
-		ClawdInObservation bool  `json:"clawd_in_observation"`
+		Id                 int     `json:"id"`
+		Name               string  `json:"name"`
+		Group              string  `json:"group"`
+		ClawdGroup         int     `json:"clawd_group"`
+		Priority           int64   `json:"priority"`
+		Weight             uint    `json:"weight"`
+		ClawdScore         float64 `json:"clawd_score"`
+		ClawdTuneReason    string  `json:"clawd_tune_reason"`
+		ClawdLastTuneAt    int64   `json:"clawd_last_tune_at"`
+		ClawdInObservation bool    `json:"clawd_in_observation"`
 	}
 
 	items := make([]WatchedItem, 0, len(channels))
@@ -240,12 +240,12 @@ func GetClawdSetting(c *gin.Context) {
 		"message": "",
 		"data": gin.H{
 			"enabled":                cfg.Enabled,
-			"watch_interval_seconds":  cfg.WatchIntervalSeconds,
+			"watch_interval_seconds": cfg.WatchIntervalSeconds,
 			"window_seconds":         cfg.WindowSeconds,
 			"min_sample_size":        cfg.MinSampleSize,
 			"success_rate_ratio":     cfg.SuccessRateRatio,
 			"latency_multiplier":     cfg.LatencyMultiplier,
-			"observation_count":     cfg.ObservationCount,
+			"observation_count":      cfg.ObservationCount,
 			"observation_seconds":    cfg.ObservationSeconds,
 			"agent_base_url":         cfg.AgentBaseURL,
 			"agent_api_key":          cfg.AgentAPIKey,
@@ -414,6 +414,13 @@ func resolveAgentModel() (string, error) {
 }
 
 func ClawdChat(c *gin.Context) {
+	if c.GetInt("role") != common.RoleRootUser {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "现在嘛～只和主人说话哦٩(๑`^´๑)۶，心情好了自然会回来的，反正……先等着吧(・ω・)ノ✨",
+		})
+		return
+	}
 	var req struct {
 		Message   string `json:"message"`
 		SessionId string `json:"session_id"`
@@ -497,6 +504,13 @@ func ClawdChat(c *gin.Context) {
 }
 
 func ClawdChatStream(c *gin.Context) {
+	if c.GetInt("role") != common.RoleRootUser {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "现在嘛～只和主人说话哦٩(๑`^´๑)۶，心情好了自然会回来的，反正……先等着吧(・ω・)ノ✨",
+		})
+		return
+	}
 	var req struct {
 		Message   string `json:"message"`
 		SessionId string `json:"session_id"`

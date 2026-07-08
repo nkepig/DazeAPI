@@ -27,13 +27,9 @@ import {
   Tag,
   Select,
   Spin,
-  Typography,
-  Input,
 } from '@douyinfe/semi-ui';
 import { IconPlus, IconClose } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../helpers';
-
-const { Text } = Typography;
 
 const MAX_GROUPS = 3;
 
@@ -56,9 +52,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
   const [groups, setGroups] = useState([]);
   const [pendingPicks, setPendingPicks] = useState({});
   const [events, setEvents] = useState([]);
-  const [agentBaseURL, setAgentBaseURL] = useState('');
-  const [agentAPIKey, setAgentAPIKey] = useState('');
-  const [agentModel, setAgentModel] = useState('');
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -74,9 +67,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
         setEnabled(!!cfg.enabled);
         setWindowMinutes(Math.round((cfg.window_seconds || 300) / 60));
         setMinSampleSize(cfg.min_sample_size || 100);
-        setAgentBaseURL(cfg.agent_base_url || '');
-        setAgentAPIKey(cfg.agent_api_key || '');
-        setAgentModel(cfg.agent_model || '');
       }
       const watched = watchedRes.data.success ? watchedRes.data.data || [] : [];
       setWatchedChannels(watched);
@@ -108,9 +98,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
         enabled,
         window_seconds: windowMinutes * 60,
         min_sample_size: minSampleSize,
-        agent_base_url: agentBaseURL,
-        agent_api_key: agentAPIKey,
-        agent_model: agentModel,
       });
       showSuccess(t('已保存'));
       onClose();
@@ -264,45 +251,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
               <span style={{ color: 'var(--semi-color-text-2)', fontSize: 11 }}>
                 {t('/组')}
               </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '8px 0',
-              borderBottom: '1px solid var(--semi-color-border)',
-            }}
-          >
-            <div
-              style={{
-                fontWeight: 600,
-                marginBottom: 6,
-                fontSize: 12,
-                color: 'var(--semi-color-text-1)',
-              }}
-            >
-              {t('Agent 配置')}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Input
-                value={agentBaseURL}
-                onChange={setAgentBaseURL}
-                placeholder={t('Base URL (如 https://api.openai.com/v1)')}
-                size='small'
-              />
-              <Input
-                value={agentAPIKey}
-                onChange={setAgentAPIKey}
-                placeholder={t('API Key')}
-                size='small'
-                mode='password'
-              />
-              <Input
-                value={agentModel}
-                onChange={setAgentModel}
-                placeholder={t('模型 (如 gpt-4o)')}
-                size='small'
-              />
             </div>
           </div>
 
@@ -479,37 +427,14 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
                     style={{
                       padding: '2px 0',
                       borderBottom: '1px solid var(--semi-color-fill-1)',
+                      fontSize: 11,
+                      color: 'var(--semi-color-text-2)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text strong style={{ fontSize: 11 }}>
-                        {ev.channel_name || `#${ev.channel_id}`}
-                      </Text>
-                      <Text type='tertiary' size='small'>
-                        {formatTime(ev.created_at)}
-                      </Text>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <Tag size='small' color='blue' type='ghost'>
-                        {ev.old_priority} → {ev.new_priority}
-                      </Tag>
-                      {ev.clawd_group > 0 && (
-                        <Tag size='small' color='cyan' type='ghost'>
-                          {t('组')} {ev.clawd_group}
-                        </Tag>
-                      )}
-                      <span
-                        style={{
-                          color: 'var(--semi-color-text-2)',
-                          flex: 1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {ev.reason}
-                      </span>
-                    </div>
+                    {formatTime(ev.created_at)} · #{ev.channel_id} · {ev.old_priority} → {ev.new_priority}
                   </div>
                 ))}
               </div>

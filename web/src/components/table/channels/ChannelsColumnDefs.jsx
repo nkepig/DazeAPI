@@ -393,55 +393,73 @@ export const getChannelsColumns = ({
           upstreamUpdateMeta.supported &&
           upstreamUpdateMeta.enabled &&
           (pendingAddCount > 0 || pendingRemoveCount > 0);
-        const clawdGroup =
+        const clawdInfoRaw =
           record.channel_info &&
           (typeof record.channel_info === 'object'
-            ? record.channel_info.clawd_group
+            ? record.channel_info
             : (() => {
                 try {
-                  return JSON.parse(record.channel_info)?.clawd_group;
+                  return JSON.parse(record.channel_info);
                 } catch {
-                  return 0;
+                  return {};
                 }
-              })()) || 0;
-        const clawdScore =
-          (record.channel_info &&
-            (typeof record.channel_info === 'object'
-              ? record.channel_info.clawd_score
-              : (() => {
-                  try {
-                    return JSON.parse(record.channel_info)?.clawd_score;
-                  } catch {
-                    return 0;
-                  }
-                })())) || 0;
-        const clawdReason =
-          record.channel_info &&
-          (typeof record.channel_info === 'object'
-            ? record.channel_info.clawd_tune_reason
-            : '') || '';
+              })()) || {};
+        const clawdGroup = clawdInfoRaw.clawd_group || 0;
+        const clawdScore = clawdInfoRaw.clawd_score || 0;
+        const clawdReason = clawdInfoRaw.clawd_tune_reason || '';
+        const clawdScoreFormula = clawdInfoRaw.clawd_score_formula || '';
+        let clawdBreakdown = null;
+        if (clawdInfoRaw.clawd_score_breakdown) {
+          try {
+            clawdBreakdown =
+              typeof clawdInfoRaw.clawd_score_breakdown === 'object'
+                ? clawdInfoRaw.clawd_score_breakdown
+                : JSON.parse(clawdInfoRaw.clawd_score_breakdown);
+          } catch {
+            clawdBreakdown = null;
+          }
+        }
         const showClawdScore = clawdGroup > 0;
         const clawdWatched = clawdGroup > 0;
         const clawdNameStyle = clawdWatched
           ? { color: '#DE886D', fontWeight: 600 }
           : undefined;
+
         const clawdTooltipContent = clawdWatched ? (
-          <div style={{ maxWidth: 260 }}>
+          <div style={{ maxWidth: 240 }}>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               Clawd {t('评分')} · {t('组别')} {clawdGroup}
             </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: 'var(--semi-color-text-2)',
-                marginBottom: 4,
-              }}
-            >
-              {t('当前分数')}: {clawdScore.toFixed(0)}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)' }}>
-              {clawdReason || t('暂无调整记录')}
-            </div>
+            {clawdScoreFormula ? (
+              <div
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  background: 'var(--semi-color-fill-0)',
+                  padding: '3px 6px',
+                  borderRadius: 4,
+                  marginBottom: 4,
+                  color: 'var(--semi-color-text-1)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {clawdScoreFormula}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
+                {t('当前分数')}: <span style={{ fontWeight: 600, color: '#DE886D' }}>{clawdScore.toFixed(0)}</span>
+              </div>
+            )}
+            {clawdBreakdown && (
+              <div style={{ fontSize: 11, color: 'var(--semi-color-text-2)', marginBottom: clawdReason ? 4 : 0 }}>
+                {t('样本')} {clawdBreakdown.sample_count} · {t('耗时')} {clawdBreakdown.avg_use_time.toFixed(2)}s
+              </div>
+            )}
+            {clawdReason && (
+              <div style={{ fontSize: 11, color: 'var(--semi-color-text-2)', borderTop: '1px solid var(--semi-color-border)', paddingTop: 3 }}>
+                {clawdReason}
+              </div>
+            )}
           </div>
         ) : null;
         const innerNameNode =
@@ -500,21 +518,7 @@ export const getChannelsColumns = ({
             {nameNode}
             {showClawdScore && (
               <Tooltip
-                content={
-                  <div style={{ maxWidth: 260 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                      Clawd {t('评分')} · {t('组别')} {clawdGroup}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: 'var(--semi-color-text-2)',
-                      }}
-                    >
-                      {clawdReason || t('暂无调整记录')}
-                    </div>
-                  </div>
-                }
+                content={clawdTooltipContent}
                 trigger='hover'
                 position='topLeft'
                 {...HOVER_TOOLTIP_PROPS}
