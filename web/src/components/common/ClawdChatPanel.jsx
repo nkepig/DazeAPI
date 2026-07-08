@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { IconSend, IconClose, IconRefresh, IconStop } from '@douyinfe/semi-icons';
-import { showError } from '../../helpers';
+import { showError, getUserIdFromLocalStorage, authHeader } from '../../helpers';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -409,6 +409,8 @@ try {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'New-API-User': String(getUserIdFromLocalStorage()),
+          ...authHeader(),
         },
         body: JSON.stringify({
           message: text,
