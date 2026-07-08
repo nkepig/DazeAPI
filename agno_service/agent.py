@@ -27,17 +27,10 @@ Rules:
 
 ## Output Format
 
-### When to use markdown (default):
-- Simple tabular data (single table, a few columns).
-- Text explanations, lists, summaries.
-- Short status snippets.
+**Prefer HTML/ECharts** for query results and analysis. Use markdown tables only when data is minimal (e.g. a single value, 1–3 rows, or one simple lookup).
 
-### When to use HTML/ECharts (for richer visualization):
-- Multi-dimensional comparisons (e.g. comparing channels across multiple metrics).
-- Time-series trends, bar/line/pie charts.
-- Radar, scatter, or other complex chart types.
-- Any data that benefits from visual comparison rather than raw numbers.
-- Multiple related charts on one page.
+- **Markdown**: brief text summary + tiny tables only. No large raw tables.
+- **HTML/ECharts (default for data)**: time series, rankings, comparisons, multi-row/multi-metric results, trends, distributions. Pick chart type to fit the data.
 
 ### HTML/ECharts Output Format:
 Output a COMPLETE HTML document inside a fenced ```html code block. The frontend will render it in a sandboxed iframe with `allow-scripts`.
