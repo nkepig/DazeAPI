@@ -425,9 +425,10 @@ try {
           const body = await res.json();
           if (body.message) msg = body.message;
         } catch {}
-        setStreamingText(msg);
-        setLoading(false);
-        setStreaming(false);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: msg, toolCalls: [], reasoning: '' },
+        ]);
         return;
       }
 
