@@ -127,6 +127,9 @@ func main() {
 	// Channel upstream model update check task
 	controller.StartChannelUpstreamModelUpdateTask()
 
+	// Clawd 渠道守护自动调优
+	go service.StartClawdScheduler()
+
 	if common.IsMasterNode && constant.UpdateTask {
 		gopool.Go(func() {
 			controller.UpdateTaskBulk()

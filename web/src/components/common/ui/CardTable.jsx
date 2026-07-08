@@ -52,6 +52,7 @@ const CardTable = ({
 
   const showSkeleton = useMinimumLoadingTime(loading);
 
+  const tableWrapperRef = useRef(null);
   const getRowKey = (record, index) => {
     if (typeof rowKey === 'function') return rowKey(record);
     return record[rowKey] !== undefined ? record[rowKey] : index;
@@ -63,13 +64,15 @@ const CardTable = ({
       : tableProps;
 
     return (
-      <Table
-        columns={columns}
-        dataSource={dataSource}
-        loading={loading}
-        rowKey={rowKey}
-        {...finalTableProps}
-      />
+      <div ref={tableWrapperRef}>
+        <Table
+          columns={columns}
+          dataSource={dataSource}
+          loading={loading}
+          rowKey={rowKey}
+          {...finalTableProps}
+        />
+      </div>
     );
   }
 

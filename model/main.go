@@ -144,6 +144,7 @@ func migrateDB() error {
 		&Vendor{},
 		&Setup{},
 		&Model{},
+		&ChannelTuneEvent{},
 	)
 	if err != nil {
 		return err

@@ -65,6 +65,18 @@ type ChannelInfo struct {
 	MultiKeyDisabledTime   map[int]int64         `json:"multi_key_disabled_time,omitempty"`   // key禁用时间列表，key index -> time
 	MultiKeyPollingIndex   int                   `json:"multi_key_polling_index"`             // 多Key模式下轮询的key索引
 	MultiKeyMode           constant.MultiKeyMode `json:"multi_key_mode"`
+
+// Clawd 守护相关 - 渠道评分与自动调优（同组别内 swap priority）
+// 只有 ClawdGroup > 0 的渠道才会被评分、显示气泡、参与自动调整
+ClawdGroup              int     `json:"clawd_group,omitempty"`               // 监控组别编号 (0=未监视, 1/2/3=组别)
+ClawdScore              float64 `json:"clawd_score,omitempty"`                // 最近评分 (0-100)
+	ClawdScoreFormula       string  `json:"clawd_score_formula,omitempty"`        // "0.98 × 60 + 0.05 × 40 = 60.2"
+	ClawdScoreBreakdownJSON string  `json:"clawd_score_breakdown,omitempty"`      // JSON: {"success_rate":0.98,"avg_use_time":1.2,...}
+	ClawdLastTuneAt         int64   `json:"clawd_last_tune_at,omitempty"`         // 最近一次调整时间戳
+	ClawdTuneReason         string  `json:"clawd_tune_reason,omitempty"`          // 调整原因
+	ClawdConsecutiveDrops   int     `json:"clawd_consecutive_drops,omitempty"`    // 连续被降次数（达阈值进入观察期）
+	ClawdInObservation      bool    `json:"clawd_in_observation,omitempty"`       // 是否处于观察期
+	ClawdObservationUntil   int64   `json:"clawd_observation_until,omitempty"`    // 观察期结束时间戳
 }
 
 // Value implements driver.Valuer interface

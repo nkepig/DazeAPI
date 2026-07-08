@@ -17,13 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-import { Space } from '@douyinfe/semi-ui';
+import React, { useState } from 'react';
+import { Space, Button } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import BubbleFilter from '../../common/BubbleFilter';
 import ChannelsTable from './ChannelsTable';
 import ChannelsActions from './ChannelsActions';
 import ChannelsFilters from './ChannelsFilters';
+import ClawdSettingsModal from '../../common/ClawdSettingsModal';
 import { useChannelsData } from '../../../hooks/channels/useChannelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import BatchTagModal from './modals/BatchTagModal';
@@ -40,6 +41,7 @@ import { getChannelIcon } from '../../../helpers';
 const ChannelsPage = () => {
   const channelsData = useChannelsData();
   const isMobile = useIsMobile();
+  const [clawdSettingsOpen, setClawdSettingsOpen] = useState(false);
 
   const channelTypeOptions = [
     {
@@ -101,6 +103,14 @@ const ChannelsPage = () => {
         <Space align='center'>
           <h2 className='text-lg font-semibold'>{channelsData.t('渠道管理')}</h2>
         </Space>
+        <Button
+          size='small'
+          theme='light'
+          style={{ color: '#DE886D', borderColor: '#DE886D' }}
+          onClick={() => setClawdSettingsOpen(true)}
+        >
+          {channelsData.t('渠道守护')}
+        </Button>
       </div>
 
       <CardPro
@@ -148,6 +158,11 @@ const ChannelsPage = () => {
       >
         <ChannelsTable {...channelsData} />
       </CardPro>
+
+      <ClawdSettingsModal
+        visible={clawdSettingsOpen}
+        onClose={() => setClawdSettingsOpen(false)}
+      />
     </>
   );
 };

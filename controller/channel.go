@@ -1080,6 +1080,14 @@ func UpdateChannel(c *gin.Context) {
 	model.InitChannelCache()
 	service.ResetProxyClientCache()
 	go model.RefreshPricing()
+
+	oldPriority := originChannel.GetPriority()
+	newPriority := channel.GetPriority()
+	if oldPriority != newPriority && channel.ChannelInfo.ClawdGroup > 0 {
+		service.PublishManualTuneEvent(channel.Id, oldPriority, newPriority,
+			"手动调整 priority")
+	}
+
 	channel.Key = ""
 	clearChannelInfo(&channel.Channel)
 	c.JSON(http.StatusOK, gin.H{
