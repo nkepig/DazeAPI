@@ -41,6 +41,7 @@ const ClawdMascot = () => {
   const [pos, setPos] = useState(() => getBasePoint());
   const [chatOpen, setChatOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [hasNewResponse, setHasNewResponse] = useState(false);
   const facingLeftRef = useRef(false);
   const stepTimerRef = useRef(null);
 
@@ -90,6 +91,7 @@ const ClawdMascot = () => {
   useEffect(() => {
     if (chatOpen) {
       clearStep();
+      setHasNewResponse(false);
     } else {
       const t = setTimeout(() => startIdle(), 300);
       return () => clearTimeout(t);
@@ -102,6 +104,7 @@ const ClawdMascot = () => {
   }, []);
 
   const showHint = hovered && !chatOpen;
+  const showRedDot = hasNewResponse && !chatOpen;
 
   const containerStyle = {
     position: 'fixed',
@@ -130,6 +133,24 @@ const ClawdMascot = () => {
         tabIndex={-1}
         title='点击跟 Clawd 聊天'
       >
+        {showRedDot && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '6px',
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: '#FF4444',
+              border: '2px solid #fff',
+              boxShadow: '0 0 6px rgba(255,68,68,0.6)',
+              animation: 'clawd-reddot-pulse 1.2s ease-in-out infinite',
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+          />
+        )}
         {showHint && (
           <div
             style={{
@@ -231,10 +252,18 @@ const ClawdMascot = () => {
             from { opacity: 0; transform: translateY(4px); }
             to   { opacity: 1; transform: translateY(0); }
           }
+          @keyframes clawd-reddot-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50%      { transform: scale(1.3); opacity: 0.7; }
+          }
         `}</style>
       </div>
       {createPortal(
-        <ClawdChatPanel visible={chatOpen} onClose={() => setChatOpen(false)} />,
+        <ClawdChatPanel
+          visible={chatOpen}
+          onClose={() => setChatOpen(false)}
+          onNewResponse={() => setHasNewResponse(true)}
+        />,
         document.body,
       )}
     </>,

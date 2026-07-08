@@ -22,6 +22,7 @@ import { IconSend, IconClose, IconRefresh, IconStop } from '@douyinfe/semi-icons
 import { showError } from '../../helpers';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 
 const genSessionId = () =>
   'cl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
@@ -132,6 +133,99 @@ const ReasoningBlock = ({ text = '' }) => {
   );
 };
 
+const SandboxedHtmlPreview = ({ code = '' }) => {
+  const iframeRef = useRef(null);
+  const [height, setHeight] = useState(400);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type !== 'clawd-html-height') return;
+      try {
+        if (e.source !== iframeRef.current?.contentWindow) return;
+      } catch {
+        return;
+      }
+      const h = Math.max(e.data.height || 0, 60);
+      setHeight(Math.min(h + 8, 800));
+      setLoaded(true);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const resizeScript =
+    "<script>(function(){function h(){parent.postMessage({type:'clawd-html-height',height:document.documentElement.scrollHeight||document.body.scrollHeight},'*')}if(document.readyState==='complete')h();else window.addEventListener('load',h);if(typeof ResizeObserver!=='undefined')new ResizeObserver(h).observe(document.body);setTimeout(h,500);setTimeout(h,2000);})();</script>";
+
+  let fullCode = code;
+  if (fullCode.includes('</body>')) {
+    fullCode = fullCode.replace('</body>', resizeScript + '</body>');
+  } else {
+    fullCode += resizeScript;
+  }
+
+  return (
+    <div
+      style={{
+        border: '1px solid #f0eae6',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        margin: '8px 0',
+        background: '#fff',
+        position: 'relative',
+      }}
+    >
+      {!loaded && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#fcfbfa',
+            zIndex: 1,
+            fontSize: 13,
+            color: '#999',
+          }}
+        >
+          渲染中...
+        </div>
+      )}
+      <iframe
+        ref={iframeRef}
+        sandbox='allow-scripts'
+        srcDoc={fullCode}
+        title='HTML预览'
+        style={{
+          width: '100%',
+          height: height + 'px',
+          border: 'none',
+          display: 'block',
+        }}
+      />
+    </div>
+  );
+};
+
+const detectHtmlCodeBlock = (node) => {
+  if (!node || !node.children) return null;
+  const codeEl = node.children.find((c) => c.tagName === 'code');
+  if (!codeEl) return null;
+  const classes = codeEl.properties?.className;
+  const langClass = Array.isArray(classes)
+    ? classes.find((c) => typeof c === 'string' && c.startsWith('language-'))
+    : null;
+  if (!langClass) return null;
+  const lang = langClass.replace('language-', '');
+  if (lang !== 'html' && lang !== 'echarts' && lang !== 'chart') return null;
+  const textChild = codeEl.children?.find((c) => c.type === 'text');
+  return textChild?.value || '';
+};
+
 const mdComponents = {
   table: ({ node, ...props }) => (
     <div
@@ -147,9 +241,17 @@ const mdComponents = {
       <table {...props} style={{ minWidth: 'max-content', ...props.style }} />
     </div>
   ),
-  pre: ({ node, ...props }) => (
-    <pre {...props} style={{ ...props.style, maxHeight: '300px', overflowY: 'auto' }} />
-  ),
+  pre: ({ node, children, ...props }) => {
+    const htmlCode = detectHtmlCodeBlock(node);
+    if (htmlCode) {
+      return <SandboxedHtmlPreview code={htmlCode} />;
+    }
+    return (
+      <pre {...props} style={{ ...props.style, maxHeight: '300px', overflowY: 'auto' }}>
+        {children}
+      </pre>
+    );
+  },
 };
 
 const CrabIcon = ({ size = 24, color = '#DE886D' }) => (
@@ -173,7 +275,7 @@ const CrabIcon = ({ size = 24, color = '#DE886D' }) => (
   </svg>
 );
 
-const ClawdChatPanel = ({ visible, onClose }) => {
+const ClawdChatPanel = ({ visible, onClose, onNewResponse }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -183,8 +285,13 @@ const ClawdChatPanel = ({ visible, onClose }) => {
   const [streamingToolCalls, setStreamingToolCalls] = useState([]);
   const [toolCallInfo, setToolCallInfo] = useState('');
   const [toolCallStatus, setToolCallStatus] = useState(''); // 'started' | 'completed' | 'error'
-  const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('');
+  const [loadingHintIndex, setLoadingHintIndex] = useState(0);
+
+  const LOADING_HINTS = [
+    'Clawd智能体努力检索中～',
+    '可以先去做别的事哦！完成后马上通知你 🎉',
+    '🍵 稍等一下下～ (｡･ω･｡)',
+  ];
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -259,25 +366,22 @@ const ClawdChatPanel = ({ visible, onClose }) => {
   }, [visible]);
 
   useEffect(() => {
-    if (!visible) return;
-    fetch('/api/channel/clawd/models')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.data)) {
-          setModels(data.data);
-          if (data.data.length > 0 && !selectedModel) {
-            setSelectedModel(data.data[0]);
-          }
-        }
-      })
-      .catch(() => {});
-  }, [visible]);
-
-  useEffect(() => {
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingHintIndex(0);
+      return;
+    }
+    setLoadingHintIndex(0);
+    const interval = setInterval(() => {
+      setLoadingHintIndex((prev) => (prev + 1) % LOADING_HINTS.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -309,7 +413,6 @@ try {
         body: JSON.stringify({
           message: text,
           session_id: sessionId,
-          model: selectedModel,
         }),
         signal: controller.signal,
       });
@@ -341,12 +444,15 @@ try {
             try {
               const data = JSON.parse(jsonStr);
               if (data.type === 'content') {
+                if (data.ts) console.log('[clawd] content ts=%d local=%d delta=%dms', data.ts, Date.now(), Date.now() - data.ts);
                 fullText += data.content || '';
                 setStreamingText(fullText);
+                await new Promise((r) => setTimeout(r, 0));
               } else if (data.type === 'reasoning') {
                 const piece = data.content || '';
                 reasoningAcc += piece;
                 setStreamingReasoning(reasoningAcc);
+                await new Promise((r) => setTimeout(r, 0));
               } else if (data.type === 'tool_call') {
                 const name = data.tool_name || 'tool';
                 const status = data.subtype || 'started';
@@ -422,9 +528,12 @@ try {
       setToolCallInfo('');
       setToolCallStatus('');
       abortRef.current = null;
+      if (!visible && onNewResponse) {
+        onNewResponse();
+      }
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [input, loading, sessionId, streamingText, streamingReasoning, selectedModel]);
+  }, [input, loading, sessionId, streamingText, streamingReasoning, visible, onNewResponse]);
 
   const handleNewSession = useCallback(() => {
     if (abortRef.current) {
@@ -678,7 +787,7 @@ try {
                         <ReasoningBlock text={msg.reasoning} />
                       )}
                       <div className='clawd-md'>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={mdComponents}>
                           {msg.content}
                         </ReactMarkdown>
                       </div>
@@ -718,6 +827,18 @@ try {
                   flexWrap: 'wrap',
                 }}
               >
+                {streamingToolCalls.length === 0 && !toolCallInfo && (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: '#8a7a72',
+                      transition: 'opacity 0.3s',
+                      key: loadingHintIndex,
+                    }}
+                  >
+                    {LOADING_HINTS[loadingHintIndex]}
+                  </span>
+                )}
                 <span className='clawd-dot' />
                 <span className='clawd-dot clawd-dot-2' />
                 <span className='clawd-dot clawd-dot-3' />
@@ -792,7 +913,7 @@ try {
                   <ReasoningBlock text={streamingReasoning} />
                 )}
                 <div className='clawd-md'>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={mdComponents}>
                     {streamingText}
                   </ReactMarkdown>
                 </div>
@@ -805,7 +926,7 @@ try {
         {/* Input area */}
         <div
           style={{
-            padding: '10px 20px 14px',
+            padding: '12px 20px 16px',
             borderTop: '1px solid #f0eae6',
             flexShrink: 0,
             background: '#fff',
@@ -814,47 +935,23 @@ try {
           <div
             style={{
               display: 'flex',
-              gap: '8px',
-              alignItems: 'center',
+              flexDirection: 'column',
+              gap: '0',
               background: '#fcfbfa',
               border: '1px solid #e8e4e0',
-              borderRadius: '14px',
-              padding: '8px 12px',
-              transition: 'border-color 0.15s',
+              borderRadius: '16px',
+              padding: '6px 6px 6px 4px',
+              transition: 'border-color 0.2s, box-shadow 0.2s',
             }}
-            onFocusCapture={(e) => (e.currentTarget.style.borderColor = '#DE886D')}
-            onBlurCapture={(e) => (e.currentTarget.style.borderColor = '#e8e4e0')}
+            onFocusCapture={(e) => {
+              e.currentTarget.style.borderColor = '#DE886D';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(222,136,109,0.08)';
+            }}
+            onBlurCapture={(e) => {
+              e.currentTarget.style.borderColor = '#e8e4e0';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           >
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={loading}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                fontSize: 12,
-                color: '#999',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                outline: 'none',
-                maxWidth: '240px',
-                fontFamily: 'inherit',
-                flexShrink: 0,
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                paddingRight: '16px',
-                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E\")",
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right center',
-              }}
-            >
-              {models.length === 0 && <option value=''>加载中...</option>}
-              {models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
             <textarea
               ref={inputRef}
               value={input}
@@ -867,7 +964,7 @@ try {
               disabled={loading && !streamingText}
               rows={1}
               style={{
-                flex: 1,
+                width: '100%',
                 border: 'none',
                 background: 'transparent',
                 fontSize: 14,
@@ -879,57 +976,76 @@ try {
                 height: 'auto',
                 overflowY: 'hidden',
                 color: '#333',
+                padding: '8px 12px 4px',
               }}
             />
-            {loading ? (
-              <button
-                onClick={handleStop}
-                style={{
-                  background: '#666',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '8px 16px',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#555')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#666')}
-              >
-                <IconStop size='small' />
-                停止
-              </button>
-            ) : (
-              <button
-                onClick={handleSend}
-                disabled={!input.trim()}
-                style={{
-                  background: input.trim() ? '#DE886D' : '#ddd',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '8px 16px',
-                  color: '#fff',
-                  cursor: input.trim() ? 'pointer' : 'not-allowed',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'opacity 0.15s',
-                  opacity: input.trim() ? 1 : 0.6,
-                }}
-              >
-                <IconSend size='small' />
-                发送
-              </button>
-            )}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                padding: '0 6px 0 10px',
+                minHeight: '32px',
+              }}
+            >
+              {loading ? (
+                <button
+                  onClick={handleStop}
+                  title='停止'
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    border: 'none',
+                    borderRadius: '50%',
+                    background: '#4a4a4a',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.15s, transform 0.1s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#3a3a3a')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#4a4a4a')}
+                >
+                  <IconStop size='small' />
+                </button>
+              ) : (
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  title='发送'
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    border: 'none',
+                    borderRadius: '50%',
+                    background: input.trim() ? '#DE886D' : '#e0d8d2',
+                    color: '#fff',
+                    cursor: input.trim() ? 'pointer' : 'not-allowed',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.15s, transform 0.1s, opacity 0.15s',
+                    opacity: input.trim() ? 1 : 0.5,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (input.trim()) {
+                      e.currentTarget.style.background = '#d07a5f';
+                      e.currentTarget.style.transform = 'scale(1.06)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = input.trim() ? '#DE886D' : '#e0d8d2';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  <IconSend size='small' />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1036,6 +1152,68 @@ try {
           color: #666;
           background: #faf5f2;
           border-radius: 0 6px 6px 0;
+        }
+        .clawd-md h1, .clawd-md h2, .clawd-md h3,
+        .clawd-md h4, .clawd-md h5, .clawd-md h6 {
+          margin: 12px 0 6px;
+          font-weight: 600;
+          color: #1a1a1a;
+        }
+        .clawd-md h1 { font-size: 18px; }
+        .clawd-md h2 { font-size: 16px; }
+        .clawd-md h3 { font-size: 15px; }
+        .clawd-md h4, .clawd-md h5, .clawd-md h6 { font-size: 14px; }
+        .clawd-md img {
+          max-width: 100%;
+          border-radius: 6px;
+          margin: 6px 0;
+        }
+        .clawd-md hr {
+          border: none;
+          border-top: 1px solid #e0d8d2;
+          margin: 12px 0;
+        }
+        .clawd-md details {
+          margin: 6px 0;
+          padding: 6px 10px;
+          background: #faf8f5;
+          border-radius: 6px;
+          border: 1px solid #f0eae6;
+        }
+        .clawd-md summary {
+          cursor: pointer;
+          font-size: 13px;
+          color: #666;
+          font-weight: 500;
+        }
+        .clawd-md mark {
+          background: #fff3cd;
+          padding: 1px 3px;
+          border-radius: 2px;
+        }
+        .clawd-md kbd {
+          background: #f5f0ed;
+          border: 1px solid #e0d8d2;
+          border-radius: 3px;
+          padding: 1px 5px;
+          font-size: 12px;
+          font-family: 'SF Mono', Monaco, monospace;
+        }
+        .clawd-md abbr {
+          cursor: help;
+          text-decoration: underline dotted;
+        }
+        .clawd-md figure {
+          margin: 8px 0;
+          text-align: center;
+        }
+        .clawd-md figcaption {
+          font-size: 12px;
+          color: #999;
+          margin-top: 4px;
+        }
+        .clawd-md div {
+          max-width: 100%;
         }
       `}</style>
     </>

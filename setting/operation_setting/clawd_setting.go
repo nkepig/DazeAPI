@@ -13,6 +13,9 @@ type ClawdSetting struct {
 	LatencyMultiplier    float64 `json:"latency_multiplier"`
 	ObservationCount     int     `json:"observation_count"`
 	ObservationSeconds   int     `json:"observation_seconds"`
+	AgentBaseURL         string  `json:"agent_base_url"`
+	AgentAPIKey          string  `json:"agent_api_key"`
+	AgentModel           string  `json:"agent_model"`
 }
 
 var clawdSetting = ClawdSetting{
@@ -24,6 +27,9 @@ var clawdSetting = ClawdSetting{
 	LatencyMultiplier:    3.0,
 	ObservationCount:     3,
 	ObservationSeconds:   600,
+	AgentBaseURL:         "",
+	AgentAPIKey:          "",
+	AgentModel:           "",
 }
 
 func init() {

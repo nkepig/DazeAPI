@@ -52,6 +52,22 @@ func GetEnabledModels() []string {
 	return models
 }
 
+type GroupedModel struct {
+	Group string `json:"group"`
+	Model string `json:"model"`
+}
+
+func GetEnabledModelsGrouped() []GroupedModel {
+	var result []GroupedModel
+	DB.Table("abilities").
+		Select(commonGroupCol+" as \"group\", model").
+		Where("enabled = ?", true).
+		Group(commonGroupCol + ", model").
+		Order(commonGroupCol + ", model").
+		Scan(&result)
+	return result
+}
+
 // mapRetryToPriorityIndex maps a retry attempt index to a priority bucket index,
 // distributing `totalAttempts` across `numPriorities` buckets (priorities are
 // ordered from highest to lowest). Each priority gets at least one attempt;

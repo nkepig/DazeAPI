@@ -28,6 +28,7 @@ import {
   Select,
   Spin,
   Typography,
+  Input,
 } from '@douyinfe/semi-ui';
 import { IconPlus, IconClose } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../helpers';
@@ -55,6 +56,9 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
   const [groups, setGroups] = useState([]);
   const [pendingPicks, setPendingPicks] = useState({});
   const [events, setEvents] = useState([]);
+  const [agentBaseURL, setAgentBaseURL] = useState('');
+  const [agentAPIKey, setAgentAPIKey] = useState('');
+  const [agentModel, setAgentModel] = useState('');
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -70,6 +74,9 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
         setEnabled(!!cfg.enabled);
         setWindowMinutes(Math.round((cfg.window_seconds || 300) / 60));
         setMinSampleSize(cfg.min_sample_size || 100);
+        setAgentBaseURL(cfg.agent_base_url || '');
+        setAgentAPIKey(cfg.agent_api_key || '');
+        setAgentModel(cfg.agent_model || '');
       }
       const watched = watchedRes.data.success ? watchedRes.data.data || [] : [];
       setWatchedChannels(watched);
@@ -101,6 +108,9 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
         enabled,
         window_seconds: windowMinutes * 60,
         min_sample_size: minSampleSize,
+        agent_base_url: agentBaseURL,
+        agent_api_key: agentAPIKey,
+        agent_model: agentModel,
       });
       showSuccess(t('已保存'));
       onClose();
@@ -254,6 +264,45 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
               <span style={{ color: 'var(--semi-color-text-2)', fontSize: 11 }}>
                 {t('/组')}
               </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '8px 0',
+              borderBottom: '1px solid var(--semi-color-border)',
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 600,
+                marginBottom: 6,
+                fontSize: 12,
+                color: 'var(--semi-color-text-1)',
+              }}
+            >
+              {t('Agent 配置')}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Input
+                value={agentBaseURL}
+                onChange={setAgentBaseURL}
+                placeholder={t('Base URL (如 https://api.openai.com/v1)')}
+                size='small'
+              />
+              <Input
+                value={agentAPIKey}
+                onChange={setAgentAPIKey}
+                placeholder={t('API Key')}
+                size='small'
+                mode='password'
+              />
+              <Input
+                value={agentModel}
+                onChange={setAgentModel}
+                placeholder={t('模型 (如 gpt-4o)')}
+                size='small'
+              />
             </div>
           </div>
 

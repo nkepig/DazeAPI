@@ -24,6 +24,7 @@ import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsChannelAffinityQuick from '../../pages/Setting/Operation/SettingsChannelAffinityQuick';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
+import SettingsClawd from '../../pages/Setting/Operation/SettingsClawd';
 import PaymentSetting from './PaymentSetting';
 import { API, showError, toBoolean } from '../../helpers';
 
@@ -124,6 +125,9 @@ const OperationSetting = () => {
       </Card>
       <Card style={{ marginTop: '10px' }}>
         <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+      </Card>
+      <Card style={{ marginTop: '10px' }}>
+        <SettingsClawd />
       </Card>
       <PaymentSetting />
     </Spin>
