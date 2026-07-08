@@ -164,7 +164,7 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.POST("/clawd/reset_baseline", controller.ResetClawdBaseline)
 		}
 		clawdChatRoute := apiRouter.Group("/channel/clawd")
-		clawdChatRoute.Use(middleware.GlobalAPIRateLimit())
+		clawdChatRoute.Use(middleware.GlobalAPIRateLimit(), middleware.UserAuth())
 		{
 			clawdChatRoute.GET("/models", controller.GetClawdModels)
 			clawdChatRoute.POST("/chat", controller.ClawdChat)

@@ -76,6 +76,14 @@ export default function SettingsClawd() {
     }
   };
 
+  const labelStyle = {
+    display: 'block',
+    marginBottom: 4,
+    fontSize: 13,
+    color: 'var(--semi-color-text-2)',
+    whiteSpace: 'nowrap',
+    paddingLeft: 2,
+  };
   const inputStyle = { width: '100%' };
 
   return (
@@ -86,8 +94,8 @@ export default function SettingsClawd() {
         </SemiTitle>
         <Row gutter={16} style={{ marginBottom: 12 }}>
           <div style={{ flex: 1, minWidth: 200, paddingRight: 16 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-2)' }}>
-              {t(' Clawd Base URL')}
+            <label style={labelStyle}>
+              {t('Clawd Base URL')}
             </label>
             <Input
               value={baseUrl}
@@ -97,8 +105,8 @@ export default function SettingsClawd() {
             />
           </div>
           <div style={{ flex: 1, minWidth: 200, paddingRight: 16 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-2)' }}>
-              {t(' Clawd API Key')}
+            <label style={labelStyle}>
+              {t('Clawd API Key')}
             </label>
             <Input
               value={keyInput}
@@ -119,8 +127,8 @@ export default function SettingsClawd() {
             />
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-2)' }}>
-              {t(' Clawd 模型')}
+            <label style={labelStyle}>
+              {t('Clawd 模型')}
             </label>
             <Input
               value={model}

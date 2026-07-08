@@ -27,12 +27,9 @@ import {
   Tag,
   Select,
   Spin,
-  Typography,
 } from '@douyinfe/semi-ui';
 import { IconPlus, IconClose } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../helpers';
-
-const { Text } = Typography;
 
 const MAX_GROUPS = 3;
 
@@ -430,37 +427,14 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
                     style={{
                       padding: '2px 0',
                       borderBottom: '1px solid var(--semi-color-fill-1)',
+                      fontSize: 11,
+                      color: 'var(--semi-color-text-2)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text strong style={{ fontSize: 11 }}>
-                        {ev.channel_name || `#${ev.channel_id}`}
-                      </Text>
-                      <Text type='tertiary' size='small'>
-                        {formatTime(ev.created_at)}
-                      </Text>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <Tag size='small' color='blue' type='ghost'>
-                        {ev.old_priority} → {ev.new_priority}
-                      </Tag>
-                      {ev.clawd_group > 0 && (
-                        <Tag size='small' color='cyan' type='ghost'>
-                          {t('组')} {ev.clawd_group}
-                        </Tag>
-                      )}
-                      <span
-                        style={{
-                          color: 'var(--semi-color-text-2)',
-                          flex: 1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {ev.reason}
-                      </span>
-                    </div>
+                    {formatTime(ev.created_at)} · #{ev.channel_id} · {ev.old_priority} → {ev.new_priority}
                   </div>
                 ))}
               </div>
