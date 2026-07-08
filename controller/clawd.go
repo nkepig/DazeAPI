@@ -20,11 +20,24 @@ import (
 )
 
 func GetClawdModels(c *gin.Context) {
-	models := model.GetEnabledModels()
+	grouped := model.GetEnabledModelsGrouped()
+	type modelItem struct {
+		Group string `json:"group"`
+		Model string `json:"model"`
+		Label string `json:"label"`
+	}
+	items := make([]modelItem, 0, len(grouped))
+	for _, g := range grouped {
+		items = append(items, modelItem{
+			Group: g.Group,
+			Model: g.Model,
+			Label: "[" + g.Group + "]" + g.Model,
+		})
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    models,
+		"data":    items,
 	})
 }
 
@@ -225,7 +238,19 @@ func GetClawdSetting(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    cfg,
+		"data": gin.H{
+			"enabled":                cfg.Enabled,
+			"watch_interval_seconds":  cfg.WatchIntervalSeconds,
+			"window_seconds":         cfg.WindowSeconds,
+			"min_sample_size":        cfg.MinSampleSize,
+			"success_rate_ratio":     cfg.SuccessRateRatio,
+			"latency_multiplier":     cfg.LatencyMultiplier,
+			"observation_count":     cfg.ObservationCount,
+			"observation_seconds":    cfg.ObservationSeconds,
+			"agent_base_url":         cfg.AgentBaseURL,
+			"agent_api_key":          cfg.AgentAPIKey,
+			"agent_model":            cfg.AgentModel,
+		},
 	})
 }
 
@@ -239,6 +264,9 @@ func UpdateClawdSetting(c *gin.Context) {
 		LatencyMultiplier    *float64 `json:"latency_multiplier"`
 		ObservationCount     *int     `json:"observation_count"`
 		ObservationSeconds   *int     `json:"observation_seconds"`
+		AgentBaseURL         *string  `json:"agent_base_url"`
+		AgentAPIKey          *string  `json:"agent_api_key"`
+		AgentModel           *string  `json:"agent_model"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -306,6 +334,27 @@ func UpdateClawdSetting(c *gin.Context) {
 			return
 		}
 	}
+	if req.AgentBaseURL != nil {
+		cfg.AgentBaseURL = *req.AgentBaseURL
+		if err := model.UpdateOption("clawd_setting.agent_base_url", *req.AgentBaseURL); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	if req.AgentAPIKey != nil {
+		cfg.AgentAPIKey = *req.AgentAPIKey
+		if err := model.UpdateOption("clawd_setting.agent_api_key", *req.AgentAPIKey); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	if req.AgentModel != nil {
+		cfg.AgentModel = *req.AgentModel
+		if err := model.UpdateOption("clawd_setting.agent_model", *req.AgentModel); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -330,6 +379,12 @@ func ResetClawdBaseline(c *gin.Context) {
 }
 
 func resolveAgentCredentials() (baseURL string, apiKey string, err error) {
+	cfg := operation_setting.GetClawdSetting()
+
+	if cfg.AgentBaseURL != "" && cfg.AgentAPIKey != "" {
+		return cfg.AgentBaseURL, cfg.AgentAPIKey, nil
+	}
+
 	newAPIURL := os.Getenv("CLAWD_NEW_API_URL")
 	if newAPIURL == "" {
 		newAPIURL = system_setting.ServerAddress + "/v1"
@@ -350,11 +405,18 @@ func resolveAgentCredentials() (baseURL string, apiKey string, err error) {
 	return newAPIURL, token.Key, nil
 }
 
+func resolveAgentModel() (string, error) {
+	cfg := operation_setting.GetClawdSetting()
+	if cfg.AgentModel != "" {
+		return cfg.AgentModel, nil
+	}
+	return "", fmt.Errorf("clawd agent model not configured, please set it in Clawd settings")
+}
+
 func ClawdChat(c *gin.Context) {
 	var req struct {
 		Message   string `json:"message"`
 		SessionId string `json:"session_id"`
-		Model     string `json:"model"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -377,15 +439,17 @@ func ClawdChat(c *gin.Context) {
 		})
 		return
 	}
-	if req.Model == "" {
+
+	baseURL, apiKey, err := resolveAgentCredentials()
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": "model is required",
+			"message": err.Error(),
 		})
 		return
 	}
 
-	baseURL, apiKey, err := resolveAgentCredentials()
+	modelName, err := resolveAgentModel()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -408,7 +472,7 @@ func ClawdChat(c *gin.Context) {
 		"user_id":    fmt.Sprintf("uid-%d", userId),
 		"base_url":   baseURL,
 		"api_key":    apiKey,
-		"model":      req.Model,
+		"model":      modelName,
 		"lang":       lang,
 	})
 
@@ -436,7 +500,6 @@ func ClawdChatStream(c *gin.Context) {
 	var req struct {
 		Message   string `json:"message"`
 		SessionId string `json:"session_id"`
-		Model     string `json:"model"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -459,15 +522,17 @@ func ClawdChatStream(c *gin.Context) {
 		})
 		return
 	}
-	if req.Model == "" {
+
+	baseURL, apiKey, err := resolveAgentCredentials()
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": "model is required",
+			"message": err.Error(),
 		})
 		return
 	}
 
-	baseURL, apiKey, err := resolveAgentCredentials()
+	modelName, err := resolveAgentModel()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -490,7 +555,7 @@ func ClawdChatStream(c *gin.Context) {
 		"user_id":    fmt.Sprintf("uid-%d", userId),
 		"base_url":   baseURL,
 		"api_key":    apiKey,
-		"model":      req.Model,
+		"model":      modelName,
 		"lang":       lang,
 	})
 
