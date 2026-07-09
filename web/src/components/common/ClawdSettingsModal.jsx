@@ -59,8 +59,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
   const [events, setEvents] = useState([]);
   const [monitoredGroups, setMonitoredGroups] = useState([]);
   const [activeKey, setActiveKey] = useState([]);
-  const [addGroupKey, setAddGroupKey] = useState(0);
-  const [clawdScores, setClawdScores] = useState([]);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -95,18 +93,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
       ).sort();
       setMonitoredGroups(groups);
       setActiveKey(groups);
-
-      // Scores 请求单独处理，失败不影响核心功能
-      try {
-        const scoresRes = await API.get('/api/channel/clawd/scores');
-        if (scoresRes.data.success) {
-          setClawdScores(scoresRes.data.data || []);
-        } else {
-          setClawdScores([]);
-        }
-      } catch {
-        setClawdScores([]);
-      }
     } catch (e) {
       showError(e);
     } finally {
@@ -297,15 +283,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
 
   const channelsInGroup = (groupName) =>
     watchedChannels.filter((c) => c.clawd_group === groupName);
-
-  const groupScoreData = (groupName) =>
-    clawdScores.find((s) => String(s.clawd_group) === String(groupName));
-
-  const channelScoreData = (groupName, channelId) => {
-    const gd = groupScoreData(groupName);
-    if (!gd || !gd.channels) return null;
-    return gd.channels.find((c) => c.channel_id === channelId);
-  };
 
   const labelStyle = {
     fontSize: 11,
@@ -646,55 +623,10 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
                       )}
                     </div>
 
-                    {/* 成功率概览 */}
-                    {(() => {
-                      const gd = groupScoreData(groupName);
-                      if (!gd) return null;
-                      const totalSuccess = (gd.channels || []).reduce((s, c) => s + (c.success_count || 0), 0);
-                      const totalReqs = (gd.channels || []).reduce((s, c) => s + (c.sample_count || 0), 0);
-                      const overallRate = totalReqs > 0 ? (totalSuccess / totalReqs * 100) : 0;
-                      const rateColor = overallRate >= 95 ? 'var(--semi-color-success)' : overallRate >= 80 ? '#65a30d' : overallRate >= 60 ? 'var(--semi-color-warning)' : 'var(--semi-color-danger)';
-                      const totalSamples = totalReqs;
-                      const avgUseTime = gd.min_use_time > 0 ? gd.min_use_time.toFixed(2) : '–';
-                      return (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 12,
-                            padding: '6px 10px',
-                            marginBottom: 8,
-                            borderRadius: 6,
-                            background: 'var(--semi-color-fill-0)',
-                            fontSize: 11,
-                          }}
-                        >
-                          <span style={{ color: 'var(--semi-color-text-2)', whiteSpace: 'nowrap' }}>
-                            {t('成功率')}
-                          </span>
-                          <span style={{ fontWeight: 600, color: rateColor, whiteSpace: 'nowrap' }}>
-                            {overallRate.toFixed(1)}%
-                          </span>
-                          <span style={{ color: 'var(--semi-color-text-2)', whiteSpace: 'nowrap' }}>
-                            {t('样本')} {totalSamples}
-                          </span>
-                          <span style={{ color: 'var(--semi-color-text-2)', whiteSpace: 'nowrap' }}>
-                            {t('最低耗时')} {avgUseTime}s
-                          </span>
-                          <span style={{ color: 'var(--semi-color-text-2)', whiteSpace: 'nowrap' }}>
-                            {t('最大利润')} {gd.max_profit > 0 ? gd.max_profit.toFixed(3) : '–'}
-                          </span>
-                        </div>
-                      );
-                    })()}
-
                     {/* 渠道列表（多选+配置合并） */}
                     <div style={{ marginTop: 4 }}>
                       {availChannels.map((ch) => {
                         const watched = inGroup.find((c) => c.id === ch.id);
-                        const cs = channelScoreData(groupName, ch.id);
-                        const sr = cs ? cs.success_rate : 0;
-                        const srColor = sr >= 95 ? 'var(--semi-color-success)' : sr >= 80 ? '#65a30d' : sr >= 60 ? 'var(--semi-color-warning)' : 'var(--semi-color-danger)';
                         return (
                           <div
                             key={ch.id}
@@ -727,31 +659,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
                             >
                               {ch.name}
                             </span>
-                            {watched && cs && cs.sample_count > 0 && (
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  color: srColor,
-                                  flexShrink: 0,
-                                  whiteSpace: 'nowrap',
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {sr.toFixed(1)}%
-                              </span>
-                            )}
-                            {watched && cs && cs.sample_count > 0 && (
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  color: 'var(--semi-color-text-2)',
-                                  flexShrink: 0,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {cs.avg_use_time ? cs.avg_use_time.toFixed(2) + 's' : '–'}
-                              </span>
-                            )}
                             {watched && (
                               <InputNumber
                                 value={watched.clawd_cost_ratio || 0}
