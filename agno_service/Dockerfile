@@ -7,7 +7,8 @@ ENV UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 COPY --from=ghcr.nju.edu.cn/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock* ./
-RUN uv sync --frozen --no-dev || uv sync --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev || uv sync --no-dev
 
 COPY . .
 

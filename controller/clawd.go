@@ -50,19 +50,23 @@ func GetClawdScores(c *gin.Context) {
 	}
 
 	type GroupResult struct {
-		ClawdGroup        int                    `json:"clawd_group"`
-		MedianSuccessRate float64                `json:"median_success_rate"`
-		MedianUseTime     float64                `json:"median_use_time"`
-		Channels          []service.ChannelScore `json:"channels"`
+		ClawdGroup     string                 `json:"clawd_group"`
+		AvgUserRatio   float64                `json:"avg_user_ratio"`
+		MaxProfit      float64                `json:"max_profit"`
+		MaxSuccessRate float64                `json:"max_success_rate"`
+		MinUseTime     float64                `json:"min_use_time"`
+		Channels       []service.ChannelScore `json:"channels"`
 	}
 
 	out := make([]GroupResult, 0, len(stats))
 	for cg, s := range stats {
 		out = append(out, GroupResult{
-			ClawdGroup:        cg,
-			MedianSuccessRate: s.MedianSuccessRate,
-			MedianUseTime:     s.MedianUseTime,
-			Channels:          s.Channels,
+			ClawdGroup:     cg,
+			AvgUserRatio:   s.AvgUserRatio,
+			MaxProfit:      s.MaxProfit,
+			MaxSuccessRate: s.MaxSuccessRate,
+			MinUseTime:     s.MinUseTime,
+			Channels:       s.Channels,
 		})
 	}
 
@@ -84,7 +88,8 @@ func GetClawdWatchedChannels(c *gin.Context) {
 		Id                 int     `json:"id"`
 		Name               string  `json:"name"`
 		Group              string  `json:"group"`
-		ClawdGroup         int     `json:"clawd_group"`
+		ClawdGroup         string  `json:"clawd_group"`
+		ClawdCostRatio     float64 `json:"clawd_cost_ratio"`
 		Priority           int64   `json:"priority"`
 		Weight             uint    `json:"weight"`
 		ClawdScore         float64 `json:"clawd_score"`
@@ -103,7 +108,8 @@ func GetClawdWatchedChannels(c *gin.Context) {
 			Id:                 ch.Id,
 			Name:               ch.Name,
 			Group:              ch.Group,
-			ClawdGroup:         ch.ChannelInfo.ClawdGroup,
+			ClawdGroup:         ch.ChannelInfo.ClawdGroup.String(),
+			ClawdCostRatio:     ch.ChannelInfo.ClawdCostRatio,
 			Priority:           ch.GetPriority(),
 			Weight:             weight,
 			ClawdScore:         ch.ChannelInfo.ClawdScore,
@@ -132,7 +138,8 @@ func SetClawdWatched(c *gin.Context) {
 	}
 
 	var req struct {
-		Group int `json:"group"`
+		Group     string  `json:"group"`
+		CostRatio float64 `json:"cost_ratio"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -141,15 +148,41 @@ func SetClawdWatched(c *gin.Context) {
 		})
 		return
 	}
-	if req.Group < 0 || req.Group > 3 {
+
+	if err := model.SetChannelClawdGroup(channelId, req.Group, req.CostRatio); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
+func SetClawdCostRatio(c *gin.Context) {
+	channelIdStr := c.Param("id")
+	channelId, err := strconv.Atoi(channelIdStr)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": "group must be 0, 1, 2, or 3",
+			"message": "invalid channel id",
 		})
 		return
 	}
 
-	if err := model.SetChannelClawdGroup(channelId, req.Group); err != nil {
+	var req struct {
+		CostRatio float64 `json:"cost_ratio"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid request body",
+		})
+		return
+	}
+
+	if err := model.SetChannelClawdCostRatio(channelId, req.CostRatio); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -239,34 +272,32 @@ func GetClawdSetting(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data": gin.H{
-			"enabled":                cfg.Enabled,
-			"watch_interval_seconds": cfg.WatchIntervalSeconds,
-			"window_seconds":         cfg.WindowSeconds,
-			"min_sample_size":        cfg.MinSampleSize,
-			"success_rate_ratio":     cfg.SuccessRateRatio,
-			"latency_multiplier":     cfg.LatencyMultiplier,
-			"observation_count":      cfg.ObservationCount,
-			"observation_seconds":    cfg.ObservationSeconds,
-			"agent_base_url":         cfg.AgentBaseURL,
-			"agent_api_key":          cfg.AgentAPIKey,
-			"agent_model":            cfg.AgentModel,
-		},
+		"enabled":                cfg.Enabled,
+		"watch_interval_seconds": cfg.WatchIntervalSeconds,
+		"window_seconds":         cfg.WindowSeconds,
+		"min_sample_size":        cfg.MinSampleSize,
+		"group_configs":          cfg.GroupConfigs,
+		"observation_count":      cfg.ObservationCount,
+		"observation_seconds":    cfg.ObservationSeconds,
+		"agent_base_url":         cfg.AgentBaseURL,
+		"agent_api_key":          cfg.AgentAPIKey,
+		"agent_model":            cfg.AgentModel,
+	},
 	})
 }
 
 func UpdateClawdSetting(c *gin.Context) {
 	var req struct {
-		Enabled              *bool    `json:"enabled"`
-		WindowSeconds        *int     `json:"window_seconds"`
-		MinSampleSize        *int     `json:"min_sample_size"`
-		WatchIntervalSeconds *int     `json:"watch_interval_seconds"`
-		SuccessRateRatio     *float64 `json:"success_rate_ratio"`
-		LatencyMultiplier    *float64 `json:"latency_multiplier"`
-		ObservationCount     *int     `json:"observation_count"`
-		ObservationSeconds   *int     `json:"observation_seconds"`
-		AgentBaseURL         *string  `json:"agent_base_url"`
-		AgentAPIKey          *string  `json:"agent_api_key"`
-		AgentModel           *string  `json:"agent_model"`
+		Enabled              *bool                        `json:"enabled"`
+		WindowSeconds        *int                         `json:"window_seconds"`
+		MinSampleSize        *int                         `json:"min_sample_size"`
+		WatchIntervalSeconds *int                         `json:"watch_interval_seconds"`
+		GroupConfigs         *map[string]operation_setting.ClawdGroupConfig `json:"group_configs"`
+		ObservationCount     *int                         `json:"observation_count"`
+		ObservationSeconds   *int                         `json:"observation_seconds"`
+		AgentBaseURL         *string                      `json:"agent_base_url"`
+		AgentAPIKey          *string                      `json:"agent_api_key"`
+		AgentModel           *string                      `json:"agent_model"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -306,16 +337,10 @@ func UpdateClawdSetting(c *gin.Context) {
 			return
 		}
 	}
-	if req.SuccessRateRatio != nil && *req.SuccessRateRatio > 0 {
-		cfg.SuccessRateRatio = *req.SuccessRateRatio
-		if err := model.UpdateOption("clawd_setting.success_rate_ratio", strconv.FormatFloat(*req.SuccessRateRatio, 'f', -1, 64)); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-	}
-	if req.LatencyMultiplier != nil && *req.LatencyMultiplier > 0 {
-		cfg.LatencyMultiplier = *req.LatencyMultiplier
-		if err := model.UpdateOption("clawd_setting.latency_multiplier", strconv.FormatFloat(*req.LatencyMultiplier, 'f', -1, 64)); err != nil {
+	if req.GroupConfigs != nil {
+		cfg.GroupConfigs = *req.GroupConfigs
+		configJSON, _ := common.Marshal(cfg.GroupConfigs)
+		if err := model.UpdateOption("clawd_setting.group_configs", string(configJSON)); err != nil {
 			common.ApiError(c, err)
 			return
 		}

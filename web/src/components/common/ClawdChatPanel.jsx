@@ -133,10 +133,23 @@ const ReasoningBlock = ({ text = '' }) => {
   );
 };
 
-const SandboxedHtmlPreview = ({ code = '' }) => {
+// Debounce srcDoc so the iframe doesn't reload on every streaming token.
+// Without this, srcDoc changes every ~50ms during streaming, causing the
+// iframe to constantly reload and never finish loading ("渲染不出来").
+const SandboxedHtmlPreview = React.memo(({ code = '' }) => {
   const iframeRef = useRef(null);
   const [height, setHeight] = useState(400);
   const [loaded, setLoaded] = useState(false);
+  const [debouncedCode, setDebouncedCode] = useState(code);
+
+  useEffect(() => {
+    if (code === debouncedCode) return;
+    const timer = setTimeout(() => {
+      setDebouncedCode(code);
+      setLoaded(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [code, debouncedCode]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -157,7 +170,7 @@ const SandboxedHtmlPreview = ({ code = '' }) => {
   const resizeScript =
     "<script>(function(){function h(){parent.postMessage({type:'clawd-html-height',height:document.documentElement.scrollHeight||document.body.scrollHeight},'*')}if(document.readyState==='complete')h();else window.addEventListener('load',h);if(typeof ResizeObserver!=='undefined')new ResizeObserver(h).observe(document.body);setTimeout(h,500);setTimeout(h,2000);})();</script>";
 
-  let fullCode = code;
+  let fullCode = debouncedCode;
   if (fullCode.includes('</body>')) {
     fullCode = fullCode.replace('</body>', resizeScript + '</body>');
   } else {
@@ -209,7 +222,7 @@ const SandboxedHtmlPreview = ({ code = '' }) => {
       />
     </div>
   );
-};
+});
 
 const detectHtmlCodeBlock = (node) => {
   if (!node || !node.children) return null;
@@ -296,6 +309,10 @@ const ClawdChatPanel = ({ visible, onClose, onNewResponse }) => {
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
 
   // 侧边栏宽度，可拖拽调整，持久化到 localStorage
   const PANEL_MIN = 360;
@@ -539,7 +556,7 @@ try {
       setToolCallInfo('');
       setToolCallStatus('');
       abortRef.current = null;
-      if (!visible && onNewResponse) {
+      if (!visibleRef.current && onNewResponse) {
         onNewResponse();
       }
       setTimeout(() => inputRef.current?.focus(), 100);
