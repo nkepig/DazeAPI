@@ -32,6 +32,9 @@ type ChannelScore struct {
 	PriceWeight    float64 `json:"price_weight"`
 	SuccessWeight  float64 `json:"success_weight"`
 	LatencyWeight  float64 `json:"latency_weight"`
+	MaxProfit      float64 `json:"max_profit"`
+	MaxSuccessRate float64 `json:"max_success_rate"`
+	MinUseTime     float64 `json:"min_use_time"`
 	Score        float64 `json:"score"`
 	ScoreFormula string  `json:"score_formula"`
 }
@@ -59,6 +62,9 @@ type ScoreBreakdown struct {
 	PriceWeight   float64 `json:"price_weight"`
 	SuccessWeight float64 `json:"success_weight"`
 	LatencyWeight float64 `json:"latency_weight"`
+	MaxProfit      float64 `json:"max_profit"`
+	MaxSuccessRate float64 `json:"max_success_rate"`
+	MinUseTime     float64 `json:"min_use_time"`
 }
 
 type channelAgg struct {
@@ -256,6 +262,9 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 			ch.PriceWeight = priceW
 			ch.SuccessWeight = successW
 			ch.LatencyWeight = latencyW
+			ch.MaxProfit = stats.MaxProfit
+			ch.MaxSuccessRate = stats.MaxSuccessRate
+			ch.MinUseTime = stats.MinUseTime
 
 			rawScore := ch.PriceScore*priceW + ch.SuccessScore*successW + ch.LatencyScore*latencyW
 			ch.Score = math.Round(rawScore*10) / 10
@@ -294,19 +303,22 @@ func computeAvgUserRatio(groupCounts map[string]int64) float64 {
 
 func BuildScoreBreakdownJSON(ch ChannelScore, clawdGroup string) string {
 	bd := ScoreBreakdown{
-		CostRatio:     ch.CostRatio,
-		Profit:        ch.Profit,
-		AvgUserRatio:  ch.AvgUserRatio,
-		PriceScore:    ch.PriceScore,
-		SuccessRate:   ch.SuccessRate,
-		SuccessScore:  ch.SuccessScore,
-		AvgUseTime:    ch.AvgUseTime,
-		LatencyScore:  ch.LatencyScore,
-		SampleCount:   ch.SampleCount,
-		ClawdGroup:    clawdGroup,
-		PriceWeight:   ch.PriceWeight,
-		SuccessWeight: ch.SuccessWeight,
-		LatencyWeight: ch.LatencyWeight,
+		CostRatio:      ch.CostRatio,
+		Profit:         ch.Profit,
+		AvgUserRatio:   ch.AvgUserRatio,
+		PriceScore:     ch.PriceScore,
+		SuccessRate:    ch.SuccessRate,
+		SuccessScore:   ch.SuccessScore,
+		AvgUseTime:     ch.AvgUseTime,
+		LatencyScore:   ch.LatencyScore,
+		SampleCount:    ch.SampleCount,
+		ClawdGroup:     clawdGroup,
+		PriceWeight:    ch.PriceWeight,
+		SuccessWeight:  ch.SuccessWeight,
+		LatencyWeight:  ch.LatencyWeight,
+		MaxProfit:      ch.MaxProfit,
+		MaxSuccessRate: ch.MaxSuccessRate,
+		MinUseTime:     ch.MinUseTime,
 	}
 	bytes, err := common.Marshal(&bd)
 	if err != nil {

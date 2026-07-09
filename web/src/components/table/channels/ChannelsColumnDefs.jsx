@@ -424,27 +424,37 @@ export const getChannelsColumns = ({
           : undefined;
 
         const clawdTooltipContent = clawdWatched ? (
-          <div style={{ maxWidth: 280, fontSize: 11, lineHeight: 1.7 }}>
+          <div style={{ maxWidth: 300, fontSize: 11, lineHeight: 1.7 }}>
             <div style={{ color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
               {t('样本')} {clawdBreakdown?.sample_count ?? 0}
-              {clawdBreakdown && <> · {t('成功率')} {(clawdBreakdown.success_rate * 100).toFixed(1)}%</>}
-              {clawdBreakdown && <> · {t('耗时')} {clawdBreakdown.avg_use_time.toFixed(2)}s</>}
-              {clawdBreakdown && clawdBreakdown.cost_ratio > 0 && (
-                <> · {t('利润')} {clawdBreakdown.profit.toFixed(2)}</>
-              )}
             </div>
             {clawdBreakdown && (() => {
               const pw = (clawdBreakdown.price_weight ?? 0) * 100;
               const sw = (clawdBreakdown.success_weight ?? 0) * 100;
               const lw = (clawdBreakdown.latency_weight ?? 0) * 100;
-              const priceContrib = clawdBreakdown.price_score * (clawdBreakdown.price_weight ?? 0);
-              const successContrib = clawdBreakdown.success_score * (clawdBreakdown.success_weight ?? 0);
-              const latencyContrib = clawdBreakdown.latency_score * (clawdBreakdown.latency_weight ?? 0);
+              const priceContrib = (clawdBreakdown.price_score ?? 0) * (clawdBreakdown.price_weight ?? 0);
+              const successContrib = (clawdBreakdown.success_score ?? 0) * (clawdBreakdown.success_weight ?? 0);
+              const latencyContrib = (clawdBreakdown.latency_score ?? 0) * (clawdBreakdown.latency_weight ?? 0);
+              const hasProfit = (clawdBreakdown.cost_ratio ?? 0) > 0;
+              const hasLatency = (clawdBreakdown.min_use_time ?? 0) > 0 && (clawdBreakdown.avg_use_time ?? 0) > 0;
               return (
                 <div style={{ fontFamily: 'monospace', color: 'var(--semi-color-text-1)' }}>
-                  <div>{t('价格')} {clawdBreakdown.price_score.toFixed(0)} × {pw.toFixed(0)}% = {priceContrib.toFixed(1)}</div>
-                  <div>{t('成功')} {clawdBreakdown.success_score.toFixed(0)} × {sw.toFixed(0)}% = {successContrib.toFixed(1)}</div>
-                  <div>{t('速度')} {clawdBreakdown.latency_score.toFixed(0)} × {lw.toFixed(0)}% = {latencyContrib.toFixed(1)}</div>
+                  {hasProfit && (
+                    <div>
+                      {t('利润')} {(clawdBreakdown.profit ?? 0).toFixed(3)} / {t('最高')} {(clawdBreakdown.max_profit ?? 0).toFixed(3)}
+                      {' → '}{t('价格')} {(clawdBreakdown.price_score ?? 0).toFixed(0)} × {pw.toFixed(0)}% = {priceContrib.toFixed(1)}
+                    </div>
+                  )}
+                  <div>
+                    {t('成功率')} {((clawdBreakdown.success_rate ?? 0) * 100).toFixed(1)}% / {t('最高')} {((clawdBreakdown.max_success_rate ?? 0) * 100).toFixed(1)}%
+                    {' → '}{t('成功')} {(clawdBreakdown.success_score ?? 0).toFixed(0)} × {sw.toFixed(0)}% = {successContrib.toFixed(1)}
+                  </div>
+                  {hasLatency && (
+                    <div>
+                      {t('耗时')} {(clawdBreakdown.avg_use_time ?? 0).toFixed(2)}s / {t('最快')} {(clawdBreakdown.min_use_time ?? 0).toFixed(2)}s
+                      {' → '}{t('速度')} {(clawdBreakdown.latency_score ?? 0).toFixed(0)} × {lw.toFixed(0)}% = {latencyContrib.toFixed(1)}
+                    </div>
+                  )}
                   <div style={{ borderTop: '1px solid var(--semi-color-border)', marginTop: 2, paddingTop: 2 }}>
                     {t('总分')} {clawdScore.toFixed(1)}
                   </div>
