@@ -73,7 +73,7 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
       if (settingRes.data.success) {
         const cfg = settingRes.data.data;
         setEnabled(!!cfg.enabled);
-        setWindowMinutes(Math.round((cfg.window_seconds || 300) / 60));
+        setWindowMinutes(Math.round((cfg.watch_interval_seconds || 300) / 60));
         setMinSampleSize(cfg.min_sample_size || 100);
         setGroupConfigs(cfg.group_configs || {});
       }
@@ -153,7 +153,7 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
     try {
       await API.put('/api/channel/clawd/setting', {
         enabled,
-        window_seconds: windowMinutes * 60,
+        watch_interval_seconds: windowMinutes * 60,
         min_sample_size: minSampleSize,
         group_configs: groupConfigs,
       });

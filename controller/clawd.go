@@ -43,7 +43,7 @@ func GetClawdModels(c *gin.Context) {
 
 func GetClawdScores(c *gin.Context) {
 	cfg := operation_setting.GetClawdSetting()
-	stats, err := service.ComputeChannelScores(int64(cfg.WindowSeconds))
+	stats, err := service.ComputeChannelScores(int64(cfg.WatchIntervalSeconds))
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -274,7 +274,6 @@ func GetClawdSetting(c *gin.Context) {
 		"data": gin.H{
 		"enabled":                cfg.Enabled,
 		"watch_interval_seconds": cfg.WatchIntervalSeconds,
-		"window_seconds":         cfg.WindowSeconds,
 		"min_sample_size":        cfg.MinSampleSize,
 		"group_configs":          cfg.GroupConfigs,
 		"observation_count":      cfg.ObservationCount,
@@ -289,7 +288,6 @@ func GetClawdSetting(c *gin.Context) {
 func UpdateClawdSetting(c *gin.Context) {
 	var req struct {
 		Enabled              *bool                        `json:"enabled"`
-		WindowSeconds        *int                         `json:"window_seconds"`
 		MinSampleSize        *int                         `json:"min_sample_size"`
 		WatchIntervalSeconds *int                         `json:"watch_interval_seconds"`
 		GroupConfigs         *map[string]operation_setting.ClawdGroupConfig `json:"group_configs"`
@@ -312,13 +310,6 @@ func UpdateClawdSetting(c *gin.Context) {
 	if req.Enabled != nil {
 		cfg.Enabled = *req.Enabled
 		if err := model.UpdateOption("clawd_setting.enabled", strconv.FormatBool(*req.Enabled)); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-	}
-	if req.WindowSeconds != nil && *req.WindowSeconds >= 60 {
-		cfg.WindowSeconds = *req.WindowSeconds
-		if err := model.UpdateOption("clawd_setting.window_seconds", strconv.Itoa(*req.WindowSeconds)); err != nil {
 			common.ApiError(c, err)
 			return
 		}
