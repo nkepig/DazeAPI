@@ -13,7 +13,6 @@ type ClawdGroupConfig struct {
 type ClawdSetting struct {
 	Enabled              bool                        `json:"enabled"`
 	WatchIntervalSeconds int                         `json:"watch_interval_seconds"`
-	WindowSeconds        int                         `json:"window_seconds"`
 	MinSampleSize        int                         `json:"min_sample_size"`
 	GroupConfigs         map[string]ClawdGroupConfig `json:"group_configs"`
 	ObservationCount     int                         `json:"observation_count"`
@@ -26,7 +25,6 @@ type ClawdSetting struct {
 var clawdSetting = ClawdSetting{
 	Enabled:              false,
 	WatchIntervalSeconds: 300,
-	WindowSeconds:        300,
 	MinSampleSize:        100,
 	GroupConfigs:         map[string]ClawdGroupConfig{},
 	ObservationCount:     3,

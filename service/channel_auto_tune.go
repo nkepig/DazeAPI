@@ -82,7 +82,7 @@ func runClawdTuneCycle() {
 	cfg := operation_setting.GetClawdSetting()
 	common.SysLog("Clawd: starting tune cycle")
 
-	groupStats, err := ComputeChannelScores(int64(cfg.WindowSeconds))
+	groupStats, err := ComputeChannelScores(int64(cfg.WatchIntervalSeconds))
 	if err != nil {
 		common.SysError("Clawd: compute scores failed: " + err.Error())
 		return

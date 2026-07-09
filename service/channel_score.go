@@ -200,7 +200,7 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 
 	type userRatioRow struct {
 		Id          int
-		GroupRatio  string
+		GroupRatio  string `gorm:"column:groupratio"`
 	}
 	var userRatioRows []userRatioRow
 	if len(userIds) > 0 {
