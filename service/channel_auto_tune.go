@@ -82,7 +82,7 @@ func runClawdTuneCycle() {
 	cfg := operation_setting.GetClawdSetting()
 	common.SysLog("Clawd: starting tune cycle")
 
-	groupStats, err := ComputeChannelScores(int64(cfg.WindowSeconds))
+	groupStats, err := ComputeChannelScores(int64(cfg.WatchIntervalSeconds))
 	if err != nil {
 		common.SysError("Clawd: compute scores failed: " + err.Error())
 		return
@@ -99,23 +99,9 @@ func runClawdTuneCycle() {
 			totalSample += ch.SampleCount
 		}
 		if totalSample < cfg.MinSampleSize {
-			common.SysLog(fmt.Sprintf("Clawd: group=%d total samples=%d < min=%d, skip",
+			common.SysLog(fmt.Sprintf("Clawd: group=%s total samples=%d < min=%d, skip",
 				clawdGroup, totalSample, cfg.MinSampleSize))
 			continue
-		}
-
-		problemChannels := make([]ChannelScore, 0)
-		healthyChannels := make([]ChannelScore, 0)
-
-		for i := range stats.Channels {
-			ch := stats.Channels[i]
-			isProblem, _ := IsProblemChannel(ch, stats)
-			if isProblem {
-				clone := ch
-				problemChannels = append(problemChannels, clone)
-			} else {
-				healthyChannels = append(healthyChannels, ch)
-			}
 		}
 
 		for _, ch := range stats.Channels {
@@ -130,97 +116,85 @@ func runClawdTuneCycle() {
 			}
 		}
 
-		sortedHealthy := make([]ChannelScore, len(healthyChannels))
-		copy(sortedHealthy, healthyChannels)
-		sort.Slice(sortedHealthy, func(i, j int) bool {
-			return sortedHealthy[i].Score > sortedHealthy[j].Score
+		sorted := make([]ChannelScore, len(stats.Channels))
+		copy(sorted, stats.Channels)
+		sort.SliceStable(sorted, func(i, j int) bool {
+			return sorted[i].Score > sorted[j].Score
 		})
 
-		for _, problemCh := range problemChannels {
-			original, err := model.GetChannelById(problemCh.ChannelId, true)
+		// 收集组内所有渠道的现有 priority，降序排列
+		type chWithPriority struct {
+			Score    ChannelScore
+			Priority int64
+		}
+		withPriorities := make([]chWithPriority, 0, len(sorted))
+		for _, ch := range sorted {
+			orig, err := model.GetChannelById(ch.ChannelId, true)
 			if err != nil {
 				continue
 			}
-			oldPriority := original.GetPriority()
+			withPriorities = append(withPriorities, chWithPriority{
+				Score:    ch,
+				Priority: orig.GetPriority(),
+			})
+		}
+		if len(withPriorities) == 0 {
+			continue
+		}
 
-			if original.ChannelInfo.ClawdInObservation && now < original.ChannelInfo.ClawdObservationUntil {
+		// 收集现有 priority 值并降序排列，分数最高的渠道拿最高的现有 priority
+		priorities := make([]int64, len(withPriorities))
+		for i, wp := range withPriorities {
+			priorities[i] = wp.Priority
+		}
+		sort.Slice(priorities, func(i, j int) bool {
+			return priorities[i] > priorities[j]
+		})
+
+		for rank, wp := range withPriorities {
+			ch := wp.Score
+			oldPriority := wp.Priority
+			newPriority := priorities[rank]
+
+			if wp.Score.ChannelId == 0 {
 				continue
 			}
 
-			var swapTarget *ChannelScore
-			for i := range sortedHealthy {
-				c := sortedHealthy[i]
-				orig, err := model.GetChannelById(c.ChannelId, true)
-				if err != nil {
-					continue
-				}
-				tp := orig.GetPriority()
-				if tp < oldPriority {
-					swapTarget = &c
-					break
-				}
-			}
-
-			if swapTarget == nil {
-				continue
-			}
-
-			swapOriginal, err := model.GetChannelById(swapTarget.ChannelId, true)
+			orig, err := model.GetChannelById(ch.ChannelId, true)
 			if err != nil {
 				continue
 			}
-			swapOldPriority := swapOriginal.GetPriority()
-
-			if err := model.UpdateChannelPriority(problemCh.ChannelId, swapOldPriority); err != nil {
-				common.SysError(fmt.Sprintf("Clawd: swap down failed channel=%d: %v", problemCh.ChannelId, err))
+			if orig.ChannelInfo.ClawdInObservation && now < orig.ChannelInfo.ClawdObservationUntil {
 				continue
 			}
-			if err := model.UpdateChannelPriority(swapTarget.ChannelId, oldPriority); err != nil {
-				common.SysError(fmt.Sprintf("Clawd: swap up failed channel=%d: %v", swapTarget.ChannelId, err))
-				_ = model.UpdateChannelPriority(problemCh.ChannelId, oldPriority)
+			if oldPriority == newPriority {
 				continue
 			}
 
-			_, reason := IsProblemChannel(problemCh, stats)
-
-			consecutiveDrops := original.ChannelInfo.ClawdConsecutiveDrops + 1
-			inObservation := false
-			observationUntil := int64(0)
-			if consecutiveDrops >= cfg.ObservationCount {
-				inObservation = true
-				observationUntil = now + int64(cfg.ObservationSeconds)
+			if err := model.UpdateChannelPriority(ch.ChannelId, newPriority); err != nil {
+				common.SysError(fmt.Sprintf("Clawd: set priority failed channel=%d: %v", ch.ChannelId, err))
+				continue
 			}
 
-			problemUpdate := model.ChannelScoreUpdate{
-				Score:              problemCh.Score,
-				ScoreFormula:       problemCh.ScoreFormula,
-				ScoreBreakdownJSON: BuildScoreBreakdownJSON(problemCh, clawdGroup),
+			reason := fmt.Sprintf("按分数排序: %.1f 分 → 优先级 %d", ch.Score, newPriority)
+			update := model.ChannelScoreUpdate{
+				Score:              ch.Score,
+				ScoreFormula:       ch.ScoreFormula,
+				ScoreBreakdownJSON: BuildScoreBreakdownJSON(ch, clawdGroup),
 				LastTuneAt:         now,
 				TuneReason:         reason,
-				ConsecutiveDrops:   consecutiveDrops,
-				InObservation:      inObservation,
-				ObservationUntil:   observationUntil,
 			}
-			_ = model.UpdateChannelClawdScore(problemCh.ChannelId, problemUpdate)
-
-			swapUpdate := model.ChannelScoreUpdate{
-				Score:              swapTarget.Score,
-				ScoreFormula:       swapTarget.ScoreFormula,
-				ScoreBreakdownJSON: BuildScoreBreakdownJSON(*swapTarget, clawdGroup),
-				LastTuneAt:         now,
-				TuneReason:         "与问题渠道交换 priority",
-			}
-			_ = model.UpdateChannelClawdScore(swapTarget.ChannelId, swapUpdate)
+			_ = model.UpdateChannelClawdScore(ch.ChannelId, update)
 
 			event := model.ChannelTuneEvent{
-				ChannelId:   problemCh.ChannelId,
-				ChannelName: problemCh.ChannelName,
-				Group:       problemCh.Group,
+				ChannelId:   ch.ChannelId,
+				ChannelName: ch.ChannelName,
+				Group:       ch.Group,
 				ClawdGroup:  clawdGroup,
 				OldPriority: oldPriority,
-				NewPriority: swapOldPriority,
-				OldScore:    problemCh.Score,
-				NewScore:    problemCh.Score,
+				NewPriority: newPriority,
+				OldScore:    ch.Score,
+				NewScore:    ch.Score,
 				Reason:      reason,
 				Trigger:     "clawd",
 				CreatedAt:   now,
@@ -228,25 +202,8 @@ func runClawdTuneCycle() {
 			_ = model.RecordChannelTuneEvent(&event)
 			GetClawdEventBus().Publish(event)
 
-			swapEvent := model.ChannelTuneEvent{
-				ChannelId:   swapTarget.ChannelId,
-				ChannelName: swapTarget.ChannelName,
-				Group:       swapTarget.Group,
-				ClawdGroup:  clawdGroup,
-				OldPriority: swapOldPriority,
-				NewPriority: oldPriority,
-				OldScore:    swapTarget.Score,
-				NewScore:    swapTarget.Score,
-				Reason:      "与问题渠道交换 priority",
-				Trigger:     "clawd",
-				CreatedAt:   now,
-			}
-			_ = model.RecordChannelTuneEvent(&swapEvent)
-			GetClawdEventBus().Publish(swapEvent)
-
-			common.SysLog(fmt.Sprintf("Clawd: swap channel=%d (%s) priority %d ↔ channel=%d (%s) priority %d, reason: %s",
-				problemCh.ChannelId, problemCh.ChannelName, oldPriority,
-				swapTarget.ChannelId, swapTarget.ChannelName, swapOldPriority, reason))
+			common.SysLog(fmt.Sprintf("Clawd: rank channel=%d (%s) priority %d → %d, score=%.1f",
+				ch.ChannelId, ch.ChannelName, oldPriority, newPriority, ch.Score))
 		}
 	}
 
@@ -254,8 +211,13 @@ func runClawdTuneCycle() {
 }
 
 func PublishManualTuneEvent(channelId int, oldPriority, newPriority int64, reason string) {
+	channelName := ""
+	if ch, err := model.GetChannelById(channelId, false); err == nil {
+		channelName = ch.Name
+	}
 	event := model.ChannelTuneEvent{
 		ChannelId:   channelId,
+		ChannelName: channelName,
 		OldPriority: oldPriority,
 		NewPriority: newPriority,
 		Reason:      reason,

@@ -67,8 +67,9 @@ type ChannelInfo struct {
 	MultiKeyMode           constant.MultiKeyMode `json:"multi_key_mode"`
 
 // Clawd 守护相关 - 渠道评分与自动调优（同组别内 swap priority）
-// 只有 ClawdGroup > 0 的渠道才会被评分、显示气泡、参与自动调整
-ClawdGroup              int     `json:"clawd_group,omitempty"`               // 监控组别编号 (0=未监视, 1/2/3=组别)
+// 只有 ClawdGroup != "" 的渠道才会被评分、显示气泡、参与自动调整
+ClawdGroup              FlexString `json:"clawd_group,omitempty"`               // 监控用户分组名 (空=未监视)
+ClawdCostRatio          float64 `json:"clawd_cost_ratio,omitempty"`          // 成本倍率 (用户手动填写)
 ClawdScore              float64 `json:"clawd_score,omitempty"`                // 最近评分 (0-100)
 	ClawdScoreFormula       string  `json:"clawd_score_formula,omitempty"`        // "0.98 × 60 + 0.05 × 40 = 60.2"
 	ClawdScoreBreakdownJSON string  `json:"clawd_score_breakdown,omitempty"`      // JSON: {"success_rate":0.98,"avg_use_time":1.2,...}

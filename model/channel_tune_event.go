@@ -9,7 +9,7 @@ type ChannelTuneEvent struct {
 	ChannelId   int     `json:"channel_id" gorm:"index"`
 	ChannelName string  `json:"channel_name"`
 	Group       string  `json:"group"`
-	ClawdGroup  int     `json:"clawd_group"`
+	ClawdGroup  string  `json:"clawd_group"`
 	OldPriority int64   `json:"old_priority"`
 	NewPriority int64   `json:"new_priority"`
 	OldScore    float64 `json:"old_score"`
