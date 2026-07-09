@@ -404,10 +404,8 @@ export const getChannelsColumns = ({
                   return {};
                 }
               })()) || {};
-        const clawdGroup = clawdInfoRaw.clawd_group || 0;
+        const clawdGroup = clawdInfoRaw.clawd_group || '';
         const clawdScore = clawdInfoRaw.clawd_score || 0;
-        const clawdReason = clawdInfoRaw.clawd_tune_reason || '';
-        const clawdScoreFormula = clawdInfoRaw.clawd_score_formula || '';
         let clawdBreakdown = null;
         if (clawdInfoRaw.clawd_score_breakdown) {
           try {
@@ -419,50 +417,40 @@ export const getChannelsColumns = ({
             clawdBreakdown = null;
           }
         }
-        const showClawdScore = clawdGroup > 0;
-        const clawdWatched = clawdGroup > 0;
+        const clawdWatched = !!clawdGroup && String(clawdGroup) !== '0';
+        const showClawdScore = clawdWatched;
         const clawdNameStyle = clawdWatched
           ? { color: '#DE886D', fontWeight: 600 }
           : undefined;
 
         const clawdTooltipContent = clawdWatched ? (
-          <div style={{ maxWidth: 240 }}>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              Clawd {t('评分')} · {t('组别')} {clawdGroup}
+          <div style={{ maxWidth: 280, fontSize: 11, lineHeight: 1.7 }}>
+            <div style={{ color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
+              {t('样本')} {clawdBreakdown?.sample_count ?? 0}
+              {clawdBreakdown && <> · {t('成功率')} {(clawdBreakdown.success_rate * 100).toFixed(1)}%</>}
+              {clawdBreakdown && <> · {t('耗时')} {clawdBreakdown.avg_use_time.toFixed(2)}s</>}
+              {clawdBreakdown && clawdBreakdown.cost_ratio > 0 && (
+                <> · {t('利润')} {clawdBreakdown.profit.toFixed(2)}</>
+              )}
             </div>
-            {clawdScoreFormula ? (
-              <div
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  background: 'var(--semi-color-fill-0)',
-                  padding: '3px 6px',
-                  borderRadius: 4,
-                  marginBottom: 4,
-                  color: 'var(--semi-color-text-1)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {clawdScoreFormula}
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
-                {t('当前分数')}: <span style={{ fontWeight: 600, color: '#DE886D' }}>{clawdScore.toFixed(1)}</span>
-              </div>
-            )}
-            {clawdBreakdown && (
-              <div style={{ fontSize: 11, color: 'var(--semi-color-text-2)', marginBottom: clawdReason ? 4 : 0 }}>
-                {t('样本')} {clawdBreakdown.sample_count} · {t('耗时')} {clawdBreakdown.avg_use_time.toFixed(2)}s
-                {clawdBreakdown.cost_ratio > 0 && (
-                  <> · {t('成本')} {clawdBreakdown.cost_ratio.toFixed(2)} · {t('利润')} {clawdBreakdown.profit.toFixed(2)}</>
-                )}
-              </div>
-            )}
-            {clawdReason && (
-              <div style={{ fontSize: 11, color: 'var(--semi-color-text-2)', borderTop: '1px solid var(--semi-color-border)', paddingTop: 3 }}>
-                {clawdReason}
-              </div>
-            )}
+            {clawdBreakdown && (() => {
+              const pw = (clawdBreakdown.price_weight ?? 0) * 100;
+              const sw = (clawdBreakdown.success_weight ?? 0) * 100;
+              const lw = (clawdBreakdown.latency_weight ?? 0) * 100;
+              const priceContrib = clawdBreakdown.price_score * (clawdBreakdown.price_weight ?? 0);
+              const successContrib = clawdBreakdown.success_score * (clawdBreakdown.success_weight ?? 0);
+              const latencyContrib = clawdBreakdown.latency_score * (clawdBreakdown.latency_weight ?? 0);
+              return (
+                <div style={{ fontFamily: 'monospace', color: 'var(--semi-color-text-1)' }}>
+                  <div>{t('价格')} {clawdBreakdown.price_score.toFixed(0)} × {pw.toFixed(0)}% = {priceContrib.toFixed(1)}</div>
+                  <div>{t('成功')} {clawdBreakdown.success_score.toFixed(0)} × {sw.toFixed(0)}% = {successContrib.toFixed(1)}</div>
+                  <div>{t('速度')} {clawdBreakdown.latency_score.toFixed(0)} × {lw.toFixed(0)}% = {latencyContrib.toFixed(1)}</div>
+                  <div style={{ borderTop: '1px solid var(--semi-color-border)', marginTop: 2, paddingTop: 2 }}>
+                    {t('总分')} {clawdScore.toFixed(1)}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ) : null;
         const innerNameNode =

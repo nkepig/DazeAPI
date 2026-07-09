@@ -131,6 +131,32 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
     return Array.from(set).sort();
   }, [allChannels]);
 
+  const groupedEventsByClawdGroup = useMemo(() => {
+    const byGroup = {};
+    for (const ev of events) {
+      const g = String(ev.clawd_group || '');
+      if (!byGroup[g]) byGroup[g] = {};
+      const key = ev.created_at;
+      if (!byGroup[g][key]) byGroup[g][key] = [];
+      byGroup[g][key].push(ev);
+    }
+    const result = {};
+    for (const [g, tsMap] of Object.entries(byGroup)) {
+      result[g] = Object.entries(tsMap)
+        .sort((a, b) => Number(b[0]) - Number(a[0]))
+        .map(([ts, evs]) => {
+          const before = evs
+            .map((ev) => `${ev.channel_name || '#' + ev.channel_id}: ${ev.old_priority}`)
+            .join(', ');
+          const after = evs
+            .map((ev) => `${ev.channel_name || '#' + ev.channel_id}: ${ev.new_priority}`)
+            .join(', ');
+          return { created_at: Number(ts), before, after };
+        });
+    }
+    return result;
+  }, [events]);
+
   const unusedGroups = availableUserGroups.filter(
     (g) => !monitoredGroups.includes(g),
   );
@@ -279,12 +305,6 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
     const gd = groupScoreData(groupName);
     if (!gd || !gd.channels) return null;
     return gd.channels.find((c) => c.channel_id === channelId);
-  };
-
-  const scoreColor = (s) => {
-    if (s >= 80) return 'var(--semi-color-success)';
-    if (s >= 50) return 'var(--semi-color-warning)';
-    return 'var(--semi-color-danger)';
   };
 
   const labelStyle = {
@@ -746,80 +766,45 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
                                 hideButtons
                               />
                             )}
-                            {watched && (
-                              <span
-                                style={{
-                                  flex: '0 0 30px',
-                                  textAlign: 'right',
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  color: scoreColor(watched.clawd_score || 0),
-                                }}
-                              >
-                                {watched.clawd_score ? watched.clawd_score.toFixed(1) : '–'}
-                              </span>
-                            )}
                           </div>
                         );
                       })}
                     </div>
+                    {(() => {
+                      const groupEvents = groupedEventsByClawdGroup[groupName] || [];
+                      if (groupEvents.length === 0) return null;
+                      return (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--semi-color-border)' }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                            {t('调整记录')}
+                          </div>
+                          <div style={{ maxHeight: 100, overflowY: 'auto', fontSize: 11, lineHeight: 1.6 }}>
+                            {groupEvents.map((grp) => (
+                              <div
+                                key={grp.created_at}
+                                style={{
+                                  padding: '2px 0',
+                                  color: 'var(--semi-color-text-2)',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {formatTime(grp.created_at)}{' '}
+                                <span style={{ color: 'var(--semi-color-text-1)' }}>
+                                  [{grp.before}] → [{grp.after}]
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </Collapse.Panel>
                 );
               })}
             </Collapse>
           )}
-
-          {/* ── 调整记录 ── */}
-          <div
-            style={{
-              marginTop: 16,
-              paddingTop: 12,
-              borderTop: '1px solid var(--semi-color-border)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 6,
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 600 }}>
-                {t('调整记录')}
-              </span>
-              <span style={labelStyle}>{events.length}</span>
-            </div>
-            {events.length === 0 ? null : (
-              <div
-                style={{
-                  maxHeight: 140,
-                  overflowY: 'auto',
-                  fontSize: 11,
-                  lineHeight: 1.6,
-                }}
-              >
-                {events.map((ev) => (
-                  <div
-                    key={ev.id}
-                    style={{
-                      padding: '3px 0',
-                      color: 'var(--semi-color-text-2)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {formatTime(ev.created_at)} ·{' '}
-                    {ev.channel_name || '#' + ev.channel_id} ·{' '}
-                    <span style={{ color: 'var(--semi-color-text-1)' }}>
-                      {ev.old_priority} → {ev.new_priority}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </Modal>
