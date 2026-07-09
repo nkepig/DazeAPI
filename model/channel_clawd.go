@@ -12,20 +12,21 @@ func GetWatchedChannels() ([]*Channel, error) {
 	}
 	watched := make([]*Channel, 0, len(channels))
 	for _, ch := range channels {
-		if ch.ChannelInfo.ClawdGroup > 0 {
+		if ch.ChannelInfo.ClawdGroup != "" {
 			watched = append(watched, ch)
 		}
 	}
 	return watched, nil
 }
 
-func SetChannelClawdGroup(channelId int, group int) error {
+func SetChannelClawdGroup(channelId int, group string, costRatio float64) error {
 	ch, err := GetChannelById(channelId, true)
 	if err != nil {
 		return err
 	}
-	ch.ChannelInfo.ClawdGroup = group
-	if group == 0 {
+	ch.ChannelInfo.ClawdGroup = FlexString(group)
+	if group == "" {
+		ch.ChannelInfo.ClawdCostRatio = 0
 		ch.ChannelInfo.ClawdScore = 0
 		ch.ChannelInfo.ClawdScoreFormula = ""
 		ch.ChannelInfo.ClawdScoreBreakdownJSON = ""
@@ -33,7 +34,23 @@ func SetChannelClawdGroup(channelId int, group int) error {
 		ch.ChannelInfo.ClawdInObservation = false
 		ch.ChannelInfo.ClawdObservationUntil = 0
 		ch.ChannelInfo.ClawdConsecutiveDrops = 0
+	} else if costRatio > 0 {
+		ch.ChannelInfo.ClawdCostRatio = costRatio
 	}
+	infoBytes, err := common.Marshal(&ch.ChannelInfo)
+	if err != nil {
+		return err
+	}
+	return DB.Model(&Channel{}).Where("id = ?", channelId).
+		Update("channel_info", string(infoBytes)).Error
+}
+
+func SetChannelClawdCostRatio(channelId int, costRatio float64) error {
+	ch, err := GetChannelById(channelId, true)
+	if err != nil {
+		return err
+	}
+	ch.ChannelInfo.ClawdCostRatio = costRatio
 	infoBytes, err := common.Marshal(&ch.ChannelInfo)
 	if err != nil {
 		return err
@@ -108,4 +125,3 @@ func GetChannelPriority(channelId int) (int64, error) {
 	}
 	return ch.GetPriority(), nil
 }
-

@@ -447,12 +447,15 @@ export const getChannelsColumns = ({
               </div>
             ) : (
               <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
-                {t('当前分数')}: <span style={{ fontWeight: 600, color: '#DE886D' }}>{clawdScore.toFixed(0)}</span>
+                {t('当前分数')}: <span style={{ fontWeight: 600, color: '#DE886D' }}>{clawdScore.toFixed(1)}</span>
               </div>
             )}
             {clawdBreakdown && (
               <div style={{ fontSize: 11, color: 'var(--semi-color-text-2)', marginBottom: clawdReason ? 4 : 0 }}>
                 {t('样本')} {clawdBreakdown.sample_count} · {t('耗时')} {clawdBreakdown.avg_use_time.toFixed(2)}s
+                {clawdBreakdown.cost_ratio > 0 && (
+                  <> · {t('成本')} {clawdBreakdown.cost_ratio.toFixed(2)} · {t('利润')} {clawdBreakdown.profit.toFixed(2)}</>
+                )}
               </div>
             )}
             {clawdReason && (
@@ -536,7 +539,7 @@ export const getChannelsColumns = ({
                   }
                   className='cursor-default'
                 >
-                  {clawdScore.toFixed(0)}
+                  {clawdScore.toFixed(1)}
                 </Tag>
               </Tooltip>
             )}

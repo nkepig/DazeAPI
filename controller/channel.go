@@ -1083,7 +1083,7 @@ func UpdateChannel(c *gin.Context) {
 
 	oldPriority := originChannel.GetPriority()
 	newPriority := channel.GetPriority()
-	if oldPriority != newPriority && channel.ChannelInfo.ClawdGroup > 0 {
+	if oldPriority != newPriority && channel.ChannelInfo.ClawdGroup != "" {
 		service.PublishManualTuneEvent(channel.Id, oldPriority, newPriority,
 			"手动调整 priority")
 	}

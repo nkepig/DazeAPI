@@ -157,6 +157,7 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.GET("/clawd/scores", controller.GetClawdScores)
 			channelRoute.GET("/clawd/watched", controller.GetClawdWatchedChannels)
 			channelRoute.POST("/clawd/watched/:id", controller.SetClawdWatched)
+			channelRoute.POST("/clawd/cost_ratio/:id", controller.SetClawdCostRatio)
 			channelRoute.GET("/clawd/events", controller.GetClawdTuneEvents)
 			channelRoute.GET("/clawd/events/stream", controller.ClawdTuneEventStream)
 			channelRoute.GET("/clawd/setting", controller.GetClawdSetting)
