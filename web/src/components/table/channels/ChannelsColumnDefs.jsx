@@ -424,7 +424,7 @@ export const getChannelsColumns = ({
           : undefined;
 
         const clawdTooltipContent = clawdWatched ? (
-          <div style={{ maxWidth: 380, fontSize: 11, lineHeight: 1.7 }}>
+          <div style={{ maxWidth: 220, fontSize: 11, lineHeight: 1.6 }}>
             <div style={{ color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
               {t('样本')} {clawdBreakdown?.sample_count ?? 0}
             </div>
@@ -437,25 +437,37 @@ export const getChannelsColumns = ({
               const latencyContrib = (clawdBreakdown.latency_score ?? 0) * (clawdBreakdown.latency_weight ?? 0);
               const hasProfit = (clawdBreakdown.cost_ratio ?? 0) > 0;
               const hasLatency = (clawdBreakdown.min_use_time ?? 0) > 0 && (clawdBreakdown.avg_use_time ?? 0) > 0;
+              const rawStyle = { color: 'var(--semi-color-text-2)' };
+              const scoreStyle = { color: 'var(--semi-color-text-1)', paddingLeft: 8 };
               return (
-                <div style={{ fontFamily: 'monospace', color: 'var(--semi-color-text-1)' }}>
+                <div style={{ fontFamily: 'monospace' }}>
                   {hasProfit && (
-                    <div>
-                      {t('利润')} {(clawdBreakdown.profit ?? 0).toFixed(3)} / {t('最高')} {(clawdBreakdown.max_profit ?? 0).toFixed(3)}
-                      {' → '}{t('价格')} {(clawdBreakdown.price_score ?? 0).toFixed(0)} × {pw.toFixed(0)}% = {priceContrib.toFixed(1)}
-                    </div>
+                    <>
+                      <div style={rawStyle}>
+                        {t('利润')} {(clawdBreakdown.profit ?? 0).toFixed(3)} / {t('最高')} {(clawdBreakdown.max_profit ?? 0).toFixed(3)}
+                      </div>
+                      <div style={scoreStyle}>
+                        → {(clawdBreakdown.price_score ?? 0).toFixed(0)} × {pw.toFixed(0)}% = {priceContrib.toFixed(1)}
+                      </div>
+                    </>
                   )}
-                  <div>
+                  <div style={rawStyle}>
                     {t('成功率')} {((clawdBreakdown.success_rate ?? 0) * 100).toFixed(1)}% / {t('最高')} {((clawdBreakdown.max_success_rate ?? 0) * 100).toFixed(1)}%
-                    {' → '}{t('成功')} {(clawdBreakdown.success_score ?? 0).toFixed(0)} × {sw.toFixed(0)}% = {successContrib.toFixed(1)}
+                  </div>
+                  <div style={scoreStyle}>
+                    → {(clawdBreakdown.success_score ?? 0).toFixed(0)} × {sw.toFixed(0)}% = {successContrib.toFixed(1)}
                   </div>
                   {hasLatency && (
-                    <div>
-                      {t('耗时')} {(clawdBreakdown.avg_use_time ?? 0).toFixed(2)}s / {t('最快')} {(clawdBreakdown.min_use_time ?? 0).toFixed(2)}s
-                      {' → '}{t('速度')} {(clawdBreakdown.latency_score ?? 0).toFixed(0)} × {lw.toFixed(0)}% = {latencyContrib.toFixed(1)}
-                    </div>
+                    <>
+                      <div style={rawStyle}>
+                        {t('耗时')} {(clawdBreakdown.avg_use_time ?? 0).toFixed(2)}s / {t('最快')} {(clawdBreakdown.min_use_time ?? 0).toFixed(2)}s
+                      </div>
+                      <div style={scoreStyle}>
+                        → {(clawdBreakdown.latency_score ?? 0).toFixed(0)} × {lw.toFixed(0)}% = {latencyContrib.toFixed(1)}
+                      </div>
+                    </>
                   )}
-                  <div style={{ borderTop: '1px solid var(--semi-color-border)', marginTop: 2, paddingTop: 2 }}>
+                  <div style={{ borderTop: '1px solid var(--semi-color-border)', marginTop: 4, paddingTop: 4, color: 'var(--semi-color-text-1)' }}>
                     {t('总分')} {clawdScore.toFixed(1)}
                   </div>
                 </div>

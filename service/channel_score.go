@@ -8,7 +8,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
 type ChannelScore struct {
@@ -77,8 +76,8 @@ type channelAgg struct {
 }
 
 type clawdGroupData struct {
-	channelAggs     map[int]*channelAgg
-	userGroupCounts map[string]int64
+	channelAggs map[int]*channelAgg
+	groupCounts map[string]int64
 }
 
 func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, error) {
@@ -129,6 +128,8 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 	}
 
 	clawdGroups := make(map[string]*clawdGroupData)
+	groupSet := make(map[string]struct{})
+	var groupList []string
 
 	for _, r := range results {
 		ch, ok := channelIdToChannel[r.ChannelId]
@@ -142,8 +143,8 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 
 		if _, ok := clawdGroups[cg]; !ok {
 			clawdGroups[cg] = &clawdGroupData{
-				channelAggs:     make(map[int]*channelAgg),
-				userGroupCounts: make(map[string]int64),
+				channelAggs: make(map[int]*channelAgg),
+				groupCounts: make(map[string]int64),
 			}
 		}
 		gd := clawdGroups[cg]
@@ -160,13 +161,104 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 		agg.SumUseTime += r.SumUseTime
 		agg.TimedCount += r.TimedCount
 		total := r.SuccessCount + r.ErrorCount
-		gd.userGroupCounts[r.Group] += total
+		gd.groupCounts[r.Group] += total
+
+		if _, ok := groupSet[r.Group]; !ok {
+			groupSet[r.Group] = struct{}{}
+			groupList = append(groupList, r.Group)
+		}
 	}
 
 	clawdGroupStats := make(map[string]*ChannelScoreStats)
 
+	// 按实际用户倍率加权平均：查 (group, user_id) 调用量，再批量查用户 groupratio
+	// group_discount 是每个用户的 groupratio 对该 group 的倍率，不同用户可能不同，不能用单条 log 代表
+	type userGroupCount struct {
+		Group   string
+		UserId  int
+		ReqCount int64
+	}
+	var userGroupCounts []userGroupCount
+	err = model.LOG_DB.Table("logs").
+		Select("\"group\", user_id, COUNT(*) as req_count").
+		Where("channel_id IN ? AND type IN ? AND created_at >= ? AND created_at <= ?",
+			channelIds, []int{model.LogTypeConsume, model.LogTypeError}, startTimestamp, endTimestamp).
+		Group("\"group\", user_id").
+		Scan(&userGroupCounts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	userIdSet := make(map[int]struct{})
+	var userIds []int
+	for _, ugc := range userGroupCounts {
+		if _, ok := userIdSet[ugc.UserId]; !ok {
+			userIdSet[ugc.UserId] = struct{}{}
+			userIds = append(userIds, ugc.UserId)
+		}
+	}
+
+	type userRatioRow struct {
+		Id          int
+		GroupRatio  string
+	}
+	var userRatioRows []userRatioRow
+	if len(userIds) > 0 {
+		err = model.DB.Table("users").
+			Select("id, groupratio").
+			Where("id IN ?", userIds).
+			Scan(&userRatioRows).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+	userGroupRatio := make(map[int]map[string]float64)
+	for _, ur := range userRatioRows {
+		ratios := make(map[string]float64)
+		if ur.GroupRatio != "" {
+			var raw map[string]any
+			if jsonErr := common.UnmarshalJsonStr(ur.GroupRatio, &raw); jsonErr == nil {
+				for g, v := range raw {
+					if f, ok := v.(float64); ok {
+						ratios[g] = f
+					}
+				}
+			}
+		}
+		userGroupRatio[ur.Id] = ratios
+	}
+
+	groupDiscounts := make(map[string]float64)
+	groupDiscountSum := make(map[string]float64)
+	groupDiscountCount := make(map[string]int64)
+	for _, ugc := range userGroupCounts {
+		ratios := userGroupRatio[ugc.UserId]
+		ratio, ok := ratios[ugc.Group]
+		if !ok || ratio <= 0 {
+			ratio = 1.0
+		}
+		groupDiscountSum[ugc.Group] += ratio * float64(ugc.ReqCount)
+		groupDiscountCount[ugc.Group] += ugc.ReqCount
+	}
+	for g, cnt := range groupDiscountCount {
+		if cnt > 0 {
+			groupDiscounts[g] = groupDiscountSum[g] / float64(cnt)
+		} else {
+			groupDiscounts[g] = 1.0
+		}
+	}
+
 	for cg, gd := range clawdGroups {
-		avgUserRatio := computeAvgUserRatio(gd.userGroupCounts)
+		var discountSum float64
+		var totalCount int64
+		for groupName, count := range gd.groupCounts {
+			discountSum += groupDiscounts[groupName] * float64(count)
+			totalCount += count
+		}
+		avgUserRatio := 1.0
+		if totalCount > 0 {
+			avgUserRatio = discountSum / float64(totalCount)
+		}
 
 		stats := &ChannelScoreStats{
 			ClawdGroup:   cg,
@@ -279,26 +371,6 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 	}
 
 	return clawdGroupStats, nil
-}
-
-func computeAvgUserRatio(groupCounts map[string]int64) float64 {
-	if len(groupCounts) == 0 {
-		return 1.0
-	}
-	var totalWeight, weightedSum float64
-	grs := ratio_setting.GetGroupRatioSetting().GroupRatio
-	for groupName, cnt := range groupCounts {
-		ratio, ok := grs.Get(groupName)
-		if !ok {
-			ratio = 1.0
-		}
-		weightedSum += ratio * float64(cnt)
-		totalWeight += float64(cnt)
-	}
-	if totalWeight == 0 {
-		return 1.0
-	}
-	return weightedSum / totalWeight
 }
 
 func BuildScoreBreakdownJSON(ch ChannelScore, clawdGroup string) string {
