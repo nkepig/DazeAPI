@@ -122,26 +122,48 @@ func runClawdTuneCycle() {
 			return sorted[i].Score > sorted[j].Score
 		})
 
-		maxPriority := int64(0)
+		// 收集组内所有渠道的现有 priority，降序排列
+		type chWithPriority struct {
+			Score    ChannelScore
+			Priority int64
+		}
+		withPriorities := make([]chWithPriority, 0, len(sorted))
 		for _, ch := range sorted {
 			orig, err := model.GetChannelById(ch.ChannelId, true)
 			if err != nil {
 				continue
 			}
-			if orig.GetPriority() > maxPriority {
-				maxPriority = orig.GetPriority()
-			}
+			withPriorities = append(withPriorities, chWithPriority{
+				Score:    ch,
+				Priority: orig.GetPriority(),
+			})
 		}
-		basePriority := maxPriority + 1
+		if len(withPriorities) == 0 {
+			continue
+		}
 
-		for rank, ch := range sorted {
+		// 收集现有 priority 值并降序排列，分数最高的渠道拿最高的现有 priority
+		priorities := make([]int64, len(withPriorities))
+		for i, wp := range withPriorities {
+			priorities[i] = wp.Priority
+		}
+		sort.Slice(priorities, func(i, j int) bool {
+			return priorities[i] > priorities[j]
+		})
+
+		for rank, wp := range withPriorities {
+			ch := wp.Score
+			oldPriority := wp.Priority
+			newPriority := priorities[rank]
+
+			if wp.Score.ChannelId == 0 {
+				continue
+			}
+
 			orig, err := model.GetChannelById(ch.ChannelId, true)
 			if err != nil {
 				continue
 			}
-			oldPriority := orig.GetPriority()
-			newPriority := basePriority - int64(rank)
-
 			if orig.ChannelInfo.ClawdInObservation && now < orig.ChannelInfo.ClawdObservationUntil {
 				continue
 			}
@@ -189,8 +211,13 @@ func runClawdTuneCycle() {
 }
 
 func PublishManualTuneEvent(channelId int, oldPriority, newPriority int64, reason string) {
+	channelName := ""
+	if ch, err := model.GetChannelById(channelId, false); err == nil {
+		channelName = ch.Name
+	}
 	event := model.ChannelTuneEvent{
 		ChannelId:   channelId,
+		ChannelName: channelName,
 		OldPriority: oldPriority,
 		NewPriority: newPriority,
 		Reason:      reason,
