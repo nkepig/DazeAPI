@@ -424,7 +424,7 @@ export const getChannelsColumns = ({
           : undefined;
 
         const clawdTooltipContent = clawdWatched ? (
-          <div style={{ maxWidth: 300, fontSize: 11, lineHeight: 1.7 }}>
+          <div style={{ maxWidth: 380, fontSize: 11, lineHeight: 1.7 }}>
             <div style={{ color: 'var(--semi-color-text-2)', marginBottom: 4 }}>
               {t('样本')} {clawdBreakdown?.sample_count ?? 0}
             </div>

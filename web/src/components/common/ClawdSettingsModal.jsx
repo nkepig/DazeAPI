@@ -59,6 +59,7 @@ const ClawdSettingsModal = ({ visible, onClose }) => {
   const [events, setEvents] = useState([]);
   const [monitoredGroups, setMonitoredGroups] = useState([]);
   const [activeKey, setActiveKey] = useState([]);
+  const [addGroupKey, setAddGroupKey] = useState(0);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
