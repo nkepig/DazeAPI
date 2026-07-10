@@ -62,18 +62,17 @@ func StartClawdScheduler() {
 		for {
 			cfg := operation_setting.GetClawdSetting()
 			if !cfg.Enabled {
-				time.Sleep(1 * time.Minute)
+				time.Sleep(10 * time.Second)
 				continue
 			}
+			// Use Sleep (not Ticker) so interval changes take effect without restart.
+			runClawdTuneCycle()
+
 			interval := time.Duration(cfg.WatchIntervalSeconds) * time.Second
 			if interval < time.Minute {
 				interval = time.Minute
 			}
 			time.Sleep(interval)
-			if !operation_setting.GetClawdSetting().Enabled {
-				continue
-			}
-			runClawdTuneCycle()
 		}
 	})
 }
@@ -94,16 +93,7 @@ func runClawdTuneCycle() {
 			continue
 		}
 
-		totalSample := 0
-		for _, ch := range stats.Channels {
-			totalSample += ch.SampleCount
-		}
-		if totalSample < cfg.MinSampleSize {
-			common.SysLog(fmt.Sprintf("Clawd: group=%s total samples=%d < min=%d, skip",
-				clawdGroup, totalSample, cfg.MinSampleSize))
-			continue
-		}
-
+		// Update breakdown before the MinSampleSize gate so cost_ratio always stays current.
 		for _, ch := range stats.Channels {
 			breakdownJSON := BuildScoreBreakdownJSON(ch, clawdGroup)
 			scoreUpdate := model.ChannelScoreUpdate{
@@ -114,6 +104,16 @@ func runClawdTuneCycle() {
 			if err := model.UpdateChannelClawdScore(ch.ChannelId, scoreUpdate); err != nil {
 				common.SysError(fmt.Sprintf("Clawd: update score failed channel=%d: %v", ch.ChannelId, err))
 			}
+		}
+
+		totalSample := 0
+		for _, ch := range stats.Channels {
+			totalSample += ch.SampleCount
+		}
+		if totalSample < cfg.MinSampleSize {
+			common.SysLog(fmt.Sprintf("Clawd: group=%s total samples=%d < min=%d, skip priority tuning",
+				clawdGroup, totalSample, cfg.MinSampleSize))
+			continue
 		}
 
 		sorted := make([]ChannelScore, len(stats.Channels))
