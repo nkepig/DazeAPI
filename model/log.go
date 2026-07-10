@@ -118,6 +118,9 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			delete(otherMap, "admin_info")
 			delete(otherMap, "reject_reason")
 			delete(otherMap, "channel_name")
+			// model redirect is not exposed on the self-service log API.
+			delete(otherMap, "is_model_mapped")
+			delete(otherMap, "upstream_model_name")
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 		logs[i].Id = startIdx + i + 1
