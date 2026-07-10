@@ -41,7 +41,7 @@ func GetAllEnableAbilityWithChannels() ([]AbilityWithChannel, error) {
 func GetGroupEnabledModels(group string) []string {
 	var models []string
 	// Find distinct models
-	DB.Table("abilities").Where(commonGroupCol+" = ? and enabled = ?", group, true).Distinct("model").Pluck("model", &models)
+	DB.Table("abilities").Where("\"group\""+" = ? and enabled = ?", group, true).Distinct("model").Pluck("model", &models)
 	return models
 }
 
@@ -60,10 +60,10 @@ type GroupedModel struct {
 func GetEnabledModelsGrouped() []GroupedModel {
 	var result []GroupedModel
 	DB.Table("abilities").
-		Select(commonGroupCol+" as \"group\", model").
+		Select("\"group\""+" as \"group\", model").
 		Where("enabled = ?", true).
-		Group(commonGroupCol + ", model").
-		Order(commonGroupCol + ", model").
+		Group("\"group\"" + ", model").
+		Order("\"group\"" + ", model").
 		Scan(&result)
 	return result
 }
@@ -111,7 +111,7 @@ func getPriority(group string, model string, retry int) (int, error) {
 	var priorities []int
 	err := DB.Model(&Ability{}).
 		Select("DISTINCT(priority)").
-		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+		Where("\"group\""+" = ? and model = ? and enabled = ?", group, model, true).
 		Order("priority DESC").              // 按优先级降序排序
 		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
 
@@ -132,14 +132,14 @@ func getPriority(group string, model string, retry int) (int, error) {
 }
 
 func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
-	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
+	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where("\"group\""+" = ? and model = ? and enabled = ?", group, model, true)
+	channelQuery := DB.Where("\"group\""+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
 	if retry != 0 {
 		priority, err := getPriority(group, model, retry)
 		if err != nil {
 			return nil, err
 		} else {
-			channelQuery = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
+			channelQuery = DB.Where("\"group\""+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
 		}
 	}
 

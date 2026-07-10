@@ -7,7 +7,7 @@ AI gateway/proxy in Go. Unified surface over 40+ upstream providers, with admin 
 Primary stack:
 - Backend: Go, Gin, GORM
 - Frontend: React 18, Vite, Semi UI
-- Data: SQLite + MySQL + PostgreSQL, Redis
+- Data: PostgreSQL, Redis (SQLite retained for test harnesses only)
 - Frontend package manager: Bun
 
 ## Structure
@@ -46,7 +46,7 @@ Child guidance lives in:
 | Frontend bootstrap | `web/src/index.jsx` | providers, router, i18n, Semi locale |
 | Frontend route map | `web/src/App.jsx` | lazy pages + auth guards |
 | Shared API client | `web/src/helpers/api.js` | axios instance, auth headers, duplicate-GET suppression |
-| Billing/settlement tests | `service/task_billing_test.go` | in-memory SQLite harness, quota/refund assertions |
+| Billing/settlement tests | `service/task_billing_test.go` | in-memory SQLite harness (tests only), quota/refund assertions |
 | Release/build flow | `.github/workflows/`, `Dockerfile`, `makefile` | Bun + Go + Electron + Docker |
 
 ## Conventions
@@ -54,7 +54,7 @@ Child guidance lives in:
 ### Backend
 - Layering stays `Router -> Controller -> Service -> Model`.
 - Business-code JSON goes through `common/json.go` wrappers, not direct `encoding/json` calls.
-- DB changes must work on SQLite, MySQL, and PostgreSQL together.
+- DB changes must work on PostgreSQL (production) and SQLite (test harnesses only).
 - Optional upstream request scalars use pointer fields with `omitempty`; explicit zero/false must survive re-marshal.
 - `constant/` is constants-only: no project-local imports, no business logic, update `constant/README.md` when adding files.
 
@@ -89,5 +89,5 @@ docker compose up -d
 ## Notes
 
 - `main.go` serves embedded frontend assets unless `FRONTEND_BASE_URL` redirects web routes externally.
-- `docker-compose.yml` defaults to PostgreSQL + Redis; MySQL remains a commented alternative.
+- `docker-compose.yml` defaults to PostgreSQL + Redis.
 - `electron/` is a packaging target, not the source of truth for product logic.
