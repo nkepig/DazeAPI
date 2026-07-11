@@ -9,4 +9,6 @@ dependencies = [
     "agno>=2.6.22",
     "openai>=2.44.0",
     "psycopg[binary]>=3.3.4",
+    "lancedb>=0.20.0",
+    "trafilatura>=2.0",
 ]
