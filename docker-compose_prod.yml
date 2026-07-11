@@ -75,6 +75,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - ./uqapi-1_data/logs:/logs:ro
+      - ./uqapi-1_data/lancedb:/data/lancedb
     depends_on:
       - postgres
     networks:
