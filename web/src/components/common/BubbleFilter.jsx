@@ -23,18 +23,11 @@ import { Tooltip } from '@douyinfe/semi-ui';
 import { IconChevronDown } from '@douyinfe/semi-icons';
 
 const STYLE_ID = 'dazeapi-bubble-filter-style';
-const CLOSE_DELAY = 400;
 const CLOSE_ANIMATION_DURATION = 480;
-
-const openInstances = new Set();
-
-const closeAllOtherInstances = (current) => {
-  openInstances.forEach((instance) => {
-    if (instance !== current) {
-      instance.closeImmediate();
-    }
-  });
-};
+// After a bubble is opened by click, if no interaction touches it for this long,
+// it auto-collapses. Multiple bubbles can stay open at once; each has its own
+// idle timer.
+const IDLE_TIMEOUT = 3000;
 
 const ensureBubbleFilterStyles = () => {
   if (typeof document === 'undefined') {
@@ -172,6 +165,10 @@ const ensureBubbleFilterStyles = () => {
       transform: translate(var(--bubble-filter-petal-x, 0px), var(--bubble-filter-petal-y, 0px)) scale(1);
     }
 
+    .bubble-filter360-cloud:not(.open) .bubble-filter360-petal-button {
+      pointer-events: none;
+    }
+
     .bubble-filter360-petal-button {
       display: inline-flex;
       align-items: center;
@@ -276,7 +273,7 @@ const ensureBubbleFilterStyles = () => {
 
 const toKey = (value) => `${value}`;
 
-const getTwoRingPositions = (totalCount, innerRadius, outerRadius) => {
+const getRingPositions = (totalCount, innerRadius, outerRadius) => {
   if (totalCount <= 0) {
     return [];
   }
@@ -292,42 +289,80 @@ const getTwoRingPositions = (totalCount, innerRadius, outerRadius) => {
         x: Math.cos(angleRad) * innerRadius,
         y: Math.sin(angleRad) * innerRadius,
         z: Math.round(8 + normalizedY * 8),
-        ring: 'inner',
+        ring: 0,
       });
     }
     return positions;
   }
 
-  const innerCount = totalCount > 12 ? 6 : 5;
-  const outerCount = totalCount - innerCount;
+  if (totalCount <= 12) {
+    const innerCount = 5;
+    const outerCount = totalCount - innerCount;
 
-  const innerStep = 360 / innerCount;
-  const outerStep = 360 / outerCount;
-  const startAngle = -90;
+    const innerStep = 360 / innerCount;
+    const outerStep = 360 / outerCount;
+    const startAngle = -90;
 
-  const positions = [];
+    const positions = [];
 
-  for (let i = 0; i < innerCount; i += 1) {
-    const angleRad = ((startAngle + innerStep * i) * Math.PI) / 180;
-    const normalizedY = (Math.sin(angleRad) + 1) / 2;
-    positions.push({
-      x: Math.cos(angleRad) * innerRadius,
-      y: Math.sin(angleRad) * innerRadius,
-      z: Math.round(10 + normalizedY * 8),
-      ring: 'inner',
-    });
+    for (let i = 0; i < innerCount; i += 1) {
+      const angleRad = ((startAngle + innerStep * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * innerRadius,
+        y: Math.sin(angleRad) * innerRadius,
+        z: Math.round(10 + normalizedY * 8),
+        ring: 0,
+      });
+    }
+
+    const outerStart = startAngle + outerStep / 2;
+    for (let i = 0; i < outerCount; i += 1) {
+      const angleRad = ((outerStart + outerStep * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * outerRadius,
+        y: Math.sin(angleRad) * outerRadius,
+        z: Math.round(4 + normalizedY * 6),
+        ring: 1,
+      });
+    }
+
+    return positions;
   }
 
-  const outerStart = startAngle + outerStep / 2;
-  for (let i = 0; i < outerCount; i += 1) {
-    const angleRad = ((outerStart + outerStep * i) * Math.PI) / 180;
-    const normalizedY = (Math.sin(angleRad) + 1) / 2;
-    positions.push({
-      x: Math.cos(angleRad) * outerRadius,
-      y: Math.sin(angleRad) * outerRadius,
-      z: Math.round(4 + normalizedY * 6),
-      ring: 'outer',
-    });
+  // Beyond two rings: distribute across concentric rings so every option stays
+  // visible. Ring 0 holds 6, ring k (k >= 1) holds 6 * (k + 1) items, and each
+  // ring's radius grows by (outerRadius - innerRadius). Outer rings are rotated
+  // by half a step for visual stagger against the ring inside them.
+  const ringSpacing = outerRadius - innerRadius;
+  const rings = [];
+  let remaining = totalCount;
+  let ringIndex = 0;
+  while (remaining > 0) {
+    const capacity = ringIndex === 0 ? 6 : 6 * (ringIndex + 1);
+    const count = Math.min(remaining, capacity);
+    rings.push({ ringIndex, count });
+    remaining -= count;
+    ringIndex += 1;
+  }
+
+  const positions = [];
+  for (const { ringIndex, count } of rings) {
+    const radius = innerRadius + ringIndex * ringSpacing;
+    const step = 360 / count;
+    const startAngle = -90;
+    const offset = ringIndex % 2 === 0 ? 0 : step / 2;
+    for (let i = 0; i < count; i += 1) {
+      const angleRad = ((startAngle + offset + step * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * radius,
+        y: Math.sin(angleRad) * radius,
+        z: Math.max(1, Math.round(10 - ringIndex * 2 + normalizedY * 6)),
+        ring: ringIndex,
+      });
+    }
   }
 
   return positions;
@@ -346,6 +381,7 @@ const BubbleFilter = ({
   const cloudRef = useRef(null);
   const closeDelayRef = useRef(null);
   const closeAnimationRef = useRef(null);
+  const idleTimerRef = useRef(null);
   const rafRef = useRef(null);
   const instanceRef = useRef({ closeImmediate: () => {} });
 
@@ -387,7 +423,7 @@ const BubbleFilter = ({
   }, [normalizedOptions, translate]);
 
   const petalPositions = useMemo(
-    () => getTwoRingPositions(sortedOptions.length, innerRadius, outerRadius),
+    () => getRingPositions(sortedOptions.length, innerRadius, outerRadius),
     [sortedOptions.length, innerRadius, outerRadius],
   );
 
@@ -432,17 +468,25 @@ const BubbleFilter = ({
     }
   }, []);
 
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  }, []);
+
   const closeImmediate = useCallback(() => {
     clearCloseDelay();
     clearCloseAnimation();
+    clearIdleTimer();
     setIsOpen(false);
     setIsRendered(false);
-  }, [clearCloseAnimation, clearCloseDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer]);
 
   const openFilter = useCallback(() => {
-    closeAllOtherInstances(instanceRef.current);
     clearCloseDelay();
     clearCloseAnimation();
+    clearIdleTimer();
     updatePosition();
     setIsRendered(true);
 
@@ -453,24 +497,27 @@ const BubbleFilter = ({
     rafRef.current = requestAnimationFrame(() => {
       setIsOpen(true);
     });
-  }, [clearCloseAnimation, clearCloseDelay, updatePosition]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer, updatePosition]);
 
   const closeFilter = useCallback(() => {
     clearCloseDelay();
+    clearIdleTimer();
     setIsOpen(false);
-    openInstances.delete(instanceRef.current);
     clearCloseAnimation();
     closeAnimationRef.current = setTimeout(() => {
       setIsRendered(false);
     }, CLOSE_ANIMATION_DURATION);
-  }, [clearCloseAnimation, clearCloseDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer]);
 
-  const scheduleClose = useCallback(() => {
-    clearCloseDelay();
-    closeDelayRef.current = setTimeout(() => {
+  const resetIdleTimer = useCallback(() => {
+    if (!isOpen) {
+      return;
+    }
+    clearIdleTimer();
+    idleTimerRef.current = setTimeout(() => {
       closeFilter();
-    }, CLOSE_DELAY);
-  }, [clearCloseDelay, closeFilter]);
+    }, IDLE_TIMEOUT);
+  }, [clearIdleTimer, closeFilter, isOpen]);
 
   const handleTriggerClick = useCallback(() => {
     if (isOpen) {
@@ -510,15 +557,6 @@ const BubbleFilter = ({
   useEffect(() => {
     instanceRef.current.closeImmediate = closeImmediate;
   }, [closeImmediate]);
-
-  useEffect(() => {
-    if (isOpen) {
-      openInstances.add(instanceRef.current);
-    }
-    return () => {
-      openInstances.delete(instanceRef.current);
-    };
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isRendered) {
@@ -564,12 +602,22 @@ const BubbleFilter = ({
     return () => {
       clearCloseDelay();
       clearCloseAnimation();
-      openInstances.delete(instanceRef.current);
+      clearIdleTimer();
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [clearCloseAnimation, clearCloseDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer]);
+
+  useEffect(() => {
+    if (isOpen) {
+      clearIdleTimer();
+      idleTimerRef.current = setTimeout(() => {
+        closeFilter();
+      }, IDLE_TIMEOUT);
+    }
+    return () => clearIdleTimer();
+  }, [clearIdleTimer, closeFilter, isOpen]);
 
   const translatedSelectedLabel = selectedOption
     ? translate(selectedOption.label)
@@ -579,8 +627,8 @@ const BubbleFilter = ({
     <div
       ref={rootRef}
       className={`bubble-filter360-root ${isSmall ? 'small' : ''}`}
-      onMouseEnter={openFilter}
-      onMouseLeave={scheduleClose}
+      onMouseEnter={resetIdleTimer}
+      onMouseMove={resetIdleTimer}
     >
       <button
         type='button'
@@ -618,7 +666,7 @@ const BubbleFilter = ({
               }}
             >
               {sortedOptions.map((option, index) => {
-                const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1, ring: 'inner' };
+                const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1, ring: 0 };
                 const translatedLabel = option._labelText || translate(option.label);
                 const isSelected = selectedOption?.key === option.key;
                 const usageClass = option.inUse ? 'in-use' : 'idle';
@@ -648,8 +696,8 @@ const BubbleFilter = ({
                           transitionDelay: `${Math.min(index, 11) * 28}ms`,
                         }}
                         onClick={() => handleSelect(option.value)}
-                        onMouseEnter={openFilter}
-                        onMouseLeave={scheduleClose}
+                        onMouseEnter={resetIdleTimer}
+                        onMouseMove={resetIdleTimer}
                       >
                         <span className='bubble-filter360-petal-label'>
                           {option.icon ? option.icon : null}
