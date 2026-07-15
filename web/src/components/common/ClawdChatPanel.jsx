@@ -789,12 +789,12 @@ try {
                 <div
                   style={{
                     maxWidth: isUser ? '78%' : '92%',
-                    padding: '10px 16px',
+                    padding: '14px 20px',
                     borderRadius: isUser
                       ? '16px 16px 4px 16px'
                       : '4px 16px 16px 16px',
                     fontSize: '14px',
-                    lineHeight: '1.65',
+                    lineHeight: '1.7',
                     wordBreak: 'break-word',
                     background: isUser
                       ? '#DE886D'
@@ -923,10 +923,10 @@ try {
               <div
                 style={{
                   maxWidth: '92%',
-                  padding: '10px 16px',
+                  padding: '14px 20px',
                   borderRadius: '4px 16px 16px 16px',
                   fontSize: '14px',
-                  lineHeight: '1.65',
+                  lineHeight: '1.7',
                   wordBreak: 'break-word',
                   background: '#ffffff',
                   color: '#333',
@@ -1115,7 +1115,7 @@ try {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
           30% { transform: translateY(-5px); opacity: 1; }
         }
-        .clawd-md p { margin: 0 0 8px 0; }
+        .clawd-md p { margin: 0 0 12px 0; }
         .clawd-md p:last-child { margin-bottom: 0; }
         .clawd-md code {
           background: #f5f0ed;
@@ -1128,10 +1128,10 @@ try {
         .clawd-md pre {
           background: #1e1e1e;
           color: #f8f8f2;
-          padding: 12px 14px;
+          padding: 14px 16px;
           border-radius: 8px;
           overflow-x: auto;
-          margin: 8px 0;
+          margin: 14px 0;
           font-size: 13px;
         }
         .clawd-md pre code {
@@ -1141,14 +1141,14 @@ try {
         }
         .clawd-md table {
           border-collapse: collapse;
-          margin: 8px 0;
+          margin: 14px 0;
           font-size: 13px;
           width: 100%;
           min-width: max-content;
         }
         .clawd-md th, .clawd-md td {
           border: 1px solid #e0d8d2;
-          padding: 6px 10px;
+          padding: 8px 12px;
           text-align: left;
           white-space: nowrap;
         }
@@ -1160,11 +1160,11 @@ try {
           z-index: 1;
         }
         .clawd-md ul, .clawd-md ol {
-          margin: 6px 0;
-          padding-left: 20px;
+          margin: 10px 0;
+          padding-left: 24px;
         }
         .clawd-md li {
-          margin: 2px 0;
+          margin: 4px 0;
         }
         .clawd-md a {
           color: #DE886D;
@@ -1175,15 +1175,15 @@ try {
         }
         .clawd-md blockquote {
           border-left: 3px solid #DE886D;
-          margin: 8px 0;
-          padding: 4px 12px;
+          margin: 12px 0;
+          padding: 8px 14px;
           color: #666;
           background: #faf5f2;
           border-radius: 0 6px 6px 0;
         }
         .clawd-md h1, .clawd-md h2, .clawd-md h3,
         .clawd-md h4, .clawd-md h5, .clawd-md h6 {
-          margin: 12px 0 6px;
+          margin: 16px 0 8px;
           font-weight: 600;
           color: #1a1a1a;
         }
@@ -1194,16 +1194,16 @@ try {
         .clawd-md img {
           max-width: 100%;
           border-radius: 6px;
-          margin: 6px 0;
+          margin: 10px 0;
         }
         .clawd-md hr {
           border: none;
           border-top: 1px solid #e0d8d2;
-          margin: 12px 0;
+          margin: 16px 0;
         }
         .clawd-md details {
-          margin: 6px 0;
-          padding: 6px 10px;
+          margin: 10px 0;
+          padding: 8px 12px;
           background: #faf8f5;
           border-radius: 6px;
           border: 1px solid #f0eae6;

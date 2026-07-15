@@ -90,10 +90,7 @@ func GetTopUpByTradeNo(tradeNo string) *TopUp {
 }
 
 func CompleteTopUp(topUp *TopUp, quota int64) error {
-	refCol := "`trade_no`"
-	if common.UsingPostgreSQL {
-		refCol = `"trade_no"`
-	}
+	refCol := `"trade_no"`
 
 	var completed bool
 	err := DB.Transaction(func(tx *gorm.DB) error {
@@ -273,10 +270,7 @@ func ManualCompleteTopUp(tradeNo string) error {
 		return errors.New("未提供订单号")
 	}
 
-	refCol := "`trade_no`"
-	if common.UsingPostgreSQL {
-		refCol = `"trade_no"`
-	}
+	refCol := `"trade_no"`
 
 	var userId int
 	var quotaToAdd int

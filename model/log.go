@@ -118,6 +118,9 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			delete(otherMap, "admin_info")
 			delete(otherMap, "reject_reason")
 			delete(otherMap, "channel_name")
+			// model redirect is not exposed on the self-service log API.
+			delete(otherMap, "is_model_mapped")
+			delete(otherMap, "upstream_model_name")
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 		logs[i].Id = startIdx + i + 1
@@ -324,7 +327,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		tx = tx.Where("logs.channel_id = ?", channel)
 	}
 	if group != "" {
-		tx = tx.Where("logs."+logGroupCol+" = ?", group)
+		tx = tx.Where("logs."+"\"group\""+" = ?", group)
 	}
 	if userWhitelist != nil {
 		tx = tx.Where("logs.user_id IN ?", userWhitelist)
@@ -407,7 +410,7 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 		tx = tx.Where("logs.created_at <= ?", endTimestamp)
 	}
 	if group != "" {
-		tx = tx.Where("logs."+logGroupCol+" = ?", group)
+		tx = tx.Where("logs."+"\"group\""+" = ?", group)
 	}
 	err = tx.Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
 	if err != nil {
@@ -467,8 +470,8 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		rpmTpmQuery = rpmTpmQuery.Where("channel_id = ?", channel)
 	}
 	if group != "" {
-		tx = tx.Where(logGroupCol+" = ?", group)
-		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
+		tx = tx.Where("\"group\""+" = ?", group)
+		rpmTpmQuery = rpmTpmQuery.Where("\"group\""+" = ?", group)
 	}
 	if userWhitelist != nil {
 		tx = tx.Where("user_id IN ?", userWhitelist)
@@ -607,9 +610,9 @@ type GroupSuccessRate struct {
 // the given [start, end] timestamp window. This replaces the channel-centric view
 // with a group-centric one ("分组模型成功率").
 //
-// Cross-DB note: logGroupCol quotes the reserved column name correctly across
+// Cross-DB note: "\"group\"" quotes the reserved column name correctly across
 // SQLite/MySQL (backtick) and PostgreSQL (double quote). The GROUP BY uses the
-// raw column name via logGroupCol to stay portable.
+// raw column name via "\"group\"" to stay portable.
 func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate, error) {
 	type countResult struct {
 		Group        string
@@ -622,7 +625,7 @@ func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate
 
 	var results []countResult
 	err := LOG_DB.Table("logs").
-		Select(logGroupCol+", model_name, "+
+		Select("\"group\""+", model_name, "+
 			"COUNT(*) AS total_count, "+
 			"SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) AS success_count, "+
 			"SUM(use_time) AS sum_use_time, "+
@@ -630,7 +633,7 @@ func GetGroupSuccessRate(startTimestamp, endTimestamp int64) ([]GroupSuccessRate
 			LogTypeConsume).
 		Where("type IN ? AND created_at >= ? AND created_at <= ?",
 			[]int{LogTypeConsume, LogTypeError}, startTimestamp, endTimestamp).
-		Group(logGroupCol + ", model_name").
+		Group("\"group\"" + ", model_name").
 		Scan(&results).Error
 	if err != nil {
 		return nil, err

@@ -169,6 +169,55 @@ func ComputeChannelScores(windowSeconds int64) (map[string]*ChannelScoreStats, e
 		}
 	}
 
+	// Unnest retry_attempts in SQL (jsonb_array_elements) to avoid Go-side JSON
+	// deserialization — same "let the DB aggregate" pattern as the SUM(CASE WHEN) above.
+	type retryAggResult struct {
+		AttemptChannelId int    `gorm:"column:attempt_channel_id"`
+		UserGroup        string `gorm:"column:user_group"`
+		ErrorCount       int64  `gorm:"column:error_count"`
+	}
+	var retryAggResults []retryAggResult
+	err = model.LOG_DB.Table("logs").
+		Select(`(attempt->>'channel_id')::int AS attempt_channel_id, "group" AS user_group, COUNT(*) AS error_count`).
+		Joins("CROSS JOIN LATERAL jsonb_array_elements((logs.other::jsonb)->'admin_info'->'retry_attempts') AS attempt").
+		Where("logs.channel_id IN ?", channelIds).
+		Where("logs.type IN ?", []int{model.LogTypeConsume, model.LogTypeError}).
+		Where("logs.created_at >= ? AND logs.created_at <= ?", startTimestamp, endTimestamp).
+		Where("logs.other IS NOT NULL AND logs.other LIKE '%retry_attempts%'").
+		Where("(attempt->>'success')::boolean = false").
+		Where("(attempt->>'channel_id')::int != logs.channel_id").
+		Group("attempt_channel_id, user_group").
+		Scan(&retryAggResults).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ra := range retryAggResults {
+		ch, ok := channelIdToChannel[ra.AttemptChannelId]
+		if !ok {
+			continue
+		}
+		cg := ch.ChannelInfo.ClawdGroup.String()
+		if cg == "" {
+			continue
+		}
+		if _, ok := clawdGroups[cg]; !ok {
+			clawdGroups[cg] = &clawdGroupData{
+				channelAggs: make(map[int]*channelAgg),
+				groupCounts: make(map[string]int64),
+			}
+		}
+		gd := clawdGroups[cg]
+		if _, ok := gd.channelAggs[ra.AttemptChannelId]; !ok {
+			gd.channelAggs[ra.AttemptChannelId] = &channelAgg{
+				ChannelId:   ra.AttemptChannelId,
+				ChannelName: ch.Name,
+			}
+		}
+		gd.channelAggs[ra.AttemptChannelId].ErrorCount += ra.ErrorCount
+		gd.groupCounts[ra.UserGroup] += ra.ErrorCount
+	}
+
 	clawdGroupStats := make(map[string]*ChannelScoreStats)
 
 	// 按实际用户倍率加权平均：查 (group, user_id) 调用量，再批量查用户 groupratio

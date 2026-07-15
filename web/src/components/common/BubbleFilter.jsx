@@ -25,13 +25,18 @@ import { IconChevronDown } from '@douyinfe/semi-icons';
 const STYLE_ID = 'dazeapi-bubble-filter-style';
 const CLOSE_DELAY = 400;
 const CLOSE_ANIMATION_DURATION = 480;
+// When moving from one filter's bubble to another filter's trigger, wait this
+// long before opening the new bubble so the previous one has time to fade out
+// and doesn't overlap/mis-capture the click on the new trigger.
+const INTER_OPEN_DELAY = 1000;
 
 const openInstances = new Set();
 
 const closeAllOtherInstances = (current) => {
   openInstances.forEach((instance) => {
     if (instance !== current) {
-      instance.closeImmediate();
+      const impl = instance.closeAnimated || instance.closeImmediate;
+      impl.call(instance);
     }
   });
 };
@@ -172,6 +177,10 @@ const ensureBubbleFilterStyles = () => {
       transform: translate(var(--bubble-filter-petal-x, 0px), var(--bubble-filter-petal-y, 0px)) scale(1);
     }
 
+    .bubble-filter360-cloud:not(.open) .bubble-filter360-petal-button {
+      pointer-events: none;
+    }
+
     .bubble-filter360-petal-button {
       display: inline-flex;
       align-items: center;
@@ -276,7 +285,7 @@ const ensureBubbleFilterStyles = () => {
 
 const toKey = (value) => `${value}`;
 
-const getTwoRingPositions = (totalCount, innerRadius, outerRadius) => {
+const getRingPositions = (totalCount, innerRadius, outerRadius) => {
   if (totalCount <= 0) {
     return [];
   }
@@ -292,42 +301,80 @@ const getTwoRingPositions = (totalCount, innerRadius, outerRadius) => {
         x: Math.cos(angleRad) * innerRadius,
         y: Math.sin(angleRad) * innerRadius,
         z: Math.round(8 + normalizedY * 8),
-        ring: 'inner',
+        ring: 0,
       });
     }
     return positions;
   }
 
-  const innerCount = totalCount > 12 ? 6 : 5;
-  const outerCount = totalCount - innerCount;
+  if (totalCount <= 12) {
+    const innerCount = 5;
+    const outerCount = totalCount - innerCount;
 
-  const innerStep = 360 / innerCount;
-  const outerStep = 360 / outerCount;
-  const startAngle = -90;
+    const innerStep = 360 / innerCount;
+    const outerStep = 360 / outerCount;
+    const startAngle = -90;
 
-  const positions = [];
+    const positions = [];
 
-  for (let i = 0; i < innerCount; i += 1) {
-    const angleRad = ((startAngle + innerStep * i) * Math.PI) / 180;
-    const normalizedY = (Math.sin(angleRad) + 1) / 2;
-    positions.push({
-      x: Math.cos(angleRad) * innerRadius,
-      y: Math.sin(angleRad) * innerRadius,
-      z: Math.round(10 + normalizedY * 8),
-      ring: 'inner',
-    });
+    for (let i = 0; i < innerCount; i += 1) {
+      const angleRad = ((startAngle + innerStep * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * innerRadius,
+        y: Math.sin(angleRad) * innerRadius,
+        z: Math.round(10 + normalizedY * 8),
+        ring: 0,
+      });
+    }
+
+    const outerStart = startAngle + outerStep / 2;
+    for (let i = 0; i < outerCount; i += 1) {
+      const angleRad = ((outerStart + outerStep * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * outerRadius,
+        y: Math.sin(angleRad) * outerRadius,
+        z: Math.round(4 + normalizedY * 6),
+        ring: 1,
+      });
+    }
+
+    return positions;
   }
 
-  const outerStart = startAngle + outerStep / 2;
-  for (let i = 0; i < outerCount; i += 1) {
-    const angleRad = ((outerStart + outerStep * i) * Math.PI) / 180;
-    const normalizedY = (Math.sin(angleRad) + 1) / 2;
-    positions.push({
-      x: Math.cos(angleRad) * outerRadius,
-      y: Math.sin(angleRad) * outerRadius,
-      z: Math.round(4 + normalizedY * 6),
-      ring: 'outer',
-    });
+  // Beyond two rings: distribute across concentric rings so every option stays
+  // visible. Ring 0 holds 6, ring k (k >= 1) holds 6 * (k + 1) items, and each
+  // ring's radius grows by (outerRadius - innerRadius). Outer rings are rotated
+  // by half a step for visual stagger against the ring inside them.
+  const ringSpacing = outerRadius - innerRadius;
+  const rings = [];
+  let remaining = totalCount;
+  let ringIndex = 0;
+  while (remaining > 0) {
+    const capacity = ringIndex === 0 ? 6 : 6 * (ringIndex + 1);
+    const count = Math.min(remaining, capacity);
+    rings.push({ ringIndex, count });
+    remaining -= count;
+    ringIndex += 1;
+  }
+
+  const positions = [];
+  for (const { ringIndex, count } of rings) {
+    const radius = innerRadius + ringIndex * ringSpacing;
+    const step = 360 / count;
+    const startAngle = -90;
+    const offset = ringIndex % 2 === 0 ? 0 : step / 2;
+    for (let i = 0; i < count; i += 1) {
+      const angleRad = ((startAngle + offset + step * i) * Math.PI) / 180;
+      const normalizedY = (Math.sin(angleRad) + 1) / 2;
+      positions.push({
+        x: Math.cos(angleRad) * radius,
+        y: Math.sin(angleRad) * radius,
+        z: Math.max(1, Math.round(10 - ringIndex * 2 + normalizedY * 6)),
+        ring: ringIndex,
+      });
+    }
   }
 
   return positions;
@@ -346,8 +393,9 @@ const BubbleFilter = ({
   const cloudRef = useRef(null);
   const closeDelayRef = useRef(null);
   const closeAnimationRef = useRef(null);
+  const openDelayRef = useRef(null);
   const rafRef = useRef(null);
-  const instanceRef = useRef({ closeImmediate: () => {} });
+  const instanceRef = useRef({ closeImmediate: () => {}, closeAnimated: () => {} });
 
   const [isRendered, setIsRendered] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -387,7 +435,7 @@ const BubbleFilter = ({
   }, [normalizedOptions, translate]);
 
   const petalPositions = useMemo(
-    () => getTwoRingPositions(sortedOptions.length, innerRadius, outerRadius),
+    () => getRingPositions(sortedOptions.length, innerRadius, outerRadius),
     [sortedOptions.length, innerRadius, outerRadius],
   );
 
@@ -432,45 +480,68 @@ const BubbleFilter = ({
     }
   }, []);
 
+  const clearOpenDelay = useCallback(() => {
+    if (openDelayRef.current) {
+      clearTimeout(openDelayRef.current);
+      openDelayRef.current = null;
+    }
+  }, []);
+
   const closeImmediate = useCallback(() => {
     clearCloseDelay();
     clearCloseAnimation();
+    clearOpenDelay();
     setIsOpen(false);
     setIsRendered(false);
-  }, [clearCloseAnimation, clearCloseDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearOpenDelay]);
 
-  const openFilter = useCallback(() => {
-    closeAllOtherInstances(instanceRef.current);
-    clearCloseDelay();
-    clearCloseAnimation();
-    updatePosition();
-    setIsRendered(true);
+  const openFilter = useCallback(
+    ({ defer = false } = {}) => {
+      clearOpenDelay();
+      closeAllOtherInstances(instanceRef.current);
+      clearCloseDelay();
+      clearCloseAnimation();
 
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-    }
+      const doOpen = () => {
+        updatePosition();
+        setIsRendered(true);
 
-    rafRef.current = requestAnimationFrame(() => {
-      setIsOpen(true);
-    });
-  }, [clearCloseAnimation, clearCloseDelay, updatePosition]);
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+        }
+
+        rafRef.current = requestAnimationFrame(() => {
+          setIsOpen(true);
+        });
+      };
+
+      if (defer) {
+        openDelayRef.current = setTimeout(doOpen, INTER_OPEN_DELAY);
+      } else {
+        doOpen();
+      }
+    },
+    [clearCloseAnimation, clearCloseDelay, clearOpenDelay, updatePosition],
+  );
 
   const closeFilter = useCallback(() => {
     clearCloseDelay();
+    clearOpenDelay();
     setIsOpen(false);
     openInstances.delete(instanceRef.current);
     clearCloseAnimation();
     closeAnimationRef.current = setTimeout(() => {
       setIsRendered(false);
     }, CLOSE_ANIMATION_DURATION);
-  }, [clearCloseAnimation, clearCloseDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearOpenDelay]);
 
   const scheduleClose = useCallback(() => {
     clearCloseDelay();
+    clearOpenDelay();
     closeDelayRef.current = setTimeout(() => {
       closeFilter();
     }, CLOSE_DELAY);
-  }, [clearCloseDelay, closeFilter]);
+  }, [clearCloseDelay, clearOpenDelay, closeFilter]);
 
   const handleTriggerClick = useCallback(() => {
     if (isOpen) {
@@ -509,7 +580,8 @@ const BubbleFilter = ({
 
   useEffect(() => {
     instanceRef.current.closeImmediate = closeImmediate;
-  }, [closeImmediate]);
+    instanceRef.current.closeAnimated = closeFilter;
+  }, [closeImmediate, closeFilter]);
 
   useEffect(() => {
     if (isOpen) {
@@ -564,12 +636,13 @@ const BubbleFilter = ({
     return () => {
       clearCloseDelay();
       clearCloseAnimation();
+      clearOpenDelay();
       openInstances.delete(instanceRef.current);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [clearCloseAnimation, clearCloseDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearOpenDelay]);
 
   const translatedSelectedLabel = selectedOption
     ? translate(selectedOption.label)
@@ -579,7 +652,7 @@ const BubbleFilter = ({
     <div
       ref={rootRef}
       className={`bubble-filter360-root ${isSmall ? 'small' : ''}`}
-      onMouseEnter={openFilter}
+      onMouseEnter={() => openFilter({ defer: true })}
       onMouseLeave={scheduleClose}
     >
       <button

@@ -172,7 +172,6 @@ adminRoute := userRoute.Group("/")
 		clawdChatRoute.Use(middleware.GlobalAPIRateLimit(), middleware.UserAuth())
 		{
 			clawdChatRoute.GET("/models", controller.GetClawdModels)
-			clawdChatRoute.POST("/chat", controller.ClawdChat)
 			clawdChatRoute.POST("/chat/stream", controller.ClawdChatStream)
 		}
 		tokenRoute := apiRouter.Group("/token")

@@ -42,7 +42,6 @@ func setupTokenControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
-    common.UsingPostgreSQL = true
 	common.RedisEnabled = false
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))

@@ -14,10 +14,6 @@ import (
     "gorm.io/gorm"
 )
 
-const commonGroupCol = "\"group\""
-const commonKeyCol = "\"key\""
-const logGroupCol = commonGroupCol
-
 var DB *gorm.DB
 
 var LOG_DB *gorm.DB
@@ -56,11 +52,7 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
         panic("PostgreSQL DSN is required for environment variable: " + envName)
     }
     if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
-        // Use PostgreSQL
         common.SysLog("using PostgreSQL as database")
-        if !isLog {
-            common.UsingPostgreSQL = true
-        }
         return gorm.Open(postgres.New(postgres.Config{
             DSN:                  dsn,
             PreferSimpleProtocol: true, // disables implicit prepared statement usage

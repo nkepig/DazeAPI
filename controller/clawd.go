@@ -14,7 +14,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -394,131 +393,6 @@ func ResetClawdBaseline(c *gin.Context) {
 	})
 }
 
-func resolveAgentCredentials() (baseURL string, apiKey string, err error) {
-	cfg := operation_setting.GetClawdSetting()
-
-	if cfg.AgentBaseURL != "" && cfg.AgentAPIKey != "" {
-		return cfg.AgentBaseURL, cfg.AgentAPIKey, nil
-	}
-
-	newAPIURL := os.Getenv("CLAWD_NEW_API_URL")
-	if newAPIURL == "" {
-		newAPIURL = system_setting.ServerAddress + "/v1"
-	}
-
-	rootUser := model.GetRootUser()
-	if rootUser == nil || rootUser.Id == 0 {
-		return "", "", fmt.Errorf("no root user found in database")
-	}
-
-	var token model.Token
-	err = model.DB.Where("user_id = ? AND status = ?", rootUser.Id, common.TokenStatusEnabled).
-		Order("id desc").First(&token).Error
-	if err != nil {
-		return "", "", fmt.Errorf("no active token for root user: %v (please create a token in the dashboard)", err)
-	}
-
-	return newAPIURL, token.Key, nil
-}
-
-func resolveAgentModel() (string, error) {
-	cfg := operation_setting.GetClawdSetting()
-	if cfg.AgentModel != "" {
-		return cfg.AgentModel, nil
-	}
-	return "", fmt.Errorf("clawd agent model not configured, please set it in Clawd settings")
-}
-
-func ClawdChat(c *gin.Context) {
-	if c.GetInt("role") != common.RoleRootUser {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": "现在嘛～只和主人说话哦٩(๑`^´๑)۶，心情好了自然会回来的，反正……先等着吧(・ω・)ノ✨",
-		})
-		return
-	}
-	var req struct {
-		Message   string `json:"message"`
-		SessionId string `json:"session_id"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "invalid request body",
-		})
-		return
-	}
-	if req.Message == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "message is required",
-		})
-		return
-	}
-	if req.SessionId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "session_id is required",
-		})
-		return
-	}
-
-	baseURL, apiKey, err := resolveAgentCredentials()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	modelName, err := resolveAgentModel()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	sidecarURL := os.Getenv("CLAWD_SIDECAR_URL")
-	if sidecarURL == "" {
-		sidecarURL = "http://localhost:6000"
-	}
-
-	userId := c.GetInt("id")
-	lang := c.GetString("lang")
-
-	payload, _ := common.Marshal(gin.H{
-		"message":    req.Message,
-		"session_id": req.SessionId,
-		"user_id":    fmt.Sprintf("uid-%d", userId),
-		"base_url":   baseURL,
-		"api_key":    apiKey,
-		"model":      modelName,
-		"lang":       lang,
-	})
-
-	httpClient := &http.Client{Timeout: 120 * time.Second}
-	resp, err := httpClient.Post(
-		sidecarURL+"/chat",
-		"application/json",
-		bytes.NewReader(payload),
-	)
-	if err != nil {
-		common.SysLog("clawd chat sidecar error: " + err.Error())
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"success": false,
-			"message": "agent sidecar unavailable: " + err.Error(),
-		})
-		return
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	c.Data(resp.StatusCode, "application/json", body)
-}
-
 func ClawdChatStream(c *gin.Context) {
 	if c.GetInt("role") != common.RoleRootUser {
 		c.JSON(http.StatusForbidden, gin.H{
@@ -553,40 +427,17 @@ func ClawdChatStream(c *gin.Context) {
 		return
 	}
 
-	baseURL, apiKey, err := resolveAgentCredentials()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	modelName, err := resolveAgentModel()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
 	sidecarURL := os.Getenv("CLAWD_SIDECAR_URL")
 	if sidecarURL == "" {
 		sidecarURL = "http://localhost:6000"
 	}
 
 	userId := c.GetInt("id")
-	lang := c.GetString("lang")
 
 	payload, _ := common.Marshal(gin.H{
 		"message":    req.Message,
 		"session_id": req.SessionId,
 		"user_id":    fmt.Sprintf("uid-%d", userId),
-		"base_url":   baseURL,
-		"api_key":    apiKey,
-		"model":      modelName,
-		"lang":       lang,
 	})
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")

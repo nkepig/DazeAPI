@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from agno.agent import RunEvent
 
-from agent import build_agent
+from agent import agent
 
 logger = logging.getLogger("clawd_sidecar")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -26,20 +26,11 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str
     user_id: str = "anonymous"
-    base_url: str
-    api_key: str
-    model: str
-    lang: str = "zh"
-
-
-class ChatResponse(BaseModel):
-    content: str
-    session_id: str
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok" if agent is not None else "no_agent"}
 
 
 def _sse(data: dict) -> str:
@@ -53,41 +44,26 @@ def _safe_str(val, max_len=2000) -> str:
     return s if len(s) <= max_len else s[:max_len] + "...(truncated)"
 
 
-@app.post("/chat")
-async def chat(req: ChatRequest, request: Request):
-    try:
-        agent = build_agent(
-            base_url=req.base_url,
-            api_key=req.api_key,
-            model=req.model,
-            session_id=req.session_id,
-            user_id=req.user_id,
-        )
-        response = await agent.arun(req.message, session_id=req.session_id)
-        content = response.content if hasattr(response, "content") else str(response)
-        return ChatResponse(content=content, session_id=req.session_id)
-    except Exception as e:
-        logger.exception("agent run failed")
-        return ChatResponse(content=f"出错了：{e}", session_id=req.session_id)
-
-
 @app.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
     """SSE streaming chat endpoint."""
+    if agent is None:
+        async def _no_agent():
+            yield _sse({"type": "error", "content": "agent not initialized — check LLM config env vars"})
+            yield _sse({"type": "done"})
+        return StreamingResponse(
+            _no_agent(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+        )
+
     async def _stream():
         try:
-            agent = build_agent(
-                base_url=req.base_url,
-                api_key=req.api_key,
-                model=req.model,
-                session_id=req.session_id,
-                user_id=req.user_id,
-            )
-
             started_emitted = False
             async for chunk in agent.arun(
                 req.message,
                 session_id=req.session_id,
+                user_id=req.user_id,
                 stream=True,
                 stream_events=True,
             ):
