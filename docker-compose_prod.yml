@@ -76,6 +76,7 @@ services:
     volumes:
       - ./uqapi-1_data/logs:/logs:ro
       - ./uqapi-1_data/lancedb:/data/lancedb
+      - ./uqapi-1_data/exports:/data/exports
     depends_on:
       - postgres
     networks:

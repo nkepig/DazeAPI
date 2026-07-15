@@ -87,6 +87,7 @@ services:
     volumes:
       - api_logs:/logs:ro
       - clawd_lance:/data/lancedb
+      - clawd_exports:/data/exports
     depends_on:
       - postgres
     networks:
@@ -98,6 +99,7 @@ volumes:
   pg_data:
   api_logs:
   clawd_lance:
+  clawd_exports:
 
 networks:
   new-api-network:
