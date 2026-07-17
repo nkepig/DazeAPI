@@ -138,7 +138,7 @@ const ReasoningBlock = ({ text = '' }) => {
 // iframe to constantly reload and never finish loading ("渲染不出来").
 const SandboxedHtmlPreview = React.memo(({ code = '' }) => {
   const iframeRef = useRef(null);
-  const [height, setHeight] = useState(400);
+  const [height, setHeight] = useState(480);
   const [loaded, setLoaded] = useState(false);
   const [debouncedCode, setDebouncedCode] = useState(code);
 
@@ -159,8 +159,8 @@ const SandboxedHtmlPreview = React.memo(({ code = '' }) => {
       } catch {
         return;
       }
-      const h = Math.max(e.data.height || 0, 60);
-      setHeight(Math.min(h + 8, 800));
+      const h = Math.max(e.data.height || 0, 360);
+      setHeight(Math.min(h + 16, 960));
       setLoaded(true);
     };
     window.addEventListener('message', handler);
@@ -224,7 +224,9 @@ const SandboxedHtmlPreview = React.memo(({ code = '' }) => {
   );
 });
 
-const detectHtmlCodeBlock = (node) => {
+// HTML is executable in the iframe, so restrict iframe rendering to actual ECharts
+// documents. Tables and other rich content remain regular Markdown in the chat bubble.
+const detectChartCodeBlock = (node) => {
   if (!node || !node.children) return null;
   const codeEl = node.children.find((c) => c.tagName === 'code');
   if (!codeEl) return null;
@@ -233,10 +235,13 @@ const detectHtmlCodeBlock = (node) => {
     ? classes.find((c) => typeof c === 'string' && c.startsWith('language-'))
     : null;
   if (!langClass) return null;
-  const lang = langClass.replace('language-', '');
+
+  const lang = langClass.replace('language-', '').toLowerCase();
   if (lang !== 'html' && lang !== 'echarts' && lang !== 'chart') return null;
+
   const textChild = codeEl.children?.find((c) => c.type === 'text');
-  return textChild?.value || '';
+  const code = textChild?.value || '';
+  return /echarts(?:\.min)?\.js|echarts\.init\s*\(/i.test(code) ? code : null;
 };
 
 const mdComponents = {
@@ -255,9 +260,9 @@ const mdComponents = {
     </div>
   ),
   pre: ({ node, children, ...props }) => {
-    const htmlCode = detectHtmlCodeBlock(node);
-    if (htmlCode) {
-      return <SandboxedHtmlPreview code={htmlCode} />;
+    const chartCode = detectChartCodeBlock(node);
+    if (chartCode) {
+      return <SandboxedHtmlPreview code={chartCode} />;
     }
     return (
       <pre {...props} style={{ ...props.style, maxHeight: '300px', overflowY: 'auto' }}>
@@ -315,8 +320,8 @@ const ClawdChatPanel = ({ visible, onClose, onNewResponse }) => {
   }, [visible]);
 
   // 侧边栏宽度，可拖拽调整，持久化到 localStorage
-  const PANEL_MIN = 360;
-  const PANEL_MAX = 960;
+  const PANEL_MIN = 480;
+  const PANEL_MAX = 1200;
   const [panelWidth, setPanelWidth] = useState(() => {
     try {
       const saved = localStorage.getItem('clawd_panel_width');
@@ -325,7 +330,7 @@ const ClawdChatPanel = ({ visible, onClose, onNewResponse }) => {
         if (!isNaN(n) && n >= PANEL_MIN && n <= PANEL_MAX) return n;
       }
     } catch {}
-    return Math.min(520, Math.max(PANEL_MIN, window.innerWidth - 80));
+    return Math.min(680, Math.max(PANEL_MIN, window.innerWidth - 80));
   });
 
   const startResize = useCallback(
@@ -630,7 +635,7 @@ try {
             try {
               localStorage.removeItem('clawd_panel_width');
             } catch {}
-            setPanelWidth(Math.min(520, Math.max(PANEL_MIN, window.innerWidth - 80)));
+            setPanelWidth(Math.min(680, Math.max(PANEL_MIN, window.innerWidth - 80)));
           }}
           title='拖拽调整宽度，双击重置'
           style={{
@@ -788,13 +793,14 @@ try {
                 )}
                 <div
                   style={{
-                    maxWidth: isUser ? '78%' : '92%',
-                    padding: '14px 20px',
+                    width: isUser ? 'auto' : 'calc(100% - 42px)',
+                    maxWidth: isUser ? '78%' : 'none',
+                    padding: '18px 22px',
                     borderRadius: isUser
                       ? '16px 16px 4px 16px'
                       : '4px 16px 16px 16px',
-                    fontSize: '14px',
-                    lineHeight: '1.7',
+                    fontSize: '15px',
+                    lineHeight: '1.8',
                     wordBreak: 'break-word',
                     background: isUser
                       ? '#DE886D'
@@ -922,11 +928,12 @@ try {
               </div>
               <div
                 style={{
-                  maxWidth: '92%',
-                  padding: '14px 20px',
+                  width: 'calc(100% - 42px)',
+                  maxWidth: 'none',
+                  padding: '18px 22px',
                   borderRadius: '4px 16px 16px 16px',
-                  fontSize: '14px',
-                  lineHeight: '1.7',
+                  fontSize: '15px',
+                  lineHeight: '1.8',
                   wordBreak: 'break-word',
                   background: '#ffffff',
                   color: '#333',

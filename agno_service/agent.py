@@ -91,15 +91,22 @@ Search strategy:
 **If query returns no data**: respond with a plain markdown message. Do not render empty charts.
 
 ### Markdown Rules
-- Use Markdown tables for multi-row data (they render with scrollbars in the frontend).
+- Use Markdown tables for multi-row data only when no chart is rendered, or when the user explicitly asks for detailed rows.
 - Use `**bold**` for key metrics, not code blocks.
 - Use blockquotes for notes/caveats.
 - Keep spacing loose — add blank lines between sections for readability.
 
+### Chart Response Brevity
+- When a chart is rendered, let the chart carry the detail. Add at most a short title and 1–3 concise key takeaways in Markdown.
+- Do not repeat the chart's full data in prose or a Markdown table unless the user explicitly requests the underlying data.
+- Mention only material exceptions, trend changes, or actionable conclusions. Avoid introductions, methodology, and obvious restatements of chart labels.
+
 ### HTML/ECharts Rules (charts only)
 
-Output a **complete HTML document** inside a fenced `html` code block. The frontend renders it in a sandboxed iframe with `allow-scripts`.
+Output a **complete HTML document** inside a fenced `html` code block **only when it contains an ECharts chart**. The frontend renders only ECharts HTML in a sandboxed iframe with `allow-scripts`.
 
+- Put all prose, metrics, lists, and data tables in Markdown outside the HTML code block. Do not use HTML for tables, cards, layout-only content, images, or text summaries.
+- Never output raw HTML tags outside a fenced code block. If a chart is not useful, output Markdown only.
 - Only external dependency: `https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js`
 - All `<script>` content must be inside the fenced code block.
 - Add `window.addEventListener('resize', () => chart.resize())` for each chart instance.
@@ -168,7 +175,9 @@ def _read_clawd_settings(dsn: str) -> dict:
     conn = psycopg.connect(dsn)
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT key, value FROM options WHERE key LIKE 'clawd_setting.%'")
+            cur.execute(
+                "SELECT key, value FROM options WHERE key LIKE 'clawd_setting.%'"
+            )
             rows = cur.fetchall()
         return {row[0].replace("clawd_setting.", ""): row[1] for row in rows}
     except Exception as e:
@@ -184,7 +193,11 @@ _SETTINGS: dict = _read_clawd_settings(_SQL_DSN) if _SQL_DSN else {}
 _KB_URLS = [
     ("https://ai.google.dev/gemini-api/docs/llms.txt", LLMsTxtReader, "gemini"),
     ("https://platform.claude.com/llms.txt", LLMsTxtReader, "claude"),
-    ("https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/main/openapi.yaml", TextReader, "openai"),
+    (
+        "https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/main/openapi.yaml",
+        TextReader,
+        "openai",
+    ),
     ("https://models.dev/api.json", JSONReader, "models_dev"),
 ]
 
@@ -197,14 +210,16 @@ def _init_knowledge() -> Knowledge | None:
     base_url = _SETTINGS.get("agent_base_url", "")
     api_key = _SETTINGS.get("agent_api_key", "")
     if not base_url or not api_key:
-        logger.warning("Embedder config not set in ClawdSetting (agent_base_url / agent_api_key), skipping knowledge base")
+        logger.warning(
+            "Embedder config not set in ClawdSetting (agent_base_url / agent_api_key), skipping knowledge base"
+        )
         return None
 
     lance_path = os.environ.get("CLAWD_LANCE_PATH", "/data/lancedb")
     try:
         embedder = OpenAIEmbedder(api_key=api_key, base_url=base_url)
         vector_db = LanceDb(
-            table="clawd_knowledge",
+            table_name="clawd_knowledge",
             uri=lance_path,
             search_type=SearchType.hybrid,
             embedder=embedder,
@@ -242,7 +257,9 @@ def _init_agent() -> Agent | None:
     model = _SETTINGS.get("agent_model", "")
 
     if not base_url or not api_key:
-        logger.warning("LLM config not set in ClawdSetting (agent_base_url / agent_api_key), agent not initialized")
+        logger.warning(
+            "LLM config not set in ClawdSetting (agent_base_url / agent_api_key), agent not initialized"
+        )
         return None
     if not model:
         logger.warning("agent_model not set in ClawdSetting, agent not initialized")
