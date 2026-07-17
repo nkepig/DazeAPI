@@ -82,10 +82,9 @@ services:
     restart: always
     environment:
       - SQL_DSN=postgresql://root:Xdd20041031@postgres:5432/new-api
-      - CLAWD_LOG_DIR=/logs
       - TZ=Asia/Shanghai
     volumes:
-      - api_logs:/logs:ro
+      - api_logs:/data/log:ro
       - clawd_lance:/data/lancedb
       - clawd_exports:/data/exports
     depends_on:
