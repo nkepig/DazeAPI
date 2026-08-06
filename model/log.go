@@ -163,13 +163,9 @@ var loggableHeaderKeys = []string{
 	"Sec-Ch-Ua-Platform",
 }
 
-// resolveLogRequestMeta 根据用户的 RecordIpLog 开关，提取可记录的请求元信息。
-// 开关关闭时全部返回零值。
-func resolveLogRequestMeta(c *gin.Context, userId int) (ip string, userAgent string, headers map[string]string) {
-	settingMap, err := GetUserSetting(userId, false)
-	if err != nil || !settingMap.RecordIpLog {
-		return "", "", nil
-	}
+// resolveLogRequestMeta 提取可记录的请求元信息（IP、User-Agent、白名单请求头）。
+// 始终记录；headers 无匹配项时返回 nil。
+func resolveLogRequestMeta(c *gin.Context) (ip string, userAgent string, headers map[string]string) {
 	ip = c.ClientIP()
 	userAgent = c.Request.UserAgent()
 	headers = make(map[string]string)
@@ -202,7 +198,7 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
-	ip, userAgent, headers := resolveLogRequestMeta(c, userId)
+	ip, userAgent, headers := resolveLogRequestMeta(c)
 	otherStr := common.MapToJsonStr(mergeRequestHeaders(other, headers))
 	log := &Log{
 		UserId:           userId,
@@ -250,7 +246,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
-	ip, userAgent, headers := resolveLogRequestMeta(c, userId)
+	ip, userAgent, headers := resolveLogRequestMeta(c)
 	otherStr := common.MapToJsonStr(mergeRequestHeaders(params.Other, headers))
 	log := &Log{
 		UserId:           userId,
