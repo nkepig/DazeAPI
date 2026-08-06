@@ -448,12 +448,12 @@ const NotificationSettings = ({
               <div className='py-4'>
                 <Form.Switch
                   field='recordIpLog'
-                  label={t('记录请求与错误日志IP')}
+                  label={t('记录请求与错误日志的请求信息')}
                   checkedText={t('开')}
                   uncheckedText={t('关')}
                   onChange={(value) => handleFormChange('recordIpLog', value)}
                   extraText={t(
-                    '开启后，仅"消费"和"错误"日志将记录您的客户端IP地址',
+                    '开启后，仅"消费"和"错误"日志将记录您的客户端 IP、User-Agent 及部分非敏感请求头（不含 Authorization 等凭证信息）',
                   )}
                 />
               </div>

@@ -23,23 +23,11 @@ import { Tooltip } from '@douyinfe/semi-ui';
 import { IconChevronDown } from '@douyinfe/semi-icons';
 
 const STYLE_ID = 'dazeapi-bubble-filter-style';
-const CLOSE_DELAY = 400;
 const CLOSE_ANIMATION_DURATION = 480;
-// When moving from one filter's bubble to another filter's trigger, wait this
-// long before opening the new bubble so the previous one has time to fade out
-// and doesn't overlap/mis-capture the click on the new trigger.
-const INTER_OPEN_DELAY = 1000;
-
-const openInstances = new Set();
-
-const closeAllOtherInstances = (current) => {
-  openInstances.forEach((instance) => {
-    if (instance !== current) {
-      const impl = instance.closeAnimated || instance.closeImmediate;
-      impl.call(instance);
-    }
-  });
-};
+// After a bubble is opened by click, if no interaction touches it for this long,
+// it auto-collapses. Multiple bubbles can stay open at once; each has its own
+// idle timer.
+const IDLE_TIMEOUT = 3000;
 
 const ensureBubbleFilterStyles = () => {
   if (typeof document === 'undefined') {
@@ -393,9 +381,9 @@ const BubbleFilter = ({
   const cloudRef = useRef(null);
   const closeDelayRef = useRef(null);
   const closeAnimationRef = useRef(null);
-  const openDelayRef = useRef(null);
+  const idleTimerRef = useRef(null);
   const rafRef = useRef(null);
-  const instanceRef = useRef({ closeImmediate: () => {}, closeAnimated: () => {} });
+  const instanceRef = useRef({ closeImmediate: () => {} });
 
   const [isRendered, setIsRendered] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -480,68 +468,56 @@ const BubbleFilter = ({
     }
   }, []);
 
-  const clearOpenDelay = useCallback(() => {
-    if (openDelayRef.current) {
-      clearTimeout(openDelayRef.current);
-      openDelayRef.current = null;
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
     }
   }, []);
 
   const closeImmediate = useCallback(() => {
     clearCloseDelay();
     clearCloseAnimation();
-    clearOpenDelay();
+    clearIdleTimer();
     setIsOpen(false);
     setIsRendered(false);
-  }, [clearCloseAnimation, clearCloseDelay, clearOpenDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer]);
 
-  const openFilter = useCallback(
-    ({ defer = false } = {}) => {
-      clearOpenDelay();
-      closeAllOtherInstances(instanceRef.current);
-      clearCloseDelay();
-      clearCloseAnimation();
+  const openFilter = useCallback(() => {
+    clearCloseDelay();
+    clearCloseAnimation();
+    clearIdleTimer();
+    updatePosition();
+    setIsRendered(true);
 
-      const doOpen = () => {
-        updatePosition();
-        setIsRendered(true);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
 
-        if (rafRef.current) {
-          cancelAnimationFrame(rafRef.current);
-        }
-
-        rafRef.current = requestAnimationFrame(() => {
-          setIsOpen(true);
-        });
-      };
-
-      if (defer) {
-        openDelayRef.current = setTimeout(doOpen, INTER_OPEN_DELAY);
-      } else {
-        doOpen();
-      }
-    },
-    [clearCloseAnimation, clearCloseDelay, clearOpenDelay, updatePosition],
-  );
+    rafRef.current = requestAnimationFrame(() => {
+      setIsOpen(true);
+    });
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer, updatePosition]);
 
   const closeFilter = useCallback(() => {
     clearCloseDelay();
-    clearOpenDelay();
+    clearIdleTimer();
     setIsOpen(false);
-    openInstances.delete(instanceRef.current);
     clearCloseAnimation();
     closeAnimationRef.current = setTimeout(() => {
       setIsRendered(false);
     }, CLOSE_ANIMATION_DURATION);
-  }, [clearCloseAnimation, clearCloseDelay, clearOpenDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer]);
 
-  const scheduleClose = useCallback(() => {
-    clearCloseDelay();
-    clearOpenDelay();
-    closeDelayRef.current = setTimeout(() => {
+  const resetIdleTimer = useCallback(() => {
+    if (!isOpen) {
+      return;
+    }
+    clearIdleTimer();
+    idleTimerRef.current = setTimeout(() => {
       closeFilter();
-    }, CLOSE_DELAY);
-  }, [clearCloseDelay, clearOpenDelay, closeFilter]);
+    }, IDLE_TIMEOUT);
+  }, [clearIdleTimer, closeFilter, isOpen]);
 
   const handleTriggerClick = useCallback(() => {
     if (isOpen) {
@@ -580,17 +556,7 @@ const BubbleFilter = ({
 
   useEffect(() => {
     instanceRef.current.closeImmediate = closeImmediate;
-    instanceRef.current.closeAnimated = closeFilter;
-  }, [closeImmediate, closeFilter]);
-
-  useEffect(() => {
-    if (isOpen) {
-      openInstances.add(instanceRef.current);
-    }
-    return () => {
-      openInstances.delete(instanceRef.current);
-    };
-  }, [isOpen]);
+  }, [closeImmediate]);
 
   useEffect(() => {
     if (!isRendered) {
@@ -636,13 +602,22 @@ const BubbleFilter = ({
     return () => {
       clearCloseDelay();
       clearCloseAnimation();
-      clearOpenDelay();
-      openInstances.delete(instanceRef.current);
+      clearIdleTimer();
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [clearCloseAnimation, clearCloseDelay, clearOpenDelay]);
+  }, [clearCloseAnimation, clearCloseDelay, clearIdleTimer]);
+
+  useEffect(() => {
+    if (isOpen) {
+      clearIdleTimer();
+      idleTimerRef.current = setTimeout(() => {
+        closeFilter();
+      }, IDLE_TIMEOUT);
+    }
+    return () => clearIdleTimer();
+  }, [clearIdleTimer, closeFilter, isOpen]);
 
   const translatedSelectedLabel = selectedOption
     ? translate(selectedOption.label)
@@ -652,8 +627,8 @@ const BubbleFilter = ({
     <div
       ref={rootRef}
       className={`bubble-filter360-root ${isSmall ? 'small' : ''}`}
-      onMouseEnter={() => openFilter({ defer: true })}
-      onMouseLeave={scheduleClose}
+      onMouseEnter={resetIdleTimer}
+      onMouseMove={resetIdleTimer}
     >
       <button
         type='button'
@@ -691,7 +666,7 @@ const BubbleFilter = ({
               }}
             >
               {sortedOptions.map((option, index) => {
-                const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1, ring: 'inner' };
+                const petalPosition = petalPositions[index] || { x: 0, y: 0, z: 1, ring: 0 };
                 const translatedLabel = option._labelText || translate(option.label);
                 const isSelected = selectedOption?.key === option.key;
                 const usageClass = option.inUse ? 'in-use' : 'idle';
@@ -721,8 +696,8 @@ const BubbleFilter = ({
                           transitionDelay: `${Math.min(index, 11) * 28}ms`,
                         }}
                         onClick={() => handleSelect(option.value)}
-                        onMouseEnter={openFilter}
-                        onMouseLeave={scheduleClose}
+                        onMouseEnter={resetIdleTimer}
+                        onMouseMove={resetIdleTimer}
                       >
                         <span className='bubble-filter360-petal-label'>
                           {option.icon ? option.icon : null}

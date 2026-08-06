@@ -812,6 +812,24 @@ export const getLogsColumns = ({
       },
     },
     {
+      key: COLUMN_KEYS.IP,
+      title: t('IP'),
+      dataIndex: 'ip',
+      render: (text, record, index) => {
+        if (!text) {
+          return <></>;
+        }
+        return (
+          <span
+            style={{ cursor: 'pointer' }}
+            onClick={(event) => copyText(event, text)}
+          >
+            {text}
+          </span>
+        );
+      },
+    },
+    {
       key: COLUMN_KEYS.DETAILS,
       title: t('详情'),
       dataIndex: 'content',

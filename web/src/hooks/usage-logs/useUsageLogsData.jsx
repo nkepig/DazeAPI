@@ -163,7 +163,7 @@ export const useLogsData = () => {
       [COLUMN_KEYS.COMPLETION]: true,
       [COLUMN_KEYS.COST]: true,
       [COLUMN_KEYS.RETRY]: isAdminUser,
-      [COLUMN_KEYS.IP]: false,
+      [COLUMN_KEYS.IP]: true,
       [COLUMN_KEYS.DETAILS]: true,
     };
   };
@@ -627,9 +627,43 @@ export const useLogsData = () => {
           errorItems.push({ key: t('拦截原因'), value: other.reject_reason });
         }
       }
+      const metaItems = [];
+      if (logs[i].ip) {
+        metaItems.push({ key: t('IP'), value: logs[i].ip });
+      }
+      if (logs[i].user_agent) {
+        metaItems.push({ key: 'User-Agent', value: logs[i].user_agent });
+      }
+      const requestHeaders = other?.request_headers;
+      if (
+        requestHeaders &&
+        typeof requestHeaders === 'object' &&
+        Object.keys(requestHeaders).length > 0
+      ) {
+        metaItems.push({
+          key: t('请求头'),
+          value: (
+            <div
+              style={{
+                maxWidth: 600,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                lineHeight: 1.6,
+                fontFamily: 'monospace',
+                fontSize: 12,
+              }}
+            >
+              {Object.entries(requestHeaders)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join('\n')}
+            </div>
+          ),
+        });
+      }
       const expandDataLocal = [
         ...(logs[i].type === 2 ? billingItems : []),
         ...errorItems,
+        ...metaItems,
       ].filter((item) => item && item.value !== undefined && item.value !== null && item.value !== '');
       expandDatesLocal[logs[i].key] = expandDataLocal;
     }

@@ -24,6 +24,7 @@ type Token struct {
 	UnlimitedQuota     bool           `json:"unlimited_quota"`
 
 	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
+	BlockIps           *string        `json:"block_ips" gorm:"default:''"`
 	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
 	Group              string         `json:"group" gorm:"default:''"`
 	CrossGroupRetry    bool           `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效
@@ -55,14 +56,13 @@ func (token *Token) GetMaskedKey() string {
 	return MaskTokenKey(token.Key)
 }
 
-func (token *Token) GetIpLimits() []string {
-	// delete empty spaces
-	//split with \n
+// ParseIpList 解析按行分隔的 IP/CIDR 列表，兼容空格、逗号混排
+func ParseIpList(raw *string) []string {
 	ipLimits := make([]string, 0)
-	if token.AllowIps == nil {
+	if raw == nil {
 		return ipLimits
 	}
-	cleanIps := strings.ReplaceAll(*token.AllowIps, " ", "")
+	cleanIps := strings.ReplaceAll(*raw, " ", "")
 	if cleanIps == "" {
 		return ipLimits
 	}
@@ -75,6 +75,14 @@ func (token *Token) GetIpLimits() []string {
 		}
 	}
 	return ipLimits
+}
+
+func (token *Token) GetIpLimits() []string {
+	return ParseIpList(token.AllowIps)
+}
+
+func (token *Token) GetBlockIpLimits() []string {
+	return ParseIpList(token.BlockIps)
 }
 
 func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
@@ -302,7 +310,7 @@ func (token *Token) Update() (err error) {
 		}
 	}()
 	err = DB.Model(token).Select("name", "status", "remain_quota", "unlimited_quota",
-		"allow_ips", "group", "cross_group_retry").Updates(token).Error
+		"allow_ips", "block_ips", "group", "cross_group_retry").Updates(token).Error
 	return err
 }
 

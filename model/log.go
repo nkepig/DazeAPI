@@ -94,6 +94,7 @@ type Log struct {
 	TokenId          int    `json:"token_id" gorm:"default:0;index"`
 	Group            string `json:"group" gorm:"index"`
 	Ip               string `json:"ip" gorm:"index;default:''"`
+	UserAgent        string `json:"user_agent" gorm:"default:''"`
 	RequestId        string `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
 	Other            string `json:"other"`
 }
@@ -148,19 +149,61 @@ func RecordLog(userId int, logType int, content string) {
 	enqueueLog(log)
 }
 
+// loggableHeaderKeys 允许写入日志的请求头白名单。
+// 绝不加入 Authorization / Cookie / X-Api-Key 等凭证头，避免令牌泄露进日志。
+var loggableHeaderKeys = []string{
+	"Accept",
+	"Accept-Language",
+	"Content-Type",
+	"Origin",
+	"Referer",
+	"X-Title",
+	"Http-Referer",
+	"Sec-Ch-Ua",
+	"Sec-Ch-Ua-Platform",
+}
+
+// resolveLogRequestMeta 根据用户的 RecordIpLog 开关，提取可记录的请求元信息。
+// 开关关闭时全部返回零值。
+func resolveLogRequestMeta(c *gin.Context, userId int) (ip string, userAgent string, headers map[string]string) {
+	settingMap, err := GetUserSetting(userId, false)
+	if err != nil || !settingMap.RecordIpLog {
+		return "", "", nil
+	}
+	ip = c.ClientIP()
+	userAgent = c.Request.UserAgent()
+	headers = make(map[string]string)
+	for _, key := range loggableHeaderKeys {
+		if v := c.Request.Header.Get(key); v != "" {
+			headers[key] = v
+		}
+	}
+	if len(headers) == 0 {
+		headers = nil
+	}
+	return ip, userAgent, headers
+}
+
+// mergeRequestHeaders 把请求头信息合并进 other（不修改调用方传入的 map）
+func mergeRequestHeaders(other map[string]interface{}, headers map[string]string) map[string]interface{} {
+	if len(headers) == 0 {
+		return other
+	}
+	merged := make(map[string]interface{}, len(other)+1)
+	for k, v := range other {
+		merged[k] = v
+	}
+	merged["request_headers"] = headers
+	return merged
+}
+
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
 	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
-	otherStr := common.MapToJsonStr(other)
-	// 判断是否需要记录 IP
-	needRecordIp := false
-	if settingMap, err := GetUserSetting(userId, false); err == nil {
-		if settingMap.RecordIpLog {
-			needRecordIp = true
-		}
-	}
+	ip, userAgent, headers := resolveLogRequestMeta(c, userId)
+	otherStr := common.MapToJsonStr(mergeRequestHeaders(other, headers))
 	log := &Log{
 		UserId:           userId,
 		Username:         username,
@@ -177,14 +220,10 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 		UseTime:          useTimeSeconds,
 		IsStream:         isStream,
 		Group:            group,
-		Ip: func() string {
-			if needRecordIp {
-				return c.ClientIP()
-			}
-			return ""
-		}(),
-		RequestId: requestId,
-		Other:     otherStr,
+		Ip:               ip,
+		UserAgent:        userAgent,
+		RequestId:        requestId,
+		Other:            otherStr,
 	}
 	enqueueLog(log)
 }
@@ -211,14 +250,8 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
-	otherStr := common.MapToJsonStr(params.Other)
-	// 判断是否需要记录 IP
-	needRecordIp := false
-	if settingMap, err := GetUserSetting(userId, false); err == nil {
-		if settingMap.RecordIpLog {
-			needRecordIp = true
-		}
-	}
+	ip, userAgent, headers := resolveLogRequestMeta(c, userId)
+	otherStr := common.MapToJsonStr(mergeRequestHeaders(params.Other, headers))
 	log := &Log{
 		UserId:           userId,
 		Username:         username,
@@ -235,14 +268,10 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		UseTime:          params.UseTimeSeconds,
 		IsStream:         params.IsStream,
 		Group:            params.Group,
-		Ip: func() string {
-			if needRecordIp {
-				return c.ClientIP()
-			}
-			return ""
-		}(),
-		RequestId: requestId,
-		Other:     otherStr,
+		Ip:               ip,
+		UserAgent:        userAgent,
+		RequestId:        requestId,
+		Other:            otherStr,
 	}
 	enqueueLog(log)
 	if common.DataExportEnabled {

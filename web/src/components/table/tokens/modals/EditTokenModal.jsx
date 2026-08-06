@@ -63,6 +63,8 @@ const EditTokenModal = (props) => {
     remain_quota: 0,
     unlimited_quota: true,
     group: '',
+    allow_ips: '',
+    block_ips: '',
   });
 
   const { symbol } = getCurrencyConfig();
@@ -146,8 +148,7 @@ const EditTokenModal = (props) => {
       const baseName =
         values.name.trim() === '' ? 'default' : values.name.trim();
       localInputs.name = baseName;
-      localInputs.remain_quota = 0;
-      localInputs.unlimited_quota = true;
+      localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
       const res = await API.post(`/api/token/`, localInputs);
       const { success, message } = res.data;
       if (success) {
@@ -254,54 +255,89 @@ const EditTokenModal = (props) => {
                 </Row>
               </Card>
 
-              {isEdit && (
-                <Card className='!rounded-2xl shadow-sm border-0'>
-                  <div className='flex items-center mb-2'>
-                    <Avatar size='small' color='green' className='mr-2 shadow-md'>
-                      <IconCreditCard size={16} />
-                    </Avatar>
-                    <div>
-                      <Text className='text-lg font-medium'>{t('额度设置')}</Text>
-                      <div className='text-xs text-gray-600'>
-                        {t('设置令牌可用额度')}
-                      </div>
+              <Card className='!rounded-2xl shadow-sm border-0'>
+                <div className='flex items-center mb-2'>
+                  <Avatar size='small' color='green' className='mr-2 shadow-md'>
+                    <IconCreditCard size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('额度设置')}</Text>
+                    <div className='text-xs text-gray-600'>
+                      {t('设置令牌可用额度')}
                     </div>
                   </div>
-                  <Row gutter={12}>
-                    <Col span={24}>
-                      <Form.InputNumber
-                        field='remain_quota'
-                        label={t('额度')}
-                        placeholder={t('请输入额度')}
-                        type='number'
-                        disabled={values.unlimited_quota}
-                        extraText={
-                          values.unlimited_quota
-                            ? ''
-                            : `${symbol}${(values.remain_quota || 0).toFixed(2)}`
-                        }
-                        step={1}
-                        precision={2}
-                        rules={
-                          values.unlimited_quota
-                            ? []
-                            : [{ required: true, message: t('请输入额度') }]
-                        }
-                      />
-                    </Col>
-                    <Col span={24}>
-                      <Form.Switch
-                        field='unlimited_quota'
-                        label={t('无限额度')}
-                        size='default'
-                        extraText={t(
-                          '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
-                        )}
-                      />
-                    </Col>
-                  </Row>
-                </Card>
-              )}
+                </div>
+                <Row gutter={12}>
+                  <Col span={24}>
+                    <Form.InputNumber
+                      field='remain_quota'
+                      label={t('额度')}
+                      placeholder={t('请输入额度')}
+                      type='number'
+                      disabled={values.unlimited_quota}
+                      extraText={
+                        values.unlimited_quota
+                          ? ''
+                          : `${symbol}${(values.remain_quota || 0).toFixed(2)}`
+                      }
+                      step={1}
+                      precision={2}
+                      rules={
+                        values.unlimited_quota
+                          ? []
+                          : [{ required: true, message: t('请输入额度') }]
+                      }
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.Switch
+                      field='unlimited_quota'
+                      label={t('无限额度')}
+                      size='default'
+                      extraText={t(
+                        '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
+                      )}
+                    />
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* 访问控制 */}
+              <Card className='!rounded-2xl shadow-sm border-0'>
+                <div className='flex items-center mb-2'>
+                  <Avatar size='small' color='orange' className='mr-2 shadow-md'>
+                    <IconKey size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('IP 访问控制')}</Text>
+                    <div className='text-xs text-gray-600'>
+                      {t('限制可以使用该令牌的客户端 IP')}
+                    </div>
+                  </div>
+                </div>
+                <Row gutter={12}>
+                  <Col span={24}>
+                    <Form.TextArea
+                      field='allow_ips'
+                      label={t('IP 白名单')}
+                      placeholder={t('每行一个 IP 或 CIDR，例如 1.2.3.4 或 10.0.0.0/8')}
+                      autosize
+                      rows={3}
+                      extraText={t('配置后仅白名单内的 IP 可以使用该令牌，留空则不限制')}
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.TextArea
+                      field='block_ips'
+                      label={t('IP 黑名单')}
+                      placeholder={t('每行一个 IP 或 CIDR，例如 5.6.7.8 或 192.168.0.0/16')}
+                      autosize
+                      rows={3}
+                      extraText={t('黑名单内的 IP 将被拒绝访问，优先级高于白名单')}
+                    />
+                  </Col>
+                </Row>
+              </Card>
 
             </div>
           )}
