@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -155,6 +156,20 @@ func checkTokenGroupAccess(c *gin.Context, group string) bool {
 	return true
 }
 
+// validateTokenIpLists 校验令牌 IP 白名单/黑名单条目格式（支持 IP 或 CIDR，按行分隔）
+func validateTokenIpLists(lists ...*string) error {
+	for _, list := range lists {
+		for _, entry := range model.ParseIpList(list) {
+			if net.ParseIP(entry) == nil {
+				if _, _, err := net.ParseCIDR(entry); err != nil {
+					return fmt.Errorf("无效的 IP 条目: %s（支持 IP 或 CIDR 格式）", entry)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func AddToken(c *gin.Context) {
 	token := model.Token{}
 	err := c.ShouldBindJSON(&token)
@@ -174,6 +189,17 @@ func AddToken(c *gin.Context) {
 	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
+		return
+	}
+	if !token.UnlimitedQuota && token.RemainQuota < 0 {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
+		return
+	}
+	if err := validateTokenIpLists(token.AllowIps, token.BlockIps); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
 		return
 	}
 	// 检查用户令牌数量是否已达上限
@@ -197,16 +223,17 @@ func AddToken(c *gin.Context) {
 		return
 	}
 	cleanToken := model.Token{
-		UserId:             c.GetInt("id"),
-		Name:               token.Name,
-		Key:                key,
-		CreatedTime:        common.GetTimestamp(),
-		AccessedTime:       common.GetTimestamp(),
-		RemainQuota:        0,
-		UnlimitedQuota:     true,
-		AllowIps:           token.AllowIps,
-		Group:              token.Group,
-		CrossGroupRetry:    token.CrossGroupRetry,
+		UserId:          c.GetInt("id"),
+		Name:            token.Name,
+		Key:             key,
+		CreatedTime:     common.GetTimestamp(),
+		AccessedTime:    common.GetTimestamp(),
+		RemainQuota:     token.RemainQuota,
+		UnlimitedQuota:  token.UnlimitedQuota,
+		AllowIps:        token.AllowIps,
+		BlockIps:        token.BlockIps,
+		Group:           token.Group,
+		CrossGroupRetry: token.CrossGroupRetry,
 	}
 	err = cleanToken.Insert()
 	if err != nil {
@@ -252,6 +279,13 @@ func UpdateToken(c *gin.Context) {
 			return
 		}
 	}
+	if err := validateTokenIpLists(token.AllowIps, token.BlockIps); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
 	cleanToken, err := model.GetTokenByIds(token.Id, userId)
 	if err != nil {
 		common.ApiError(c, err)
@@ -271,6 +305,7 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.RemainQuota = token.RemainQuota
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
 		cleanToken.AllowIps = token.AllowIps
+		cleanToken.BlockIps = token.BlockIps
 		if !checkTokenGroupAccess(c, token.Group) {
 			return
 		}

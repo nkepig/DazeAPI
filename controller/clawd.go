@@ -284,6 +284,21 @@ func GetClawdSetting(c *gin.Context) {
 	})
 }
 
+func triggerClawdSidecarReload() {
+	sidecarURL := os.Getenv("CLAWD_SIDECAR_URL")
+	if sidecarURL == "" {
+		sidecarURL = "http://localhost:6000"
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Post(sidecarURL+"/reload", "application/json", nil)
+	if err != nil {
+		common.SysLog("clawd sidecar reload notify failed: " + err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+}
+
 func UpdateClawdSetting(c *gin.Context) {
 	var req struct {
 		Enabled              *bool                        `json:"enabled"`
@@ -370,6 +385,9 @@ func UpdateClawdSetting(c *gin.Context) {
 			return
 		}
 	}
+
+	// 通知 sidecar 热重载配置，避免重启容器才生效
+	go triggerClawdSidecarReload()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

@@ -188,7 +188,11 @@ def _read_clawd_settings(dsn: str) -> dict:
 
 
 _SQL_DSN = os.environ.get("SQL_DSN", "")
-_SETTINGS: dict = _read_clawd_settings(_SQL_DSN) if _SQL_DSN else {}
+
+_kb: Knowledge | None = None
+_agent: Agent | None = None
+_kb_fingerprint: tuple[str, str] | None = None
+_agent_fingerprint: tuple[str, str, str] | None = None
 
 _KB_URLS = [
     ("https://ai.google.dev/gemini-api/docs/llms.txt", LLMsTxtReader, "gemini"),
@@ -202,13 +206,25 @@ _KB_URLS = [
 ]
 
 
-def _init_knowledge() -> Knowledge | None:
+def _kb_fingerprint_of(settings: dict) -> tuple[str, str]:
+    return (settings.get("agent_base_url", ""), settings.get("agent_api_key", ""))
+
+
+def _agent_fingerprint_of(settings: dict) -> tuple[str, str, str]:
+    return (
+        settings.get("agent_base_url", ""),
+        settings.get("agent_api_key", ""),
+        settings.get("agent_model", ""),
+    )
+
+
+def _init_knowledge(settings: dict) -> Knowledge | None:
     if not _SQL_DSN:
         logger.warning("SQL_DSN not set, skipping knowledge base")
         return None
 
-    base_url = _SETTINGS.get("agent_base_url", "")
-    api_key = _SETTINGS.get("agent_api_key", "")
+    base_url = settings.get("agent_base_url", "")
+    api_key = settings.get("agent_api_key", "")
     if not base_url or not api_key:
         logger.warning(
             "Embedder config not set in ClawdSetting (agent_base_url / agent_api_key), skipping knowledge base"
@@ -244,17 +260,14 @@ def _init_knowledge() -> Knowledge | None:
         return None
 
 
-_kb: Knowledge | None = _init_knowledge()
-
-
-def _init_agent() -> Agent | None:
+def _init_agent(settings: dict, kb: Knowledge | None) -> Agent | None:
     if not _SQL_DSN:
         logger.warning("SQL_DSN not set, agent not initialized")
         return None
 
-    base_url = _SETTINGS.get("agent_base_url", "")
-    api_key = _SETTINGS.get("agent_api_key", "")
-    model = _SETTINGS.get("agent_model", "")
+    base_url = settings.get("agent_base_url", "")
+    api_key = settings.get("agent_api_key", "")
+    model = settings.get("agent_model", "")
 
     if not base_url or not api_key:
         logger.warning(
@@ -281,7 +294,7 @@ def _init_agent() -> Agent | None:
         ),
         instructions=SYSTEM_PROMPT,
         tools=tools,
-        knowledge=_kb,
+        knowledge=kb,
         search_knowledge=True,
         add_search_knowledge_instructions=True,
         enable_agentic_knowledge_filters=True,
@@ -294,4 +307,34 @@ def _init_agent() -> Agent | None:
     )
 
 
-agent: Agent | None = _init_agent()
+def get_agent(*, force_reload: bool = False) -> Agent | None:
+    """Return the live agent, rebuilding it when ClawdSetting rows in the
+    options table change. Config is re-read on every call so dashboard edits
+    take effect without a container restart.
+
+    No locking: rebuilds are idempotent (construct new objects, then swap the
+    global reference), so a rare concurrent call just builds twice and the
+    last assignment wins."""
+    global _kb, _agent, _kb_fingerprint, _agent_fingerprint
+    if not _SQL_DSN:
+        return None
+
+    settings = _read_clawd_settings(_SQL_DSN)
+
+    kb_fp = _kb_fingerprint_of(settings)
+    kb_rebuilt = False
+    if force_reload or kb_fp != _kb_fingerprint:
+        logger.info("Embedder config changed, reloading knowledge base")
+        _kb = _init_knowledge(settings)
+        # Update fingerprint even on failure to avoid retrying a broken
+        # remote fetch on every request; /reload?force=true forces a retry.
+        _kb_fingerprint = kb_fp
+        kb_rebuilt = True
+
+    agent_fp = _agent_fingerprint_of(settings)
+    if force_reload or kb_rebuilt or agent_fp != _agent_fingerprint or _agent is None:
+        logger.info("Agent config changed, rebuilding agent")
+        _agent = _init_agent(settings, _kb)
+        _agent_fingerprint = agent_fp
+
+    return _agent
