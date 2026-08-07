@@ -4,6 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Search, Layers } from 'lucide-react';
 import { API, showError, getLobeHubIcon } from '../../helpers';
 import { StatusContext } from '../../context/Status';
+import {
+  applyTierToRecord,
+  isTieredPricing,
+  sortTiers,
+} from '../../components/table/model-pricing/common/TieredPriceDisplay';
 
 const CARD_COLORS = [
   { accent: 'text-blue-600', tag: 'bg-blue-100 text-blue-700' },
@@ -25,6 +30,163 @@ const getCardColor = (vendorName) => {
   return CARD_COLORS[Math.abs(hash) % CARD_COLORS.length];
 };
 
+const formatTierLabel = (tier) => {
+  if (tier?.max_len === null || tier?.max_len === undefined || tier?.max_len === '') {
+    return '∞';
+  }
+  const n = Number(tier.max_len);
+  if (!Number.isFinite(n)) return '∞';
+  if (n >= 1000 && n % 1000 === 0) return `≤${n / 1000}K`;
+  return `≤${n}`;
+};
+
+const ModelListCard = ({
+  model,
+  vendorsMap,
+  color,
+  priceInfo,
+  tiers,
+  tierIndex,
+  onTierIndexChange,
+  t,
+}) => {
+  const billingLabel = isTieredPricing(model)
+    ? t('动态阶梯')
+    : model.pricing_type === 0
+      ? t('按量计费')
+      : t('按次计费');
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.2 }}
+      className='bg-white border border-[#EBEBEB] rounded-xl p-5 hover:shadow-md transition-all'
+    >
+      <div className='flex items-start justify-between mb-3'>
+        <div className='flex-1 min-w-0'>
+          <h3 className='text-[14px] font-semibold text-[#1A1A1A] font-mono truncate'>
+            {model.model_name}
+          </h3>
+          <div className='flex items-center gap-2 mt-1.5 flex-wrap'>
+            {model.vendor_name && (
+              <span
+                className={`text-[11px] px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1 max-w-full ${color.tag}`}
+              >
+                <span className='flex shrink-0 items-center [&_img]:rounded-sm'>
+                  {getLobeHubIcon(
+                    vendorsMap[model.vendor_id]?.icon || 'Layers',
+                    14,
+                  )}
+                </span>
+                <span className='truncate'>{model.vendor_name}</span>
+              </span>
+            )}
+            <span
+              className={`text-[11px] ${
+                isTieredPricing(model) ? 'text-orange-600 font-medium' : 'text-[#999]'
+              }`}
+            >
+              {billingLabel}
+            </span>
+          </div>
+        </div>
+        <span
+          className={`ml-3 shrink-0 text-[11px] px-2 py-0.5 rounded-full font-mono font-semibold ${
+            priceInfo.groupRatio === 1
+              ? 'bg-gray-100 text-gray-500'
+              : priceInfo.groupRatio < 1
+                ? 'bg-green-100 text-green-700'
+                : 'bg-amber-100 text-amber-700'
+          }`}
+        >
+          ×{priceInfo.groupRatio}
+        </span>
+      </div>
+
+      {tiers.length > 0 ? (
+        <div className='flex flex-wrap gap-1 mb-2.5'>
+          {tiers.map((tier, index) => (
+            <button
+              key={`tier-${model.model_name}-${index}`}
+              type='button'
+              onClick={() => onTierIndexChange(index)}
+              onMouseEnter={() => onTierIndexChange(index)}
+              className='transition-all duration-150 cursor-pointer border-0 outline-none'
+              style={{
+                padding: '2px 8px',
+                borderRadius: '9999px',
+                fontSize: '11px',
+                fontWeight: index === tierIndex ? 600 : 400,
+                background: index === tierIndex ? '#1A1A1A' : '#f5f5f5',
+                color: index === tierIndex ? '#fff' : '#666',
+              }}
+            >
+              {formatTierLabel(tier)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {priceInfo.type === 'unconfigured' ? (
+        <div className='space-y-1.5'>
+          <div className='text-center py-4'>
+            <p className={`text-[14px] font-medium ${color.accent}`}>
+              {t('模型价格未配置')}
+            </p>
+          </div>
+        </div>
+      ) : priceInfo.type === 'token' ? (
+        <div className='space-y-1.5'>
+          <div className='grid grid-cols-2 gap-x-4 gap-y-1'>
+            <div>
+              <span className='text-[11px] text-[#888]'>{t('输入价格')}</span>
+              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
+                {priceInfo.inputPrice}
+                <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+              </p>
+            </div>
+            <div>
+              <span className='text-[11px] text-[#888]'>{t('输出价格')}</span>
+              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
+                {priceInfo.outputPrice}
+                <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+              </p>
+            </div>
+            {priceInfo.cachePrice && (
+              <div>
+                <span className='text-[11px] text-[#888]'>{t('缓存价格')}</span>
+                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
+                  {priceInfo.cachePrice}
+                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+                </p>
+              </div>
+            )}
+            {priceInfo.createCachePrice && (
+              <div>
+                <span className='text-[11px] text-[#888]'>{t('缓存创建价格')}</span>
+                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
+                  {priceInfo.createCachePrice}
+                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <span className='text-[11px] text-[#888]'>{t('每次调用')}</span>
+          <p className={`text-[14px] font-semibold font-mono ${color.accent}`}>
+            {priceInfo.price}
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const Models = () => {
   const { t } = useTranslation();
   const [models, setModels] = useState([]);
@@ -36,6 +198,7 @@ const Models = () => {
   const [filterGroup, setFilterGroup] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [userGroup, setUserGroup] = useState('');
+  const [tierIndexByModel, setTierIndexByModel] = useState({});
   const pageSize = 24;
 
   const [statusState] = useContext(StatusContext);
@@ -186,18 +349,28 @@ const Models = () => {
     return minRatio === Infinity ? 1 : minRatio;
   };
 
-  const getPriceInfo = (model) => {
-    const gr = model.user_multiplier != null ? model.user_multiplier : getUsedGroupRatio(model);
+  const getPriceInfo = (model, activeTier = null) => {
+    const pricedModel = activeTier ? applyTierToRecord(model, activeTier) : model;
+    const gr =
+      pricedModel.user_multiplier != null
+        ? pricedModel.user_multiplier
+        : getUsedGroupRatio(pricedModel);
 
-    if (model.pricing_type === 1) {
-      const rawPrice = parseFloat(model.per_call_price);
-      return { type: 'fixed', price: displayPrice(rawPrice), groupRatio: gr, hasUserMultiplier: model.user_multiplier != null };
+    if (pricedModel.pricing_type === 1) {
+      const rawPrice = parseFloat(pricedModel.per_call_price);
+      return {
+        type: 'fixed',
+        price: displayPrice(rawPrice),
+        groupRatio: gr,
+        hasUserMultiplier: pricedModel.user_multiplier != null,
+      };
     }
-    const rawInputPrice = model.prompt_price;
-    const rawOutputPrice = model.completion_price;
-    const rawCachePrice = model.cache_read_price != null ? model.cache_read_price : null;
+    const rawInputPrice = pricedModel.prompt_price;
+    const rawOutputPrice = pricedModel.completion_price;
+    const rawCachePrice =
+      pricedModel.cache_read_price != null ? pricedModel.cache_read_price : null;
     const rawCreateCachePrice =
-      model.cache_write_price != null ? model.cache_write_price : null;
+      pricedModel.cache_write_price != null ? pricedModel.cache_write_price : null;
     return {
       type: 'token',
       inputPrice: displayPrice(rawInputPrice),
@@ -206,7 +379,7 @@ const Models = () => {
       createCachePrice:
         rawCreateCachePrice != null ? displayPrice(rawCreateCachePrice) : null,
       groupRatio: gr,
-      hasUserMultiplier: model.user_multiplier != null,
+      hasUserMultiplier: pricedModel.user_multiplier != null,
     };
   };
 
@@ -331,91 +504,32 @@ const Models = () => {
           <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
             <AnimatePresence mode='popLayout'>
               {paginatedModels.map((model) => {
-                const priceInfo = getPriceInfo(model);
+                const tiers = isTieredPricing(model) ? sortTiers(model.tiers) : [];
+                const rawTierIndex = tierIndexByModel[model.model_name] ?? 0;
+                const tierIndex =
+                  tiers.length === 0
+                    ? 0
+                    : Math.min(rawTierIndex, tiers.length - 1);
+                const activeTier = tiers.length > 0 ? tiers[tierIndex] : null;
+                const priceInfo = getPriceInfo(model, activeTier);
                 const color = getCardColor(model.vendor_name);
                 return (
-                  <motion.div
+                  <ModelListCard
                     key={model.model_name}
-                    layout
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96 }}
-                    transition={{ duration: 0.2 }}
-                    className='bg-white border border-[#EBEBEB] rounded-xl p-5 hover:shadow-md transition-all'
-                  >
-                    <div className='flex items-start justify-between mb-3'>
-                      <div className='flex-1 min-w-0'>
-                        <h3 className='text-[14px] font-semibold text-[#1A1A1A] font-mono truncate'>{model.model_name}</h3>
-                        <div className='flex items-center gap-2 mt-1.5'>
-                          {model.vendor_name && (
-                            <span
-                              className={`text-[11px] px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1 max-w-full ${color.tag}`}
-                            >
-                              <span className='flex shrink-0 items-center [&_img]:rounded-sm'>
-                                {getLobeHubIcon(
-                                  vendorsMap[model.vendor_id]?.icon || 'Layers',
-                                  14,
-                                )}
-                              </span>
-                              <span className='truncate'>{model.vendor_name}</span>
-                            </span>
-                          )}
-                          <span className='text-[11px] text-[#999]'>
-                            {model.pricing_type === 0 ? t('按量计费') : t('按次计费')}
-                          </span>
-                        </div>
-                      </div>
-                      <span
-                        className={`ml-3 shrink-0 text-[11px] px-2 py-0.5 rounded-full font-mono font-semibold ${
-                          priceInfo.groupRatio === 1
-                            ? 'bg-gray-100 text-gray-500'
-                            : priceInfo.groupRatio < 1
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        ×{priceInfo.groupRatio}
-                      </span>
-                    </div>
-
-                    {priceInfo.type === 'unconfigured' ? (
-                      <div className='space-y-1.5'>
-                        <div className='text-center py-4'>
-                          <p className={`text-[14px] font-medium ${color.accent}`}>{t('模型价格未配置')}</p>
-                        </div>
-                      </div>
-                    ) : priceInfo.type === 'token' ? (
-                      <div className='space-y-1.5'>
-                        <div className='grid grid-cols-2 gap-x-4 gap-y-1'>
-                          <div>
-                            <span className='text-[11px] text-[#888]'>{t('输入价格')}</span>
-                            <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.inputPrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
-                          </div>
-                          <div>
-                            <span className='text-[11px] text-[#888]'>{t('输出价格')}</span>
-                            <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.outputPrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
-                          </div>
-                          {priceInfo.cachePrice && (
-                            <div>
-                              <span className='text-[11px] text-[#888]'>{t('缓存价格')}</span>
-                              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.cachePrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
-                            </div>
-                          )}
-                          {priceInfo.createCachePrice && (
-                            <div>
-                              <span className='text-[11px] text-[#888]'>{t('缓存创建价格')}</span>
-                              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>{priceInfo.createCachePrice}<span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span></p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className='text-[11px] text-[#888]'>{t('每次调用')}</span>
-                        <p className={`text-[14px] font-semibold font-mono ${color.accent}`}>{priceInfo.price}</p>
-                      </div>
-                    )}
-                  </motion.div>
+                    model={model}
+                    vendorsMap={vendorsMap}
+                    color={color}
+                    priceInfo={priceInfo}
+                    tiers={tiers}
+                    tierIndex={tierIndex}
+                    onTierIndexChange={(index) =>
+                      setTierIndexByModel((prev) => ({
+                        ...prev,
+                        [model.model_name]: index,
+                      }))
+                    }
+                    t={t}
+                  />
                 );
               })}
             </AnimatePresence>

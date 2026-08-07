@@ -116,6 +116,9 @@ export default function ModelPricingEditor({
     handleNumericFieldChange,
     handleBillingModeChange,
     handleFixedPriceUnitChange,
+    handleTierChange,
+    addTier,
+    removeTier,
     handleSubmit,
     addModel,
     deleteModel,
@@ -166,10 +169,12 @@ export default function ModelPricingEditor({
         key: 'billingMode',
         width: 120,
         render: (_, record) => (
-          <Tag color={record.billingMode === 'per-request' ? 'teal' : 'violet'}>
+          <Tag color={record.billingMode === 'per-request' ? 'teal' : record.billingMode === 'tiered' ? 'orange' : 'violet'}>
             {record.billingMode === 'per-request'
               ? t('固定价格')
-              : t('按 token 价格')}
+              : record.billingMode === 'tiered'
+                ? t('动态阶梯')
+                : t('按 token 价格')}
           </Tag>
         ),
       },
@@ -375,7 +380,9 @@ export default function ModelPricingEditor({
                   <Tag color='blue'>
                     {selectedModel.billingMode === 'per-request'
                       ? (selectedModel.fixedPriceUnit === 'second' ? t('固定价格·按秒') : t('固定价格'))
-                      : t('按 token 价格')}
+                      : selectedModel.billingMode === 'tiered'
+                        ? t('动态阶梯')
+                        : t('按 token 价格')}
                   </Tag>
                 ) : null
               }
@@ -399,11 +406,14 @@ export default function ModelPricingEditor({
                     onChange={(event) => handleBillingModeChange(event.target.value)}
                   >
                     <Radio value='per-token'>{t('按 token 价格')}</Radio>
+                    <Radio value='tiered'>{t('动态阶梯')}</Radio>
                     <Radio value='per-request'>{t('固定价格')}</Radio>
                   </RadioGroup>
-                  <div className='mt-2 text-xs text-gray-500'>
-                    {t('仅保存价格配置')}
-                  </div>
+                  {selectedModel.billingMode !== 'tiered' ? (
+                    <div className='mt-2 text-xs text-gray-500'>
+                      {t('仅保存价格配置')}
+                    </div>
+                  ) : null}
                 </div>
 
                 {selectedWarnings.length > 0 ? (
@@ -452,6 +462,104 @@ export default function ModelPricingEditor({
                       extraText={selectedModel.fixedPriceUnit === 'second' ? t('按秒计费') : t('按次计费')}
                     />
                   </>
+                ) : selectedModel.billingMode === 'tiered' ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <div className='text-xs text-gray-500 mb-2'>
+                      {t('按输入长度匹配档位；最大长度默认 ∞')}
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table
+                        style={{
+                          width: '100%',
+                          borderCollapse: 'collapse',
+                          fontSize: 13,
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ textAlign: 'left', color: 'var(--semi-color-text-2)' }}>
+                            <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>{t('最大长度')}</th>
+                            <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>{t('输入')}</th>
+                            <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>{t('输出')}</th>
+                            <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>{t('缓存读')}</th>
+                            <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>{t('缓存写')}</th>
+                            <th style={{ padding: '6px 4px', width: 36 }} />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(selectedModel.tiers || []).map((tier, index) => (
+                            <tr key={`tier-row-${index}`}>
+                              <td style={{ padding: '4px 2px' }}>
+                                <Input
+                                  value={tier.maxLen}
+                                  placeholder='∞'
+                                  suffix='tok'
+                                  size='small'
+                                  style={{ width: 110 }}
+                                  onChange={(value) => handleTierChange(index, 'maxLen', value)}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 2px' }}>
+                                <Input
+                                  value={tier.inputPrice}
+                                  placeholder='$/1M'
+                                  size='small'
+                                  style={{ width: 88 }}
+                                  onChange={(value) => handleTierChange(index, 'inputPrice', value)}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 2px' }}>
+                                <Input
+                                  value={tier.outputPrice}
+                                  placeholder='$/1M'
+                                  size='small'
+                                  style={{ width: 88 }}
+                                  onChange={(value) => handleTierChange(index, 'outputPrice', value)}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 2px' }}>
+                                <Input
+                                  value={tier.cacheReadPrice}
+                                  placeholder='$/1M'
+                                  size='small'
+                                  style={{ width: 88 }}
+                                  onChange={(value) => handleTierChange(index, 'cacheReadPrice', value)}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 2px' }}>
+                                <Input
+                                  value={tier.cacheWritePrice}
+                                  placeholder='$/1M'
+                                  size='small'
+                                  style={{ width: 88 }}
+                                  onChange={(value) => handleTierChange(index, 'cacheWritePrice', value)}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 2px' }}>
+                                <Button
+                                  size='small'
+                                  type='danger'
+                                  theme='borderless'
+                                  icon={<IconDelete />}
+                                  onClick={() => removeTier(index)}
+                                  disabled={(selectedModel.tiers || []).length <= 1}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <Button
+                      icon={<IconPlus />}
+                      onClick={addTier}
+                      theme='borderless'
+                      type='tertiary'
+                      size='small'
+                      style={{ marginTop: 8, paddingLeft: 0 }}
+                    >
+                      {t('添加档位')}
+                    </Button>
+                  </div>
                 ) : (
                   <Card
                     bodyStyle={{ padding: 16 }}

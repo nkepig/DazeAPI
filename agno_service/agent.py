@@ -191,7 +191,6 @@ _SQL_DSN = os.environ.get("SQL_DSN", "")
 
 _kb: Knowledge | None = None
 _agent: Agent | None = None
-_kb_fingerprint: tuple[str, str] | None = None
 _agent_fingerprint: tuple[str, str, str] | None = None
 
 _KB_URLS = [
@@ -204,10 +203,6 @@ _KB_URLS = [
     ),
     ("https://models.dev/api.json", JSONReader, "models_dev"),
 ]
-
-
-def _kb_fingerprint_of(settings: dict) -> tuple[str, str]:
-    return (settings.get("agent_base_url", ""), settings.get("agent_api_key", ""))
 
 
 def _agent_fingerprint_of(settings: dict) -> tuple[str, str, str]:
@@ -308,32 +303,24 @@ def _init_agent(settings: dict, kb: Knowledge | None) -> Agent | None:
 
 
 def get_agent(*, force_reload: bool = False) -> Agent | None:
-    """Return the live agent, rebuilding it when ClawdSetting rows in the
-    options table change. Config is re-read on every call so dashboard edits
-    take effect without a container restart.
-
-    No locking: rebuilds are idempotent (construct new objects, then swap the
-    global reference), so a rare concurrent call just builds twice and the
-    last assignment wins."""
-    global _kb, _agent, _kb_fingerprint, _agent_fingerprint
+    """返回当前 Agent；ClawdSetting 变更时重建。"""
+    global _kb, _agent, _agent_fingerprint
     if not _SQL_DSN:
         return None
 
     settings = _read_clawd_settings(_SQL_DSN)
-
-    kb_fp = _kb_fingerprint_of(settings)
-    kb_rebuilt = False
-    if force_reload or kb_fp != _kb_fingerprint:
-        logger.info("Embedder config changed, reloading knowledge base")
-        _kb = _init_knowledge(settings)
-        # Update fingerprint even on failure to avoid retrying a broken
-        # remote fetch on every request; /reload?force=true forces a retry.
-        _kb_fingerprint = kb_fp
-        kb_rebuilt = True
-
     agent_fp = _agent_fingerprint_of(settings)
-    if force_reload or kb_rebuilt or agent_fp != _agent_fingerprint or _agent is None:
-        logger.info("Agent config changed, rebuilding agent")
+
+    if force_reload or _kb is None:
+        _kb = _init_knowledge(settings)
+
+    if force_reload or _agent is None or agent_fp != _agent_fingerprint:
+        # 保留已有向量，仅替换查询 embedding 用的凭据
+        if _kb is not None and _kb.vector_db is not None:
+            base_url = settings.get("agent_base_url", "")
+            api_key = settings.get("agent_api_key", "")
+            if base_url and api_key:
+                _kb.vector_db.embedder = OpenAIEmbedder(api_key=api_key, base_url=base_url)
         _agent = _init_agent(settings, _kb)
         _agent_fingerprint = agent_fp
 

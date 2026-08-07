@@ -32,6 +32,10 @@ type ModelPricing struct {
 	// "" / "call" = per request (default, backward compatible);
 	// "second" = per second (multiplied by video duration, skips adaptor ratios).
 	FixedPriceUnit string `json:"fixed_price_unit,omitempty"`
+	// BillingMode: "" / omitted = flat per-token or per-call;
+	// "tiered" = length-based packages in Tiers.
+	BillingMode string        `json:"billing_mode,omitempty"`
+	Tiers       []PricingTier `json:"tiers,omitempty"`
 }
 
 // Fixed-price unit constants.
