@@ -3813,7 +3813,12 @@
     "默认折叠侧边栏": "Réduire la barre latérale par défaut",
     "默认测试模型": "Modèle de test par défaut",
     "默认用户消息": "Bonjour",
-    "默认补全倍率": "Taux de complétion par défaut"
+    "默认补全倍率": "Taux de complétion par défaut",
+    "动态阶梯": "Tarifs dynamiques",
+    "添加档位": "Ajouter un palier",
+    "最大长度": "Longueur max",
+    "触碰档位切换查看对应价格": "Survolez un palier pour voir le prix",
+    "按输入长度匹配档位；最大长度默认 ∞": "Correspondance par longueur d'entrée ; max par défaut ∞"
   },
   "去充值": "Recharger",
   "留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。": "Laisser vide pour conserver la clé. Plusieurs lignes fusionnées en clés distinctes passent le canal en multi-clés.",

@@ -812,6 +812,53 @@ export const getLogsColumns = ({
       },
     },
     {
+      key: COLUMN_KEYS.IP,
+      title: t('来源'),
+      dataIndex: 'ip',
+      render: (text, record, index) => {
+        const other = getLogOther(record.other);
+        const headers = other?.request_headers || {};
+        const headerEntries = Object.entries(headers);
+        const userAgent = record.user_agent || '';
+        const hasDetail = userAgent !== '' || headerEntries.length > 0;
+        if (!text && !hasDetail) {
+          return <></>;
+        }
+        const ipNode = text ? (
+          <span
+            style={{ cursor: 'pointer' }}
+            onClick={(event) => copyText(event, text)}
+          >
+            {text}
+          </span>
+        ) : (
+          <span>-</span>
+        );
+        if (!hasDetail) {
+          return ipNode;
+        }
+        const detailContent = (
+          <div style={{ lineHeight: 1.6, maxWidth: 420, wordBreak: 'break-all' }}>
+            {userAgent !== '' && (
+              <div>
+                <strong>User-Agent:</strong> {userAgent}
+              </div>
+            )}
+            {headerEntries.map(([k, v]) => (
+              <div key={k}>
+                <strong>{k}:</strong> {v}
+              </div>
+            ))}
+          </div>
+        );
+        return (
+          <Popover content={detailContent} position='top'>
+            {ipNode}
+          </Popover>
+        );
+      },
+    },
+    {
       key: COLUMN_KEYS.DETAILS,
       title: t('详情'),
       dataIndex: 'content',

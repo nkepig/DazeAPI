@@ -44,6 +44,9 @@ import PricingCardSkeleton from './PricingCardSkeleton';
 import { useMinimumLoadingTime } from '../../../../../hooks/common/useMinimumLoadingTime';
 import { renderLimitedItems } from '../../../../common/ui/RenderUtils';
 import { useIsMobile } from '../../../../../hooks/common/useIsMobile';
+import TieredPriceDisplay, {
+  isTieredPricing,
+} from '../../common/TieredPriceDisplay';
 
 const CARD_STYLES = {
   container:
@@ -165,6 +168,12 @@ const PricingCardView = ({
           {t('按次计费')}
         </Tag>
       );
+    } else if (isTieredPricing(record)) {
+      billingTag = (
+        <Tag key='billing' shape='circle' color='orange' size='small'>
+          {t('动态阶梯')}
+        </Tag>
+      );
     } else if (record.pricing_type === 0) {
       billingTag = (
         <Tag key='billing' shape='circle' color='violet' size='small'>
@@ -267,7 +276,20 @@ const PricingCardView = ({
                         {model.model_name}
                       </h3>
                       <div className='flex flex-col gap-1 text-xs mt-1'>
-                        {formatPriceInfo(priceData, t, siteDisplayType)}
+                        {isTieredPricing(model) ? (
+                          <TieredPriceDisplay
+                            record={model}
+                            selectedGroup={selectedGroup}
+                            groupRatio={groupRatio}
+                            tokenUnit={tokenUnit}
+                            displayPrice={displayPrice}
+                            currency={currency}
+                            siteDisplayType={siteDisplayType}
+                            t={t}
+                          />
+                        ) : (
+                          formatPriceInfo(priceData, t, siteDisplayType)
+                        )}
                       </div>
                     </div>
                   </div>

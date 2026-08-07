@@ -117,6 +117,36 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	summary.CacheCreationTokens1h = usage.ClaudeCacheCreation1hTokens
 	summary.ImageTokens = usage.PromptTokensDetails.ImageTokens
 	summary.AudioTokens = usage.PromptTokensDetails.AudioTokens
+
+	// 阶梯计费：按实际输入上下文长度重新选档，覆盖预估时的输入/输出单价
+	if priceData.UseTieredPricing {
+		if modelPricing, ok := pricing.GetModelPricing(relayInfo.OriginModelName); ok && modelPricing.IsTiered() {
+			inputLen := pricing.InputContextLength(
+				summary.PromptTokens,
+				summary.CacheTokens,
+				summary.CacheCreationTokens,
+				summary.IsClaudeUsageSemantic,
+			)
+			if tier, ok := modelPricing.SelectTier(inputLen); ok {
+				summary.PromptPrice = tier.PromptPrice
+				summary.CompletionPrice = tier.CompletionPrice
+				summary.CacheReadPrice = tier.CacheReadPrice
+				summary.CacheWritePrice = tier.CacheWritePrice
+				// 5m/1h 缓存创建仍按档位缓存创建价派生（与非阶梯路径一致）
+				summary.CacheWrite5mPrice = tier.CacheWritePrice
+				summary.CacheWrite1hPrice = tier.CacheWritePrice * (6.0 / 3.75)
+				matched := tier.Label()
+				relayInfo.PriceData.MatchedTier = matched
+				relayInfo.PriceData.PromptPrice = tier.PromptPrice
+				relayInfo.PriceData.CompletionPrice = tier.CompletionPrice
+				relayInfo.PriceData.CacheReadPrice = tier.CacheReadPrice
+				relayInfo.PriceData.CacheWritePrice = tier.CacheWritePrice
+				relayInfo.PriceData.CacheWrite5mPrice = summary.CacheWrite5mPrice
+				relayInfo.PriceData.CacheWrite1hPrice = summary.CacheWrite1hPrice
+			}
+		}
+	}
+
 	legacyClaudeDerived := isLegacyClaudeDerivedOpenAIUsage(relayInfo, usage)
 	isOpenRouterClaudeBilling := relayInfo.ChannelMeta != nil &&
 		relayInfo.ChannelType == constant.ChannelTypeOpenRouter &&

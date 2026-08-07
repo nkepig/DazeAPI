@@ -4327,7 +4327,12 @@
     "默认折叠侧边栏": "Mặc định thu gọn thanh bên",
     "默认测试模型": "Mô hình kiểm tra mặc định",
     "默认用户消息": "Xin chào",
-    "默认补全倍率": "Tỷ lệ hoàn thành mặc định"
+    "默认补全倍率": "Tỷ lệ hoàn thành mặc định",
+    "动态阶梯": "Bậc động",
+    "添加档位": "Thêm bậc",
+    "最大长度": "Độ dài tối đa",
+    "触碰档位切换查看对应价格": "Chạm bậc để xem giá tương ứng",
+    "按输入长度匹配档位；最大长度默认 ∞": "Khớp theo độ dài đầu vào; độ dài tối đa mặc định ∞"
   },
   "去充值": "Nạp tiền",
   "留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。": "Để trống để giữ nguyên khóa. Nhiều dòng được gộp thành các khóa riêng và chuyển kênh sang đa khóa.",

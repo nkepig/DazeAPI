@@ -3842,7 +3842,12 @@
     "默认折叠侧边栏": "Default collapse sidebar",
     "默认测试模型": "Default Test Model",
     "默认用户消息": "Default User Message",
-    "默认补全倍率": "Default completion ratio"
+    "默认补全倍率": "Default completion ratio",
+    "动态阶梯": "Dynamic tiers",
+    "添加档位": "Add tier",
+    "最大长度": "Max length",
+    "触碰档位切换查看对应价格": "Hover a tier to preview its price",
+    "按输入长度匹配档位；最大长度默认 ∞": "Match by input length; max length defaults to ∞"
   },
   "去充值": "Recharge",
   "留空则不修改密钥。填写时支持多行：多个独立密钥将自动合并为多密钥渠道。": "Leave blank to keep the current key. Multiple lines are merged as separate keys and will upgrade the channel to multi-key.",

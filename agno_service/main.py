@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -7,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from agno.agent import RunEvent
 
-from agent import agent
+from agent import get_agent
 
 logger = logging.getLogger("clawd_sidecar")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -30,7 +31,15 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok" if agent is not None else "no_agent"}
+    return {"status": "ok" if get_agent() is not None else "no_agent"}
+
+
+@app.post("/reload")
+def reload_config(force: bool = False):
+    """Re-read ClawdSetting from the options table and rebuild the agent if it
+    changed. Called by the Go backend after settings are saved."""
+    ready = get_agent(force_reload=force) is not None
+    return {"status": "ok", "agent_ready": ready}
 
 
 def _sse(data: dict) -> str:
@@ -47,6 +56,9 @@ def _safe_str(val, max_len=2000) -> str:
 @app.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
     """SSE streaming chat endpoint."""
+    # get_agent does blocking DB reads and possibly a slow KB rebuild; keep it
+    # off the event loop.
+    agent = await asyncio.to_thread(get_agent)
     if agent is None:
         async def _no_agent():
             yield _sse({"type": "error", "content": "agent not initialized — check LLM config env vars"})
