@@ -119,7 +119,6 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var responseTextBuilder strings.Builder
 	var toolCount int
 	var usage = &dto.Usage{}
-	var streamItems []string // store stream items
 	var lastStreamData string
 	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
 
@@ -132,6 +131,8 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			if err != nil {
 				common.SysLog("error handling stream format: " + err.Error())
 			}
+			// 边收边累加输出文本，供上游未返回 usage 时本地估算；有 usage 时结果会被丢弃
+			accumulateStreamText(info.RelayMode, lastStreamData, &responseTextBuilder, &toolCount)
 		}
 		if len(data) > 0 {
 			// 对音频模型，保存倒数第二个stream data
@@ -140,7 +141,6 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 
 			lastStreamData = data
-			streamItems = append(streamItems, data)
 		}
 		return true
 	})
@@ -176,12 +176,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		}
 	}
 
-	// 处理token计算
-	if err := processTokens(info.RelayMode, streamItems, &responseTextBuilder, &toolCount); err != nil {
-		logger.LogError(c, "error processing tokens: "+err.Error())
-	}
-
+	// 仅在上游未提供 usage 时做本地输出 token 估算；最后一条也需纳入累加
 	if !containStreamUsage {
+		accumulateStreamText(info.RelayMode, lastStreamData, &responseTextBuilder, &toolCount)
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		usage.CompletionTokens += toolCount * 7
 	}
