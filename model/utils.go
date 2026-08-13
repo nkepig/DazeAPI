@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -51,18 +52,49 @@ func addNewRecord(type_ int, id int, value int) {
 	}
 }
 
+func sortedUpdateIDs(updates map[int]int) []int {
+	ids := make([]int, 0, len(updates))
+	for id := range updates {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	return ids
+}
+
 func batchSingleColumnSQL(table, column string, updates map[int]int) string {
-	cases := make([]string, 0, len(updates))
-	ids := make([]string, 0, len(updates))
-	for id, value := range updates {
-		ids = append(ids, fmt.Sprintf("%d", id))
-		cases = append(cases, fmt.Sprintf("WHEN %d THEN %s + %d", id, column, value))
+	ids := sortedUpdateIDs(updates)
+	cases := make([]string, 0, len(ids))
+	idStrs := make([]string, 0, len(ids))
+	for _, id := range ids {
+		idStrs = append(idStrs, fmt.Sprintf("%d", id))
+		cases = append(cases, fmt.Sprintf("WHEN %d THEN %s + %d", id, column, updates[id]))
 	}
 	return fmt.Sprintf(
 		"UPDATE %s SET %s = CASE id %s END WHERE id IN (%s)",
 		table, column,
 		strings.Join(cases, " "),
-		strings.Join(ids, ","),
+		strings.Join(idStrs, ","),
+	)
+}
+
+// tokens 表没有 quota 列，批量扣费必须同时改 remain_quota 和 used_quota，语义与 increaseTokenQuota/decreaseTokenQuota 一致。
+func batchTokenQuotaSQL(updates map[int]int, accessedTime int64) string {
+	ids := sortedUpdateIDs(updates)
+	remainCases := make([]string, 0, len(ids))
+	usedCases := make([]string, 0, len(ids))
+	idStrs := make([]string, 0, len(ids))
+	for _, id := range ids {
+		value := updates[id]
+		idStrs = append(idStrs, fmt.Sprintf("%d", id))
+		remainCases = append(remainCases, fmt.Sprintf("WHEN %d THEN remain_quota + %d", id, value))
+		usedCases = append(usedCases, fmt.Sprintf("WHEN %d THEN used_quota - %d", id, value))
+	}
+	return fmt.Sprintf(
+		"UPDATE tokens SET remain_quota = CASE id %s END, used_quota = CASE id %s END, accessed_time = %d WHERE id IN (%s)",
+		strings.Join(remainCases, " "),
+		strings.Join(usedCases, " "),
+		accessedTime,
+		strings.Join(idStrs, ","),
 	)
 }
 
@@ -100,7 +132,7 @@ func batchUpdate() {
 				common.SysLog("failed to batch update user quota: " + err.Error())
 			}
 		case BatchUpdateTypeTokenQuota:
-			if err := DB.Exec(batchSingleColumnSQL("tokens", "quota", store)).Error; err != nil {
+			if err := DB.Exec(batchTokenQuotaSQL(store, common.GetTimestamp())).Error; err != nil {
 				common.SysLog("failed to batch update token quota: " + err.Error())
 			}
 		case BatchUpdateTypeUsedQuota:
