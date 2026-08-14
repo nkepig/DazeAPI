@@ -30,6 +30,12 @@ const (
 	loggerDebug = "DEBUG"
 )
 
+// 日志级别约定：
+//   - INFO/WARN：低频运维事件（启动、渠道封禁、凭证刷新、后台任务汇总）
+//   - ERR：未写入使用日志表的系统故障（结算失败、panic、DB 写入失败）
+//   - DEBUG：开发排查用的临时细节
+// 已写入 logs 表、可在「使用日志」页面查看的请求事件（消耗、渠道错误、预扣费）不要打到 stdout。
+
 const maxLogCount = 1000000
 
 var logCount int

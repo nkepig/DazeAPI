@@ -544,7 +544,6 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	// 0. 按次/按秒计费的任务不做差额结算（价格在提交时已固定）
 	bc := task.PrivateData.BillingContext
 	if bc != nil && (bc.PerCallBilling || bc.FixedPriceUnit == "second") {
-		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 固定价格计费，跳过差额结算", task.TaskID))
 		return
 	}
 	// 1. 优先让 adaptor 决定最终额度
