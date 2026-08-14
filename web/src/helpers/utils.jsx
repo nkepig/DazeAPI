@@ -180,9 +180,10 @@ if (isMobileScreen) {
 
 export function showError(error) {
   console.error(error);
-  if (error.message) {
+  if (error?.message) {
     if (error.name === 'AxiosError') {
-      switch (error.response.status) {
+      const status = error.response?.status;
+      switch (status) {
         case 401:
           localStorage.removeItem('user');
           window.location.href = '/login?expired=true';
@@ -197,7 +198,11 @@ export function showError(error) {
           Toast.info('本站仅作演示之用，无服务端！');
           break;
         default:
-          Toast.error('错误：' + error.message);
+          if (!error.response) {
+            Toast.error('错误：网络异常或服务器无响应，请稍后重试！');
+          } else {
+            Toast.error('错误：' + error.message);
+          }
       }
       return;
     }
