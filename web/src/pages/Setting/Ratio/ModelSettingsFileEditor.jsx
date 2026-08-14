@@ -780,7 +780,7 @@ export default function ModelSettingsFileEditor({ options, refresh }) {
               value={appendJsonText}
               onChange={(e) => setAppendJsonText(e.target.value)}
               spellCheck={false}
-              placeholder={t('例如："claude-haiku-4-5-20251001": {"prompt_price": 1, "completion_price": 5, "cache_read_price": 0.1, "cache_write_price": 1.25, "image_price": 0}')}
+              placeholder={t('例如："claude-haiku-4-5-20251001": {"prompt_price": 1, "completion_price": 5, "cache_read_price": 0.1, "cache_write_price": 1.25, "image_price": 0, "audio_input_price": 40, "audio_output_price": 80}')}
               style={{
                 width: '100%',
                 minHeight: 220,

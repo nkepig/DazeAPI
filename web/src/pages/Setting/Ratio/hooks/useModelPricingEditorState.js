@@ -15,6 +15,8 @@ const EMPTY_MODEL = {
   cacheReadPrice: '',
   cacheWritePrice: '',
   imagePrice: '',
+  audioInputPrice: '',
+  audioOutputPrice: '',
   tiers: [],
   hasConfiguration: false,
 };
@@ -103,6 +105,8 @@ const buildModelState = (name, modelPriceMap) => {
   const cacheReadPrice = toNormalizedNumber(storedPrice.cache_read_price);
   const cacheWritePrice = toNormalizedNumber(storedPrice.cache_write_price);
   const imagePrice = toNormalizedNumber(storedPrice.image_price);
+  const audioInputPrice = toNormalizedNumber(storedPrice.audio_input_price);
+  const audioOutputPrice = toNormalizedNumber(storedPrice.audio_output_price);
   const tiers = Array.isArray(storedPrice.tiers)
     ? storedPrice.tiers.map((tier) => ({
         maxLen: formatMaxLenDisplay(tier?.max_len),
@@ -136,6 +140,8 @@ const buildModelState = (name, modelPriceMap) => {
     cacheReadPrice: cacheReadPrice !== null ? formatNumber(cacheReadPrice) : '',
     cacheWritePrice: cacheWritePrice !== null ? formatNumber(cacheWritePrice) : '',
     imagePrice: imagePrice !== null ? formatNumber(imagePrice) : '',
+    audioInputPrice: audioInputPrice !== null ? formatNumber(audioInputPrice) : '',
+    audioOutputPrice: audioOutputPrice !== null ? formatNumber(audioOutputPrice) : '',
     tiers: isTiered ? tiers : [],
     hasConfiguration:
       perCallPrice !== null ||
@@ -144,6 +150,8 @@ const buildModelState = (name, modelPriceMap) => {
       cacheReadPrice !== null ||
       cacheWritePrice !== null ||
       imagePrice !== null ||
+      audioInputPrice !== null ||
+      audioOutputPrice !== null ||
       isTiered,
   };
 };
@@ -158,7 +166,7 @@ export const getModelWarnings = (model, t) => {
 
   if (
     model.billingMode === 'per-token' &&
-    (hasValue(model.outputPrice) || hasValue(model.cacheReadPrice) || hasValue(model.cacheWritePrice) || hasValue(model.imagePrice)) &&
+    (hasValue(model.outputPrice) || hasValue(model.cacheReadPrice) || hasValue(model.cacheWritePrice) || hasValue(model.imagePrice) || hasValue(model.audioInputPrice) || hasValue(model.audioOutputPrice)) &&
     !hasValue(model.inputPrice)
   ) {
     warnings.push(t('填写输出价格前，需要先填写输入价格。'));
@@ -186,6 +194,8 @@ export const buildSummaryText = (model, t) => {
       hasValue(model.cacheReadPrice) ? `CR ${model.cacheReadPrice}` : '',
       hasValue(model.cacheWritePrice) ? `CW ${model.cacheWritePrice}` : '',
       hasValue(model.imagePrice) ? `IMG ${model.imagePrice}` : '',
+      hasValue(model.audioInputPrice) ? `AIN ${model.audioInputPrice}` : '',
+      hasValue(model.audioOutputPrice) ? `AOUT ${model.audioOutputPrice}` : '',
     ].filter(Boolean).join(' · ');
     return tags ? `${t('输入')} ${model.inputPrice} · ${tags}` : `${t('输入')} ${model.inputPrice}`;
   }
@@ -244,6 +254,16 @@ export const buildPreviewRows = (model, t) => {
       key: 'ImagePrice',
       label: t('图片输入价格'),
       value: hasValue(model.imagePrice) ? `${model.imagePrice}` : t('空'),
+    },
+    {
+      key: 'AudioInputPrice',
+      label: t('音频输入价格'),
+      value: hasValue(model.audioInputPrice) ? `${model.audioInputPrice}` : t('空'),
+    },
+    {
+      key: 'AudioOutputPrice',
+      label: t('音频输出价格'),
+      value: hasValue(model.audioOutputPrice) ? `${model.audioOutputPrice}` : t('空'),
     },
   ];
 };
@@ -397,9 +417,9 @@ export function useModelPricingEditorState({
       if (field === 'fixedPrice') {
         updatedModel.hasConfiguration = hasValue(value);
       }
-      if (['inputPrice', 'outputPrice', 'cacheReadPrice', 'cacheWritePrice', 'imagePrice'].includes(field)) {
+      if (['inputPrice', 'outputPrice', 'cacheReadPrice', 'cacheWritePrice', 'imagePrice', 'audioInputPrice', 'audioOutputPrice'].includes(field)) {
         updatedModel.hasConfiguration =
-          hasValue(updatedModel.inputPrice) || hasValue(updatedModel.outputPrice) || hasValue(updatedModel.cacheReadPrice) || hasValue(updatedModel.cacheWritePrice) || hasValue(updatedModel.imagePrice);
+          hasValue(updatedModel.inputPrice) || hasValue(updatedModel.outputPrice) || hasValue(updatedModel.cacheReadPrice) || hasValue(updatedModel.cacheWritePrice) || hasValue(updatedModel.imagePrice) || hasValue(updatedModel.audioInputPrice) || hasValue(updatedModel.audioOutputPrice);
       }
       return updatedModel;
     });
@@ -418,6 +438,8 @@ export function useModelPricingEditorState({
         cacheReadPrice: value === 'per-token' ? model.cacheReadPrice : '',
         cacheWritePrice: value === 'per-token' ? model.cacheWritePrice : '',
         imagePrice: value === 'per-token' ? model.imagePrice : '',
+        audioInputPrice: value === 'per-token' ? model.audioInputPrice : '',
+        audioOutputPrice: value === 'per-token' ? model.audioOutputPrice : '',
         tiers:
           value === 'tiered'
             ? model.tiers?.length
@@ -438,7 +460,9 @@ export function useModelPricingEditorState({
           hasValue(next.outputPrice) ||
           hasValue(next.cacheReadPrice) ||
           hasValue(next.cacheWritePrice) ||
-          hasValue(next.imagePrice);
+          hasValue(next.imagePrice) ||
+          hasValue(next.audioInputPrice) ||
+          hasValue(next.audioOutputPrice);
       }
       return next;
     });
@@ -553,6 +577,8 @@ export function useModelPricingEditorState({
           cacheReadPrice: selectedModel.cacheReadPrice,
           cacheWritePrice: selectedModel.cacheWritePrice,
           imagePrice: selectedModel.imagePrice,
+          audioInputPrice: selectedModel.audioInputPrice,
+          audioOutputPrice: selectedModel.audioOutputPrice,
           tiers: selectedModel.tiers || [],
           hasConfiguration: selectedModel.hasConfiguration,
         };
@@ -634,13 +660,17 @@ export function useModelPricingEditorState({
         const cacheReadPrice = toNormalizedNumber(model.cacheReadPrice);
         const cacheWritePrice = toNormalizedNumber(model.cacheWritePrice);
         const imagePrice = toNormalizedNumber(model.imagePrice);
-        if (inputPrice !== null || outputPrice !== null || cacheReadPrice !== null || cacheWritePrice !== null || imagePrice !== null) {
+        const audioInputPrice = toNormalizedNumber(model.audioInputPrice);
+        const audioOutputPrice = toNormalizedNumber(model.audioOutputPrice);
+        if (inputPrice !== null || outputPrice !== null || cacheReadPrice !== null || cacheWritePrice !== null || imagePrice !== null || audioInputPrice !== null || audioOutputPrice !== null) {
           output.ModelPrice[model.name] = {
             prompt_price: inputPrice ?? 0,
             completion_price: outputPrice ?? inputPrice ?? 0,
             cache_read_price: cacheReadPrice ?? 0,
             cache_write_price: cacheWritePrice ?? 0,
             image_price: imagePrice ?? 0,
+            audio_input_price: audioInputPrice ?? 0,
+            audio_output_price: audioOutputPrice ?? 0,
           };
         }
       }

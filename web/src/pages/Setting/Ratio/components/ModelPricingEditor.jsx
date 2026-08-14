@@ -615,6 +615,20 @@ export default function ModelPricingEditor({
                             onChange={(value) => handleNumericFieldChange('imagePrice', value)}
                             extraText={t('按图片输入计费')}
                           />
+                          <PriceInput
+                            label={t('音频输入价格')}
+                            value={selectedModel.audioInputPrice}
+                            placeholder={t('输入 $/1M tokens')}
+                            onChange={(value) => handleNumericFieldChange('audioInputPrice', value)}
+                            extraText={t('Realtime / 音频模型的音频输入价')}
+                          />
+                          <PriceInput
+                            label={t('音频输出价格')}
+                            value={selectedModel.audioOutputPrice}
+                            placeholder={t('输入 $/1M tokens')}
+                            onChange={(value) => handleNumericFieldChange('audioOutputPrice', value)}
+                            extraText={t('Realtime / 音频模型的音频输出价')}
+                          />
                         </Card>
                       </Collapsible>
                     </div>
