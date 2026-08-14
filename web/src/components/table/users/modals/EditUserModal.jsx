@@ -40,6 +40,7 @@ import {
   Select,
 } from '@douyinfe/semi-ui';
 import { ChevronDown } from 'lucide-react';
+import { ModalTitle } from '../../../common/ui/FormSection';
 
 const EditUserModal = (props) => {
   const { t } = useTranslation();
@@ -165,10 +166,15 @@ const EditUserModal = (props) => {
     <>
       <Modal
         className='compact-modal'
-        title={isEdit ? t('编辑用户') : t('创建用户')}
+        title={
+          <ModalTitle
+            title={isEdit ? t('编辑用户') : t('创建用户')}
+            subtitle={t('修改账号资料、余额与分组倍率')}
+          />
+        }
         visible={props.visible}
         onCancel={handleCancel}
-        width={isMobile ? '100%' : 420}
+        width={isMobile ? '100%' : 680}
         centered
         closable
         maskClosable={false}
@@ -225,25 +231,23 @@ const EditUserModal = (props) => {
                 />
 
                 {userId && (
-                  <div className='flex items-end gap-2'>
-                    <div className='flex-1 min-w-0'>
-                      <Form.InputNumber
-                        field='quota'
-                        label={t('余额')}
-                        step={1}
-                        precision={2}
-                        disabled
-                        hideButtons
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <Button
-                      style={{ marginBottom: 14 }}
-                      onClick={() => setIsModalOpen(true)}
-                    >
-                      {t('调整')}
-                    </Button>
-                  </div>
+                  <Form.InputNumber
+                    field='quota'
+                    label={t('余额')}
+                    step={1}
+                    precision={2}
+                    disabled
+                    hideButtons
+                    style={{ width: '100%' }}
+                    suffix={
+                      <Button
+                        size='small'
+                        onClick={() => setIsModalOpen(true)}
+                      >
+                        {t('调整')}
+                      </Button>
+                    }
+                  />
                 )}
 
                 {userId && isAdmin() && (
@@ -263,7 +267,7 @@ const EditUserModal = (props) => {
                       />
                     </button>
                     {advancedOpen && (
-                      <div className='pt-2 pb-2'>
+                      <>
                         <Select
                           placeholder={t('添加分组')}
                           value=''
@@ -280,14 +284,13 @@ const EditUserModal = (props) => {
                             .filter((g) => !groupOverrides[g])
                             .map((g) => ({ label: g, value: g }))}
                           style={{ width: '100%', marginBottom: 8 }}
-                          size='small'
                         />
                         {groupList.map((item, index) => (
                           <div
                             key={item.id || item.name}
-                            className='flex items-center gap-2 py-2 border-b border-[#F0F0F0]'
+                            className='flex items-center gap-3 py-2'
                           >
-                            <span className='text-[13px] font-medium min-w-[72px]'>
+                            <span className='text-[13px] font-medium min-w-[88px]'>
                               {item.name}
                             </span>
                             <InputNumber
@@ -307,12 +310,11 @@ const EditUserModal = (props) => {
                                   setGroupOverrides((prev) => ({ ...prev, [item.name]: ratio }));
                                 }
                               }}
-                              size='small'
-                              style={{ width: 90 }}
+                              style={{ width: 120 }}
                             />
                             <button
                               type='button'
-                              className='text-[12px] text-[#999] bg-transparent border-0 cursor-pointer hover:text-[#1A1A1A]'
+                              className='text-[12px] text-[#999] bg-transparent border-0 cursor-pointer hover:text-[#1A1A1A] ml-auto'
                               onClick={() => {
                                 setGroupList((prev) => prev.filter((_, i) => i !== index));
                                 if (item.name) {
@@ -328,7 +330,7 @@ const EditUserModal = (props) => {
                             </button>
                           </div>
                         ))}
-                      </div>
+                      </>
                     )}
                   </>
                 )}
@@ -351,7 +353,7 @@ const EditUserModal = (props) => {
         title={t('调整余额')}
         okText={t('确定')}
         cancelText={t('取消')}
-        width={360}
+        width={isMobile ? '100%' : 400}
       >
         {(() => {
           const current = formApiRef.current?.getValue('quota') || 0;

@@ -54,6 +54,8 @@ import ModelSelectModal from './ModelSelectModal';
 import SingleModelSelectModal from './SingleModelSelectModal';
 import OllamaModelModal from './OllamaModelModal';
 import JSONEditor from '../../../common/ui/JSONEditor';
+import FormSection, { ModalTitle } from '../../../common/ui/FormSection';
+import ParamOverrideEditor from '../../../common/ui/ParamOverrideEditor';
 import StatusCodeRiskGuardModal from './StatusCodeRiskGuardModal';
 import {
   collectInvalidStatusCodeEntries,
@@ -1351,10 +1353,19 @@ const EditChannelModal = (props) => {
       <SideSheet
         className='compact-sheet'
         placement='right'
-        title={isEdit ? t('编辑渠道') : t('添加渠道')}
-        bodyStyle={{ padding: '16px 20px 8px' }}
+        title={
+          <ModalTitle
+            title={isEdit ? t('编辑渠道') : t('添加渠道')}
+            subtitle={
+              isEdit
+                ? t('更新上游连接、模型与转发规则')
+                : t('配置上游提供商、模型与转发规则')
+            }
+          />
+        }
+        bodyStyle={{ padding: '8px 28px 24px' }}
         visible={props.visible}
-        width={isMobile ? '100%' : 480}
+        width={isMobile ? '100%' : 680}
         footer={
           <div className='flex justify-end items-center gap-2'>
             <Button theme='light' type='tertiary' onClick={handleCancel}>
@@ -1380,7 +1391,11 @@ const EditChannelModal = (props) => {
         >
           {() => {
             const advancedSettingsContent = (
-              <div className='pt-2'>
+              <div className='pt-1'>
+                <FormSection
+                  title={t('请求改写')}
+                  desc={t('如果请求里某字段满足条件，转发到上游前才改写对应参数。客户端请求不变；计费按网关记录的模型与用量结算。')}
+                >
                 <div className='compact-switch-row'>
                   <span className='text-[13px] text-[#1A1A1A]'>{t('透传请求体')}</span>
                   <Form.Switch
@@ -1394,40 +1409,20 @@ const EditChannelModal = (props) => {
                 {inputs.pass_through_body_enabled && (
                   <p className='compact-hint'>{t('参数重定向、模型重定向等内置处理将失效。')}</p>
                 )}
-                <div className='compact-switch-row'>
-                  <span className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</span>
-                  <Form.Switch
-                    field='request_record_enabled'
-                    noLabel
-                    style={{ marginBottom: 0 }}
-                    onChange={(value) => handleInputChange('request_record_enabled', value)}
-                    initValue={inputs.request_record_enabled}
-                  />
-                </div>
-                <div className='compact-switch-row'>
-                  <span className='text-[13px] text-[#1A1A1A]'>{t('自动禁用')}</span>
-                  <Form.Switch
-                    field='auto_ban'
-                    noLabel
-                    style={{ marginBottom: 0 }}
-                    onChange={(value) => setAutoBan(value)}
-                    initValue={autoBan}
-                  />
-                </div>
+                <ParamOverrideEditor
+                  field='param_override'
+                  value={inputs.param_override || ''}
+                  onChange={(value) => handleInputChange('param_override', value)}
+                  formApi={formApiRef.current}
+                  resetKey={isEdit ? channelId : 'new'}
+                />
                 <Form.TextArea
                   field='header_override'
                   label={t('请求头覆盖')}
                   placeholder='{"Authorization": "Bearer {api_key}"}'
-                  autosize={{ minRows: 2, maxRows: 8 }}
+                  extraText={t('覆盖发往上游的 HTTP 请求头')}
+                  autosize={{ minRows: 3, maxRows: 8 }}
                   onChange={(value) => handleInputChange('header_override', value)}
-                  showClear
-                />
-                <Form.TextArea
-                  field='param_override'
-                  label={t('参数重定向')}
-                  placeholder={'body.a.b = body.c.d'}
-                  autosize={{ minRows: 2, maxRows: 8 }}
-                  onChange={(value) => handleInputChange('param_override', value)}
                   showClear
                 />
                 <JSONEditor
@@ -1475,6 +1470,31 @@ const EditChannelModal = (props) => {
                     );
                   }}
                 />
+                </FormSection>
+                <FormSection
+                  title={t('调度与网络')}
+                  desc={t('优先级、权重、超时与代理')}
+                >
+                <div className='compact-switch-row'>
+                  <span className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</span>
+                  <Form.Switch
+                    field='request_record_enabled'
+                    noLabel
+                    style={{ marginBottom: 0 }}
+                    onChange={(value) => handleInputChange('request_record_enabled', value)}
+                    initValue={inputs.request_record_enabled}
+                  />
+                </div>
+                <div className='compact-switch-row'>
+                  <span className='text-[13px] text-[#1A1A1A]'>{t('自动禁用')}</span>
+                  <Form.Switch
+                    field='auto_ban'
+                    noLabel
+                    style={{ marginBottom: 0 }}
+                    onChange={(value) => setAutoBan(value)}
+                    initValue={autoBan}
+                  />
+                </div>
                 <Form.Input
                   field='proxy'
                   label={t('代理')}
@@ -1525,6 +1545,7 @@ const EditChannelModal = (props) => {
                   onChange={(value) => handleInputChange('image_convert_mode', value)}
                   style={{ width: '100%' }}
                 />
+                </FormSection>
               </div>
             );
 
@@ -1547,6 +1568,10 @@ const EditChannelModal = (props) => {
                       </p>
                     )}
 
+                    <FormSection
+                      title={t('渠道信息')}
+                      desc={t('类型、名称与渠道标识')}
+                    >
                     <Form.Select
                       field='type'
                       label={t('类型')}
@@ -1653,8 +1678,14 @@ const EditChannelModal = (props) => {
                       />
                     )}
 
+                    </FormSection>
+
                   {/* API Configuration Section */}
                   {showApiConfigCard && (
+                    <FormSection
+                      title={t('上游连接')}
+                      desc={t('接口地址与鉴权密钥')}
+                    >
                     <div onClick={handleApiConfigSecretClick}>
 
                       {inputs.type === 3 && (
@@ -1807,8 +1838,13 @@ const EditChannelModal = (props) => {
                         </div>
                       )}
                     </div>
+                    </FormSection>
                   )}
 
+                  <FormSection
+                    title={t('模型与分组')}
+                    desc={t('选择可调用的模型，并指定渠道分组')}
+                  >
                   {/* Model Selection - Part of Core Config */}
                   <Form.Select
                       field='models'
@@ -1920,7 +1956,7 @@ const EditChannelModal = (props) => {
                       handleInputChange('group', value);
                     }}
                   />
-
+                  </FormSection>
 
                 <button
                   type='button'
