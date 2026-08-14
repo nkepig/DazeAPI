@@ -15,6 +15,7 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { normalizeLanguage } from '../../i18n/language';
 import ClawdMascot from '../common/ClawdMascot';
+import ErrorBoundary from '../common/ErrorBoundary';
 
 
 const FULLSCREEN_ROUTES = ['/register', '/reset'];
@@ -117,7 +118,9 @@ if (success) {
   if (isFullscreen) {
     return (
       <div className='bg-white'>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
         <ToastContainer
           position='top-right'
           autoClose={3000}
@@ -125,7 +128,9 @@ if (success) {
           newestOnTop
           closeOnClick
         />
-        <ClawdMascot />
+        <ErrorBoundary>
+          <ClawdMascot />
+        </ErrorBoundary>
       </div>
     );
   }
@@ -136,7 +141,9 @@ if (success) {
       <main className='pt-[var(--nav-height)]'>
         <div className='max-w-[1400px] mx-auto'>
           {/* 勿用 key=pathname + AnimatePresence mode=wait 包裹 App：会整树卸载路由并易出现切换白屏 */}
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </div>
       </main>
       <ToastContainer
@@ -146,7 +153,9 @@ if (success) {
         newestOnTop
         closeOnClick
       />
-      <ClawdMascot />
+      <ErrorBoundary>
+        <ClawdMascot />
+      </ErrorBoundary>
     </div>
   );
 };
