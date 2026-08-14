@@ -98,10 +98,13 @@ export function updateAPI() {
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.config && error.config.skipErrorHandler) {
-      return Promise.reject(error);
+    if (!(error.config && error.config.skipErrorHandler)) {
+      try {
+        showError(error);
+      } catch (e) {
+        console.error(e);
+      }
     }
-    showError(error);
     return Promise.reject(error);
   },
 );
