@@ -21,10 +21,6 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Spin, Switch, RadioGroup, Radio, Select, Button, Empty } from '@douyinfe/semi-ui';
-import {
-  IllustrationNoResult,
-  IllustrationNoResultDark,
-} from '@douyinfe/semi-illustrations';
 import { API, showError, showSuccess } from '../../helpers';
 
 const PAGE_SIZE = 100;
@@ -213,19 +209,15 @@ const PermissionManagement = () => {
       >
         {/* 左侧：管理员列表 */}
         <div className='lg:col-span-1'>
-          <div className='bg-white rounded-xl border border-[#F0F0F0] overflow-hidden'>
-            <div className='px-4 py-3 border-b border-[#F0F0F0]'>
+          <div>
+            <div className='pb-3 mb-1 border-b border-[#F0F0F0]'>
               <span className='text-[14px] font-medium text-[#1A1A1A]'>{t('管理员列表')}</span>
             </div>
             <Spin spinning={loading && !selectedId}>
               <div className='max-h-[520px] overflow-y-auto'>
                 {admins.length === 0 ? (
                   <div className='flex justify-center items-center py-10'>
-                    <Empty
-                      image={<IllustrationNoResult style={{ width: 120, height: 120 }} />}
-                      darkModeImage={<IllustrationNoResultDark style={{ width: 120, height: 120 }} />}
-                      title={t('暂无管理员')}
-                    />
+                    <Empty image={null} title={t('暂无管理员')} />
                   </div>
                 ) : (
                   admins.map((admin) => {
@@ -234,7 +226,7 @@ const PermissionManagement = () => {
                       <div
                         key={admin.id}
                         onClick={() => selectAdmin(admin)}
-                        className='flex items-center justify-between px-4 py-3 cursor-pointer transition-colors'
+                        className='flex items-center justify-between px-0 py-3 cursor-pointer transition-colors border-b border-[#F0F0F0]'
                         style={{
                           backgroundColor: isActive ? '#F5F5F5' : 'transparent',
                           borderLeft: isActive ? '3px solid #1A1A1A' : '3px solid transparent',
@@ -266,8 +258,8 @@ const PermissionManagement = () => {
 
         {/* 右侧：权限表单 */}
         <div className='lg:col-span-2'>
-          <div className='bg-white rounded-xl border border-[#F0F0F0] overflow-hidden'>
-            <div className='px-4 py-3 border-b border-[#F0F0F0] flex items-center justify-between'>
+          <div>
+            <div className='pb-3 mb-1 border-b border-[#F0F0F0] flex items-center justify-between'>
               <span className='text-[14px] font-medium text-[#1A1A1A]'>{t('权限配置')}</span>
               {selectedAdmin && (
                 <span className='text-[12px] text-[#999]'>
@@ -278,15 +270,11 @@ const PermissionManagement = () => {
 
             {!selectedId ? (
               <div className='flex justify-center items-center py-16'>
-                <Empty
-                  image={<IllustrationNoResult style={{ width: 120, height: 120 }} />}
-                  darkModeImage={<IllustrationNoResultDark style={{ width: 120, height: 120 }} />}
-                  title={t('请从左侧选择一位管理员')}
-                />
+                <Empty image={null} title={t('请从左侧选择一位管理员')} />
               </div>
             ) : (
               <Spin spinning={loading && !!selectedId}>
-                <div className='p-5'>
+                <div className='pt-4'>
                   {/* 1. 查看使用日志 */}
                   <PermRow
                     title={t('查看使用日志')}

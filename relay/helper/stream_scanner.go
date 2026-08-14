@@ -282,6 +282,9 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	// nil channel 在 select 中永远阻塞，赋值后才生效
 	var drainDeadline <-chan time.Time
 	drainMode := false
+	// 必须用局部变量：客户端断开后 Done() 通道已关闭，若继续 select 它会立即就绪，
+	// 主循环会空转打满 CPU。置为 nil 后该 case 不再被选中。
+	clientDone := c.Request.Context().Done()
 
 	for {
 		select {
@@ -305,14 +308,14 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			// 客户端断开后的排空总时长超限，放弃提取 usage
 			logger.LogError(c, "drain deadline exceeded, giving up usage extraction")
 			return
-		case <-c.Request.Context().Done():
+		case <-clientDone:
 			// 客户端断开连接：进入排空模式，继续读上游
 			if !drainMode {
 				drainMode = true
 				logger.LogInfo(c, "client disconnected, draining upstream for usage")
 				drainDeadline = time.After(DefaultStreamDrainTimeout)
+				clientDone = nil
 			}
-			// 后续 context.Done 触发被忽略（channel 关闭后会持续触发）
 		}
 	}
 }

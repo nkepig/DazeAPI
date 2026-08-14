@@ -91,7 +91,7 @@ func streamResponseTencent2OpenAI(TencentResponse *TencentChatResponse) *dto.Cha
 }
 
 func tencentStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
-	var responseText string
+	usage := &dto.Usage{}
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
 
@@ -111,11 +111,13 @@ func tencentStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *htt
 			continue
 		}
 
-		response := streamResponseTencent2OpenAI(&tencentResponse)
-		if len(response.Choices) != 0 {
-			responseText += response.Choices[0].Delta.GetContentString()
+		if tencentResponse.Usage.PromptTokens != 0 || tencentResponse.Usage.CompletionTokens != 0 || tencentResponse.Usage.TotalTokens != 0 {
+			usage.PromptTokens = tencentResponse.Usage.PromptTokens
+			usage.CompletionTokens = tencentResponse.Usage.CompletionTokens
+			usage.TotalTokens = tencentResponse.Usage.TotalTokens
 		}
 
+		response := streamResponseTencent2OpenAI(&tencentResponse)
 		err = helper.ObjectData(c, response)
 		if err != nil {
 			common.SysLog(err.Error())
@@ -130,7 +132,7 @@ func tencentStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *htt
 
 	service.CloseResponseBodyGracefully(resp)
 
-	return service.ResponseText2Usage(c, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens()), nil
+	return usage, nil
 }
 
 func tencentHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

@@ -163,7 +163,7 @@ body {
   padding: 0 !important;
 }
 
-/* --- D. Tables: 无界悬浮 (Floating Borderless) --- */
+/* --- D. Tables --- */
 .semi-table-wrapper {
   border-radius: 0 !important;
   border: none !important;
@@ -172,48 +172,46 @@ body {
 .semi-table {
   border: none !important;
   border-collapse: collapse !important;
-  font-size: 14px !important;
+  font-size: 13px !important;
 }
 .semi-table-thead th {
   background: transparent !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  color: #333 !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  color: #8a8a8a !important;
   text-transform: none !important;
-  letter-spacing: normal !important;
-  border-bottom: 1.5px solid #ddd !important;
+  letter-spacing: 0.04em !important;
+  border-bottom: 1px solid #ececec !important;
   border-top: none !important;
-  padding: 14px 16px !important;
+  padding: 10px 12px !important;
 }
 .semi-table-tbody tr,
 .semi-table-tbody tr:nth-child(odd),
 .semi-table-tbody tr:nth-child(even),
 .semi-table-tbody .semi-table-row {
-  transition: all 0.3s ease !important;
+  transition: background-color 0.15s ease !important;
   background-color: #fff !important;
   background: #fff !important;
 }
 .semi-table-tbody td {
-  border-bottom: 1px solid #f0f0f0 !important;
+  border-bottom: 1px solid #f4f4f4 !important;
   border-top: none !important;
-  padding: 16px !important;
-  color: #666 !important;
-  font-size: 14px !important;
-  transition: all 0.3s ease !important;
+  padding: 13px 12px !important;
+  color: #333 !important;
+  font-size: 13px !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
 }
 .semi-table-tbody tr:hover {
   background-color: #fafafa !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  z-index: 10;
-  position: relative;
+  transform: none !important;
+  box-shadow: none !important;
 }
 .semi-table-tbody tr:hover td {
-  color: #000 !important;
-  border-bottom-color: transparent !important;
+  color: #1a1a1a !important;
+  border-bottom-color: #f4f4f4 !important;
 }
 .semi-table-row:last-child td {
-  border-bottom: none !important;
+  border-bottom: 1px solid #f4f4f4 !important;
 }
 .semi-table-bordered th,
 .semi-table-bordered td {
@@ -878,8 +876,155 @@ svg.lucide, .lucide-icon {
   .auth-glitch-logo { letter-spacing: -2px; }
 }
 
-/* Hide illustration images in table/list empty states */
-.semi-table-empty .semi-empty-image,
-.semi-list-empty .semi-empty-image {
+/* Empty states: text only, no illustrations */
+.semi-empty-image {
   display: none !important;
+}
+.semi-empty {
+  padding: 28px 0 !important;
+}
+.semi-empty-title.semi-typography,
+.semi-empty-content .semi-typography {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: #999 !important;
+}
+
+/* Settings: hairline sections, no card boxes */
+.settings-stack > * + * {
+  padding-top: 24px;
+  margin-top: 4px;
+  border-top: 1px solid #f0f0f0;
+}
+.settings-stack .semi-form-section {
+  padding: 0 !important;
+  margin: 0 0 20px 0 !important;
+  border: none;
+}
+.settings-stack .semi-form-section:last-child {
+  margin-bottom: 0 !important;
+}
+.settings-stack .semi-form-section + .semi-form-section {
+  padding-top: 24px !important;
+  margin-top: 4px !important;
+  border-top: 1px solid #f0f0f0;
+}
+.settings-stack .semi-form-section-text {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #1a1a1a !important;
+  margin-bottom: 12px !important;
+}
+.settings-stack .semi-form-field {
+  padding: 0 0 14px 0 !important;
+}
+.settings-stack .semi-form-field-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+}
+.settings-stack .semi-form-field-extra {
+  font-size: 11px !important;
+  color: #999 !important;
+}
+.settings-stack .semi-card {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.settings-stack .semi-card-body {
+  padding: 0 !important;
+}
+
+/* ==================== Compact forms ==================== */
+.compact-form .semi-form-field {
+  padding: 0 0 14px 0 !important;
+}
+.compact-form .semi-form-field-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+  padding-bottom: 4px !important;
+}
+.compact-form .semi-form-field-extra {
+  font-size: 11px !important;
+  color: #999 !important;
+  margin-top: 4px !important;
+}
+.compact-hint {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.45;
+  margin: -4px 0 14px;
+}
+.compact-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.compact-switch-row:last-child {
+  border-bottom: none;
+}
+.compact-advanced-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  margin-top: 4px;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #f0f0f0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #666;
+}
+.compact-advanced-toggle:hover {
+  color: #1a1a1a;
+}
+
+.compact-modal .semi-modal-content {
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08) !important;
+}
+.compact-modal .semi-modal-header {
+  border-bottom: 1px solid #f0f0f0 !important;
+  padding: 16px 20px !important;
+  margin: 0 !important;
+}
+.compact-modal .semi-modal-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #1a1a1a !important;
+}
+.compact-modal .semi-modal-body {
+  padding: 16px 20px 8px !important;
+}
+.compact-modal .semi-modal-footer {
+  border-top: 1px solid #f0f0f0 !important;
+  padding: 12px 20px !important;
+  margin: 0 !important;
+}
+
+.compact-sheet .semi-sidesheet-inner {
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.06) !important;
+}
+.compact-sheet .semi-sidesheet-header {
+  border-bottom: 1px solid #f0f0f0 !important;
+  padding: 16px 20px !important;
+}
+.compact-sheet .semi-sidesheet-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #1a1a1a !important;
+}
+.compact-sheet .semi-sidesheet-body {
+  padding: 16px 20px 8px !important;
+}
+.compact-sheet .semi-sidesheet-footer {
+  border-top: 1px solid #f0f0f0 !important;
+  padding: 12px 20px !important;
 }

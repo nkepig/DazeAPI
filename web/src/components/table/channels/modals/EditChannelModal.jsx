@@ -35,21 +35,13 @@ import {
   Spin,
   Button,
   Typography,
-  Checkbox,
-  Banner,
   Modal,
   ImagePreview,
-  Card,
-  Tag,
-  Avatar,
   Form,
   Row,
   Col,
   Highlight,
-  Input,
   Tooltip,
-  Collapse,
-  Dropdown,
 } from '@douyinfe/semi-ui';
 import {
   getChannelModels,
@@ -68,18 +60,11 @@ import {
   collectNewDisallowedStatusCodeRedirects,
 } from './statusCodeRiskGuard';
 import {
-  IconSave,
-  IconClose,
-  IconServer,
-  IconSetting,
-  IconCopy,
-  IconGlobe,
-  IconBolt,
   IconSearch,
   IconChevronDown,
 } from '@douyinfe/semi-icons';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const MODEL_MAPPING_EXAMPLE = {
   'gpt-3.5-turbo': 'gpt-3.5-turbo-0125',
@@ -127,6 +112,72 @@ function type2secretPrompt(type) {
     default:
       return '请输入渠道对应的鉴权密钥';
   }
+}
+
+function stripBodyPrefix(path) {
+  const p = String(path || '').trim();
+  if (/^body\./i.test(p)) return p.slice(5);
+  if (/^body$/i.test(p)) return '';
+  return p;
+}
+
+function formatBodyPath(path) {
+  const p = String(path || '').trim();
+  if (!p) return 'body';
+  if (/^body$/i.test(p) || /^body\./i.test(p)) return p;
+  return `body.${p}`;
+}
+
+function paramOverrideToDisplay(raw) {
+  if (raw == null) return '';
+  const text = typeof raw === 'string' ? raw.trim() : JSON.stringify(raw);
+  if (!text || text === '{}') return '';
+  try {
+    const parsed = typeof raw === 'object' ? raw : JSON.parse(text);
+    const ops = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.operations)
+        ? parsed.operations
+        : null;
+    if (
+      Array.isArray(ops) &&
+      ops.length > 0 &&
+      ops.every((op) => op && op.mode === 'copy' && op.from && op.to)
+    ) {
+      return ops
+        .map((op) => `${formatBodyPath(op.to)} = ${formatBodyPath(op.from)}`)
+        .join('\n');
+    }
+  } catch {
+    // keep original
+  }
+  return typeof raw === 'string' ? raw : text;
+}
+
+function displayToParamOverride(text) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    return trimmed;
+  }
+  const lines = trimmed
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+  const operations = [];
+  for (const line of lines) {
+    const eq = line.indexOf('=');
+    if (eq <= 0) {
+      throw new Error('invalid');
+    }
+    const to = stripBodyPrefix(line.slice(0, eq));
+    const from = stripBodyPrefix(line.slice(eq + 1));
+    if (!to || !from) {
+      throw new Error('invalid');
+    }
+    operations.push({ mode: 'copy', from, to });
+  }
+  return JSON.stringify({ operations });
 }
 
 const EditChannelModal = (props) => {
@@ -499,6 +550,7 @@ const EditChannelModal = (props) => {
 
       initialBaseUrlRef.current = data.base_url || '';
       data.key = '';
+      data.param_override = paramOverrideToDisplay(data.param_override);
       setInputs(data);
       if (formApiRef.current) {
         formApiRef.current.setValues(data);
@@ -516,6 +568,22 @@ const EditChannelModal = (props) => {
         .filter(Boolean);
       initialModelMappingRef.current = data.model_mapping || '';
       initialStatusCodeMappingRef.current = data.status_code_mapping || '';
+
+      const nonempty = (v) => typeof v === 'string' ? v.trim() !== '' && v.trim() !== '{}' : !!v;
+      setAdvancedSettingsOpen(
+        nonempty(data.param_override) ||
+        nonempty(data.header_override) ||
+        nonempty(data.status_code_mapping) ||
+        nonempty(data.proxy) ||
+        nonempty(data.model_mapping) ||
+        data.pass_through_body_enabled ||
+        data.request_record_enabled ||
+        (Number(data.priority) || 0) !== 0 ||
+        (Number(data.weight) || 0) !== 0 ||
+        (Number(data.timeout) || 0) !== 0 ||
+        (data.image_convert_mode && data.image_convert_mode !== 'disabled') ||
+        data.auto_ban === 0,
+      );
 
       let parsedIonet = null;
       if (data.other_info) {
@@ -788,11 +856,9 @@ const EditChannelModal = (props) => {
         loadChannel();
       } else {
         formApiRef.current?.setValues(getInitValues());
+        setAdvancedSettingsOpen(false);
       }
       fetchModelGroups();
-    
-      // 重置高级设置折叠状态
-      setAdvancedSettingsOpen(false);
     } else {
       // 统一的模态框关闭重置逻辑
       resetModalState();
@@ -925,7 +991,23 @@ const EditChannelModal = (props) => {
   const submit = async () => {
     const formValues = formApiRef.current ? formApiRef.current.getValues() : {};
     let localInputs = { ...formValues };
-    localInputs.param_override = inputs.param_override;
+    try {
+      localInputs.param_override = displayToParamOverride(
+        formValues.param_override ?? inputs.param_override,
+      );
+    } catch {
+      showInfo(t('参数重定向格式不正确'));
+      return;
+    }
+    if (
+      localInputs.param_override &&
+      (localInputs.param_override.trim().startsWith('{') ||
+        localInputs.param_override.trim().startsWith('[')) &&
+      !verifyJSON(localInputs.param_override)
+    ) {
+      showInfo(t('参数重定向格式不正确'));
+      return;
+    }
 
     if (!isEdit && !localInputs.name) {
       showInfo(t('请填写渠道名称！'));
@@ -1267,43 +1349,30 @@ const EditChannelModal = (props) => {
   return (
     <>
       <SideSheet
-        placement={isEdit ? 'right' : 'left'}
-        title={
-          <Space>
-            <Tag color='blue' shape='circle'>
-              {isEdit ? t('编辑') : t('新建')}
-            </Tag>
-            <Title heading={4} className='m-0'>
-              {isEdit ? t('更新渠道信息') : t('创建新的渠道')}
-            </Title>
-          </Space>
-        }
-        bodyStyle={{ padding: '0' }}
+        className='compact-sheet'
+        placement='right'
+        title={isEdit ? t('编辑渠道') : t('添加渠道')}
+        bodyStyle={{ padding: '16px 20px 8px' }}
         visible={props.visible}
-        width={isMobile ? '100%' : 600}
+        width={isMobile ? '100%' : 480}
         footer={
           <div className='flex justify-end items-center gap-2'>
-            <Button
-              theme='solid'
-              onClick={() => formApiRef.current?.submitForm()}
-              icon={<IconSave />}
-            >
-              {t('提交')}
+            <Button theme='light' type='tertiary' onClick={handleCancel}>
+              {t('取消')}
             </Button>
             <Button
-              theme='light'
+              theme='solid'
               type='primary'
-              onClick={handleCancel}
-              icon={<IconClose />}
+              onClick={() => formApiRef.current?.submitForm()}
             >
-              {t('取消')}
+              {t('保存')}
             </Button>
           </div>
         }
-        closeIcon={null}
         onCancel={() => handleCancel()}
       >
         <Form
+          className='compact-form'
           key={isEdit ? 'edit' : 'new'}
           initValues={originInputs}
           getFormApi={(api) => (formApiRef.current = api)}
@@ -1311,224 +1380,177 @@ const EditChannelModal = (props) => {
         >
           {() => {
             const advancedSettingsContent = (
-              <div className='space-y-4'>
-                {/* Request Config Section */}
-                <div className='py-3 border-b border-gray-100'>
-                  <Text className='text-sm font-medium text-gray-500 mb-3 block'>
-                    {t('请求配置')}
-                  </Text>
-
-                  <div className='flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl mb-2'
-                    style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
-                    <div className='flex-1 min-w-0'>
-                      <div className='text-sm font-medium leading-5'>{t('透传请求体')}</div>
-                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>
-                        {t('开启后请求体将直接透传给上游，参数覆写、模型重定向、渠道适配等内置功能将失效，请谨慎开启')}
-                      </div>
-                    </div>
-                    <Form.Switch
-                      field='pass_through_body_enabled'
-                      noLabel
-                      style={{ marginBottom: 0 }}
-                      onChange={(value) => handleInputChange('pass_through_body_enabled', value)}
-                      initValue={inputs.pass_through_body_enabled}
-                    />
-                  </div>
-
-                  {inputs.pass_through_body_enabled && (
-                    <Banner
-                      type='warning'
-                      closeIcon={null}
-                      className='!rounded-lg mb-2'
-                      description={t('该渠道已开启请求透传：参数覆写、模型重定向、渠道适配等内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。')}
-                    />
-                  )}
-
-                  <div className='flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl mb-2'
-                    style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
-                    <div className='flex-1 min-w-0'>
-                      <div className='text-sm font-medium leading-5'>{t('记录请求输出')}</div>
-                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>
-                        {t('开启后会将该渠道请求体和响应输出保存')}
-                      </div>
-                    </div>
-                    <Form.Switch
-                      field='request_record_enabled'
-                      noLabel
-                      style={{ marginBottom: 0 }}
-                      onChange={(value) => handleInputChange('request_record_enabled', value)}
-                      initValue={inputs.request_record_enabled}
-                    />
-                  </div>
-
-                  <Form.TextArea
-                    field='param_override'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('参数覆盖')}</span>}
-                    placeholder={t('JSON 格式，覆盖请求参数')}
-                    autosize={{ minRows: 3, maxRows: 10 }}
-                    onChange={(value) => handleInputChange('param_override', value)}
-                    showClear
-                    extraText={
-                      <Text
-                        className='!text-semi-color-primary cursor-pointer underline'
-                        onClick={() => formatJsonField('param_override')}
-                      >
-                        {t('格式化')}
-                      </Text>
-                    }
-                  />
-
-                  <Form.TextArea
-                    field='header_override'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('请求头覆盖')}</span>}
-                    placeholder={t('JSON 格式，覆盖请求头')}
-                    autosize={{ minRows: 3, maxRows: 10 }}
-                    onChange={(value) =>
-                      handleInputChange('header_override', value)
-                    }
-                    extraText={
-                      <Space>
-                        <Text
-                          className='!text-semi-color-primary cursor-pointer underline'
-                          onClick={() =>
-                            handleInputChange(
-                              'header_override',
-                              JSON.stringify({ '*': true, Authorization: 'Bearer {api_key}' }, null, 2),
-                            )
-                          }
-                        >
-                          {t('填入模板')}
-                        </Text>
-                        <Text
-                          className='!text-semi-color-primary cursor-pointer underline'
-                          onClick={() => formatJsonField('header_override')}
-                        >
-                          {t('格式化')}
-                        </Text>
-                      </Space>
-                    }
-                    showClear
-                  />
-                  <JSONEditor
-                    key={`status_code_mapping-${isEdit ? channelId : 'new'}`}
-                    field='status_code_mapping'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('状态码复写')}</span>}
-                    placeholder={t('键值对，覆盖状态码')}
-                    value={inputs.status_code_mapping || ''}
-                    onChange={(value) =>
-                      handleInputChange('status_code_mapping', value)
-                    }
-                    template={STATUS_CODE_MAPPING_EXAMPLE}
-                    templateLabel={t('填入模板')}
-                    editorType='keyValue'
-                    formApi={formApiRef.current}
-                    extraText={t('本地状态码映射')}
-                  />
-
-                  <Form.Input
-                    field='proxy'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('代理地址')}</span>}
-                    placeholder={t('例如: socks5://user:pass@host:port')}
-                    showClear
-                    onChange={(value) => handleInputChange('proxy', value)}
-                    extraText={t('支持 socks5')}
+              <div className='pt-2'>
+                <div className='compact-switch-row'>
+                  <span className='text-[13px] text-[#1A1A1A]'>{t('透传请求体')}</span>
+                  <Form.Switch
+                    field='pass_through_body_enabled'
+                    noLabel
+                    style={{ marginBottom: 0 }}
+                    onChange={(value) => handleInputChange('pass_through_body_enabled', value)}
+                    initValue={inputs.pass_through_body_enabled}
                   />
                 </div>
-
-                {/* Channel Behavior Section */}
-                <div className='py-3 border-b border-gray-100'>
-                  <Text className='text-sm font-medium text-gray-500 mb-3 block'>
-                    {t('渠道行为')}
-                  </Text>
-
-                  <Row gutter={12}>
-                    <Col span={12}>
-                      <Form.InputNumber
-                        field='priority'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('渠道优先级')}</span>}
-                        placeholder={t('渠道优先级')}
-                        min={0}
-                        onNumberChange={(value) => handleInputChange('priority', value)}
-                        style={{ width: '100%' }}
-                      />
-                    </Col>
-                    <Col span={12}>
-                      <Form.InputNumber
-                        field='weight'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('渠道权重')}</span>}
-                        placeholder={t('渠道权重')}
-                        min={0}
-                        onNumberChange={(value) => handleInputChange('weight', value)}
-                        style={{ width: '100%' }}
-                      />
-                    </Col>
-                  </Row>
-
-                  <Form.InputNumber
-                    field='timeout'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('超时时间')}</span>}
-                    placeholder={t('单位：秒，0 表示使用全局超时')}
-                    min={0}
-                    onNumberChange={(value) => handleInputChange('timeout', value)}
-                    style={{ width: '100%' }}
-                    extraText={t('超出该时间将自动断开上游并重试到后续渠道')}
+                {inputs.pass_through_body_enabled && (
+                  <p className='compact-hint'>{t('参数重定向、模型重定向等内置处理将失效。')}</p>
+                )}
+                <div className='compact-switch-row'>
+                  <span className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</span>
+                  <Form.Switch
+                    field='request_record_enabled'
+                    noLabel
+                    style={{ marginBottom: 0 }}
+                    onChange={(value) => handleInputChange('request_record_enabled', value)}
+                    initValue={inputs.request_record_enabled}
                   />
-
                 </div>
+                <div className='compact-switch-row'>
+                  <span className='text-[13px] text-[#1A1A1A]'>{t('自动禁用')}</span>
+                  <Form.Switch
+                    field='auto_ban'
+                    noLabel
+                    style={{ marginBottom: 0 }}
+                    onChange={(value) => setAutoBan(value)}
+                    initValue={autoBan}
+                  />
+                </div>
+                <Form.TextArea
+                  field='header_override'
+                  label={t('请求头覆盖')}
+                  placeholder='{"Authorization": "Bearer {api_key}"}'
+                  autosize={{ minRows: 2, maxRows: 8 }}
+                  onChange={(value) => handleInputChange('header_override', value)}
+                  showClear
+                />
+                <Form.TextArea
+                  field='param_override'
+                  label={t('参数重定向')}
+                  placeholder={'body.a.b = body.c.d'}
+                  autosize={{ minRows: 2, maxRows: 8 }}
+                  onChange={(value) => handleInputChange('param_override', value)}
+                  showClear
+                />
+                <JSONEditor
+                  key={`status_code_mapping-${isEdit ? channelId : 'new'}`}
+                  field='status_code_mapping'
+                  label={t('状态码复写')}
+                  placeholder='{"400": "500"}'
+                  value={inputs.status_code_mapping || ''}
+                  onChange={(value) => handleInputChange('status_code_mapping', value)}
+                  template={STATUS_CODE_MAPPING_EXAMPLE}
+                  templateLabel={t('填入模板')}
+                  editorType='keyValue'
+                  formApi={formApiRef.current}
+                />
+                <JSONEditor
+                  key={`model_mapping-${isEdit ? channelId : 'new'}`}
+                  field='model_mapping'
+                  label={t('模型重定向')}
+                  placeholder={t('请求模型 → 上游模型')}
+                  value={inputs.model_mapping || ''}
+                  onChange={(value) => handleInputChange('model_mapping', value)}
+                  template={MODEL_MAPPING_EXAMPLE}
+                  templateLabel={t('填入模板')}
+                  editorType='keyValue'
+                  formApi={formApiRef.current}
+                  renderStringValueSuffix={({ pairKey, value }) => {
+                    if (!MODEL_FETCHABLE_CHANNEL_TYPES.has(inputs.type)) {
+                      return null;
+                    }
+                    const disabled = !String(pairKey ?? '').trim();
+                    return (
+                      <Tooltip content={t('选择模型')}>
+                        <Button
+                          type='tertiary'
+                          theme='borderless'
+                          size='small'
+                          icon={<IconSearch size={14} />}
+                          disabled={disabled}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openModelMappingValueModal({ pairKey, value });
+                          }}
+                        />
+                      </Tooltip>
+                    );
+                  }}
+                />
+                <Form.Input
+                  field='proxy'
+                  label={t('代理')}
+                  placeholder='socks5://user:pass@host:port'
+                  showClear
+                  onChange={(value) => handleInputChange('proxy', value)}
+                />
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.InputNumber
+                      field='priority'
+                      label={t('优先级')}
+                      min={0}
+                      hideButtons
+                      onNumberChange={(value) => handleInputChange('priority', value)}
+                      style={{ width: '100%' }}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Form.InputNumber
+                      field='weight'
+                      label={t('权重')}
+                      min={0}
+                      hideButtons
+                      onNumberChange={(value) => handleInputChange('weight', value)}
+                      style={{ width: '100%' }}
+                    />
+                  </Col>
+                </Row>
+                <Form.InputNumber
+                  field='timeout'
+                  label={t('超时（秒）')}
+                  placeholder={t('0 = 全局')}
+                  min={0}
+                  hideButtons
+                  onNumberChange={(value) => handleInputChange('timeout', value)}
+                  style={{ width: '100%' }}
+                />
+                <Form.Select
+                  field='image_convert_mode'
+                  label={t('图片转换')}
+                  optionList={[
+                    { label: t('不转换'), value: 'disabled' },
+                    { label: t('Base64 转 URL'), value: 'base64_to_url' },
+                    { label: t('URL 转 Base64'), value: 'url_to_base64' },
+                  ]}
+                  initValue={inputs.image_convert_mode}
+                  onChange={(value) => handleInputChange('image_convert_mode', value)}
+                  style={{ width: '100%' }}
+                />
               </div>
             );
 
             return (
             <>
             <Spin spinning={loading}>
-              <div className='p-2 space-y-3' ref={formContainerRef}>
-                {/* Core Configuration Card - Always Visible */}
-                <Card className='!rounded-2xl shadow-sm border-0'>
-                  {/* Header */}
-                  <div className='flex items-center mb-4'>
-                    <Avatar
-                      size='small'
-                      color='blue'
-                      className='mr-2 shadow-md'
-                    >
-                      <IconServer size={16} />
-                    </Avatar>
-                    <div>
-                      <Text className='text-lg font-medium'>
-                        {t('核心配置')}
-                      </Text>
-                    </div>
-                  </div>
-
+              <div className='compact-form' ref={formContainerRef}>
                     {isIonetChannel && (
-                      <Banner
-                        type='info'
-                        closeIcon={null}
-                        className='mb-4 rounded-xl'
-                        description={t(
-                          '此渠道由 IO.NET 自动同步，类型、密钥和 API 地址已锁定。',
+                      <p className='compact-hint'>
+                        {t('此渠道由 IO.NET 同步，类型、密钥和地址已锁定。')}
+                        {ionetMetadata?.deployment_id && (
+                          <button
+                            type='button'
+                            className='ml-2 text-[#2563eb] bg-transparent border-0 cursor-pointer p-0'
+                            onClick={handleOpenIonetDeployment}
+                          >
+                            {t('查看部署')}
+                          </button>
                         )}
-                      >
-                        <Space>
-                          {ionetMetadata?.deployment_id && (
-                            <Button
-                              size='small'
-                              theme='light'
-                              type='primary'
-                              icon={<IconGlobe />}
-                              onClick={handleOpenIonetDeployment}
-                            >
-                              {t('查看关联部署')}
-                            </Button>
-                          )}
-                        </Space>
-                      </Banner>
+                      </p>
                     )}
 
                     <Form.Select
                       field='type'
-                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('类型')}</span>}
-                      placeholder={t('请选择渠道类型')}
+                      label={t('类型')}
+                      placeholder={t('选择类型')}
                       rules={[{ required: true, message: t('请选择渠道类型') }]}
                       optionList={channelOptionList}
                       style={{ width: '100%' }}
@@ -1542,25 +1564,14 @@ const EditChannelModal = (props) => {
                     />
 
                     {inputs.type === 57 && (
-                      <Banner
-                        type='warning'
-                        closeIcon={null}
-                        className='mb-4 rounded-xl'
-                        description={t('仅限个人使用，凭证仅供 Codex CLI，请遵守 OpenAI 相关政策。')}
-                      />
+                      <p className='compact-hint'>{t('仅限个人使用，凭证仅供 Codex CLI。')}</p>
                     )}
 
                     {inputs.type === 20 && (
-                      <div className='flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl mb-2'
-                        style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
-                        <div className='flex-1 min-w-0'>
-                          <div className='text-sm font-medium leading-5'>{t('是否为企业账户')}</div>
-                          <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{t('企业账户返回格式特殊，非企业账户勿开启')}</div>
-                        </div>
+                      <div className='compact-switch-row'>
+                        <span className='text-[13px] text-[#1A1A1A]'>{t('企业账户')}</span>
                         <Form.Switch
                           field='is_enterprise_account'
-                          checkedText={t('是')}
-                          uncheckedText={t('否')}
                           noLabel
                           style={{ marginBottom: 0 }}
                           onChange={(value) => {
@@ -1574,7 +1585,7 @@ const EditChannelModal = (props) => {
 
                     <Form.Input
                       field='name'
-                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('名称')}</span>}
+                      label={t('名称')}
                       placeholder={t('渠道名称')}
                       rules={[{ required: true, message: t('请为渠道命名') }]}
                       showClear
@@ -1585,7 +1596,7 @@ const EditChannelModal = (props) => {
                     {inputs.type === 18 && (
                       <Form.Input
                         field='other'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('模型版本')}</span>}
+                        label={t('模型版本')}
                         placeholder={
                           'v2.1'
                         }
@@ -1598,7 +1609,7 @@ const EditChannelModal = (props) => {
                       <JSONEditor
                         key={`region-${isEdit ? channelId : 'new'}`}
                         field='other'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('部署地区')}</span>}
+                        label={t('部署地区')}
                         placeholder={t('如：us-central1')}
                         value={inputs.other || ''}
                         onChange={(value) => handleInputChange('other', value)}
@@ -1615,7 +1626,7 @@ const EditChannelModal = (props) => {
                     {inputs.type === 21 && (
                       <Form.Input
                         field='other'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('知识库 ID')}</span>}
+                        label={t('知识库 ID')}
                         placeholder={'知识库ID'}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
@@ -1626,9 +1637,7 @@ const EditChannelModal = (props) => {
                       <Form.Input
                         field='other'
                         label='Account ID'
-                        placeholder={
-                          '请输入Account ID，例如：d6b5da8hk1awo8nap34ube6gh'
-                        }
+                        placeholder='d6b5da8hk1awo8nap34ube6gh'
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -1637,23 +1646,10 @@ const EditChannelModal = (props) => {
                     {inputs.type === 49 && (
                       <Form.Input
                         field='other'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('智能体ID')}</span>}
+                        label={t('智能体ID')}
                         placeholder={'智能体ID'}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
-                      />
-                    )}
-
-                    {inputs.type === 1 && (
-                      <Form.Input
-                        field='openai_organization'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('组织')}</span>}
-                        placeholder={t('请输入组织org-xxx')}
-                        showClear
-                        helpText={t('组织，不填则为默认组织')}
-                        onChange={(value) =>
-                          handleInputChange('openai_organization', value)
-                        }
                       />
                     )}
 
@@ -1661,105 +1657,60 @@ const EditChannelModal = (props) => {
                   {showApiConfigCard && (
                     <div onClick={handleApiConfigSecretClick}>
 
-                      {inputs.type === 40 && (
-                        <Banner
-                          type='info'
-                          description={
-                            <div>
-                              <Text strong>{t('邀请链接')}:</Text>
-                              <Text
-                                link
-                                underline
-                                className='ml-2 cursor-pointer'
-                                onClick={() =>
-                                  window.open(
-                                    'https://cloud.siliconflow.cn/i/hij0YNTZ',
-                                  )
-                                }
-                              >
-                                https://cloud.siliconflow.cn/i/hij0YNTZ
-                              </Text>
-                            </div>
-                          }
-                          className='!rounded-lg'
-                        />
-                      )}
-
                       {inputs.type === 3 && (
                         <>
-                          <Banner
-                            type='warning'
-                            description={t('2025-05-10 后添加的渠道无需移除模型名中的"."')}
-                            className='!rounded-lg'
+                          <Form.Input
+                            field='base_url'
+                            label={t('Azure Endpoint')}
+                            placeholder='https://xxx.openai.azure.com'
+                            onChange={(value) =>
+                              handleInputChange('base_url', value)
+                            }
+                            showClear
+                            disabled={isIonetLocked}
                           />
-                          <div>
-                            <Form.Input
-                              field='base_url'
-                              label='AZURE_OPENAI_ENDPOINT'
-                        placeholder='https://docs-test-001.openai.azure.com'
-                              onChange={(value) =>
-                                handleInputChange('base_url', value)
-                              }
-                              showClear
-                              disabled={isIonetLocked}
-                            />
-                          </div>
-                          <div>
-                            <Form.Input
-                              field='other'
-                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('默认 API 版本')}</span>}
-                              placeholder='2025-04-01-preview'
-                              onChange={(value) =>
-                                handleInputChange('other', value)
-                              }
-                              showClear
-                            />
-                          </div>
-                          <div>
-                            <Form.Input
-                              field='azure_responses_version'
-                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('默认 Responses API 版本，为空则使用上方版本')}</span>}
-                              placeholder={t('如：preview')}
-                              onChange={(value) =>
-                                handleChannelOtherSettingsChange(
-                                  'azure_responses_version',
-                                  value,
-                                )
-                              }
-                              showClear
-                            />
-                          </div>
+                          <Form.Input
+                            field='other'
+                            label={t('API 版本')}
+                            placeholder='2025-04-01-preview'
+                            onChange={(value) =>
+                              handleInputChange('other', value)
+                            }
+                            showClear
+                          />
+                          <Form.Input
+                            field='azure_responses_version'
+                            label={t('Responses 版本')}
+                            placeholder={t('空则同上')}
+                            onChange={(value) =>
+                              handleChannelOtherSettingsChange(
+                                'azure_responses_version',
+                                value,
+                              )
+                            }
+                            showClear
+                          />
                         </>
                       )}
 
                       {inputs.type === 8 && (
                         <>
-                          <Banner
-                            type='warning'
-                            description={t('对接转发项目（One API/New API 等）请使用 OpenAI 类型，而非此类型。')}
-                            className='!rounded-lg'
+                          <p className='compact-hint'>{t('转发站请用 OpenAI 类型。')}</p>
+                          <Form.Input
+                            field='base_url'
+                            label={t('Base URL')}
+                            placeholder='https://api.openai.com/v1/chat/completions'
+                            onChange={(value) =>
+                              handleInputChange('base_url', value)
+                            }
+                            showClear
+                            disabled={isIonetLocked}
                           />
-                          <div>
-                            <Form.Input
-                              field='base_url'
-                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('完整的 Base URL，支持变量{model}')}</span>}
-                              placeholder='https://api.openai.com/v1/chat/completions'
-                              onChange={(value) =>
-                                handleInputChange('base_url', value)
-                              }
-                              showClear
-                              disabled={isIonetLocked}
-                            />
-                          </div>
                         </>
                       )}
 
                       {inputs.type === 37 && (
-                        <Banner
-                          type='warning'
-                        description={t('仅适配 chatflow 和 agent，agent 不支持图片')}
-                          className='!rounded-lg'
-                        />
+                        <p className='compact-hint'>{t('仅适配 chatflow / agent。')}</p>
                       )}
 
                       {inputs.type !== 3 &&
@@ -1767,26 +1718,23 @@ const EditChannelModal = (props) => {
                         inputs.type !== 22 &&
                         inputs.type !== 36 &&
                         (inputs.type !== 45 || doubaoApiEditUnlocked) && (
-                          <div>
-                            <Form.Input
-                              field='base_url'
-                              label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('API地址')}</span>}
-                          placeholder={t('选填，末尾不带 /v1')}
-                              onChange={(value) =>
-                                handleInputChange('base_url', value)
-                              }
-                              showClear
-                              disabled={isIonetLocked}
-                              extraText={t('默认官方地址')}
-                            />
-                          </div>
+                          <Form.Input
+                            field='base_url'
+                            label={t('API 地址')}
+                            placeholder={t('选填，不要以 /v1 结尾')}
+                            onChange={(value) =>
+                              handleInputChange('base_url', value)
+                            }
+                            showClear
+                            disabled={isIonetLocked}
+                          />
                         )}
 
                       {inputs.type === 22 && (
                         <div>
                           <Form.Input
                             field='base_url'
-                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('私有部署地址')}</span>}
+                            label={t('私有部署地址')}
                             placeholder='https://fastgpt.run/api/openapi'
                             onChange={(value) =>
                               handleInputChange('base_url', value)
@@ -1801,7 +1749,7 @@ const EditChannelModal = (props) => {
                         <div>
                           <Form.Input
                             field='base_url'
-                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('API 地址（非 Chat API）')}</span>}
+                            label={t('API 地址')}
                             placeholder='https://api.example.com'
                             onChange={(value) =>
                               handleInputChange('base_url', value)
@@ -1816,7 +1764,7 @@ const EditChannelModal = (props) => {
                         <div>
                           <Form.Select
                             field='base_url'
-                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('API地址')}</span>}
+                            label={t('API地址')}
                             placeholder={t('请选择API地址')}
                             onChange={(value) =>
                               handleInputChange('base_url', value)
@@ -1848,13 +1796,9 @@ const EditChannelModal = (props) => {
                         <div className='mt-2'>
                           <Form.TextArea
                             field='key'
-                            label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('密钥')}</span>}
+                            label={t('密钥')}
                             placeholder={type2secretPrompt(inputs.type)}
-                            extraText={
-                              isEdit
-                                ? t('批量覆盖密钥，一行一个')
-                                : t('一行一个密钥')
-                            }
+                            extraText={isEdit ? t('一行一个，将覆盖原密钥') : t('一行一个')}
                             autosize={{ minRows: 3, maxRows: 12 }}
                             onChange={(value) => handleInputChange('key', value)}
                             style={{ fontFamily: 'monospace', fontSize: 13 }}
@@ -1868,8 +1812,8 @@ const EditChannelModal = (props) => {
                   {/* Model Selection - Part of Core Config */}
                   <Form.Select
                       field='models'
-                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('模型')}</span>}
-                      placeholder={t('请选择该渠道所支持的模型')}
+                      label={t('模型')}
+                      placeholder={t('选择模型')}
                       rules={[]}
                       multiple
                       filter={selectFilter}
@@ -1949,8 +1893,8 @@ const EditChannelModal = (props) => {
                   {/* Custom Model Name - Core Config */}
                   <Form.Input
                     field='custom_model'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('自定义模型名称')}</span>}
-                    placeholder={t('输入自定义模型名称')}
+                    label={t('自定义模型')}
+                    placeholder={t('名称后点填入')}
                     onChange={(value) => setCustomModel(value.trim())}
                     value={customModel}
                     suffix={
@@ -1967,8 +1911,8 @@ const EditChannelModal = (props) => {
                   {/* Group Selection - Core Config */}
                   <Form.Input
                     field='group'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('分组')}</span>}
-                    placeholder={t('逗号分隔，如: vip,test,default')}
+                    label={t('分组')}
+                    placeholder='openai,gemini,claude'
                     showClear
                     onChange={(value) => {
                       const groups = value.split(',').map((g) => g.trim()).filter((g) => g);
@@ -1977,199 +1921,24 @@ const EditChannelModal = (props) => {
                     }}
                   />
 
-                  {/* Model Mapping - Core Config */}
-                  <JSONEditor
-                    key={`model_mapping-${isEdit ? channelId : 'new'}`}
-                    field='model_mapping'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('模型重定向')}</span>}
-                    placeholder={t('键值对，模型重定向')}
-                    value={inputs.model_mapping || ''}
-                    onChange={(value) =>
-                      handleInputChange('model_mapping', value)
-                    }
-                    template={MODEL_MAPPING_EXAMPLE}
-                    templateLabel={t('填入模板')}
-                    editorType='keyValue'
-                    formApi={formApiRef.current}
-                    renderStringValueSuffix={({ pairKey, value }) => {
-                      if (!MODEL_FETCHABLE_CHANNEL_TYPES.has(inputs.type)) {
-                        return null;
-                      }
-                      const disabled = !String(pairKey ?? '').trim();
-                      return (
-                        <Tooltip content={t('选择模型')}>
-                          <Button
-                            type='tertiary'
-                            theme='borderless'
-                            size='small'
-                            icon={<IconSearch size={14} />}
-                            disabled={disabled}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openModelMappingValueModal({ pairKey, value });
-                            }}
-                          />
-                        </Tooltip>
-                      );
-                    }}
-                    extraText={t('请求模型→替换模型')}
-                  />
 
-                  {/* Auto Ban - Core Config */}
-                  <div className='flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl'
-                    style={{ border: '1px solid var(--semi-color-border)', background: 'var(--semi-color-bg-0)' }}>
-                    <div className='flex-1 min-w-0'>
-                      <div className='text-sm font-medium leading-5'>{t('是否自动禁用')}</div>
-                      <div className='text-xs mt-0.5' style={{ color: 'var(--semi-color-text-2)' }}>{t('关闭后不会自动禁用该渠道')}</div>
-                    </div>
-                    <Form.Switch
-                      field='auto_ban'
-                      checkedText={t('开')}
-                      uncheckedText={t('关')}
-                      noLabel
-                      style={{ marginBottom: 0 }}
-                      onChange={(value) => setAutoBan(value)}
-                      initValue={autoBan}
-                    />
-                  </div>
-
-                  {/* Test Model - Core Config */}
-                  <Form.Input
-                    style={{ marginTop: 12 }}
-                    field='test_model'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('默认测试模型')}</span>}
-                    placeholder={t('默认取列表首个')}
-                    onChange={(value) =>
-                      handleInputChange('test_model', value)
-                    }
-                    showClear
-                  />
-
-                  <Form.Select
-                    field='image_convert_mode'
-                    label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('图片响应自动转换')}</span>}
-                    placeholder={t('请选择转换模式')}
-                    optionList={[
-                      { label: t('默认（不转换）'), value: 'disabled' },
-                      { label: t('Base64 转 URL'), value: 'base64_to_url' },
-                      { label: t('URL 转 Base64'), value: 'url_to_base64' },
-                    ]}
-                    initValue={inputs.image_convert_mode}
-                    onChange={(value) => handleInputChange('image_convert_mode', value)}
-                    style={{ width: '100%', marginTop: 12 }}
-                  />
-                </Card>
-
-                {/* Advanced Settings Toggle / Collapse */}
-                {isMobile ? (
-                <Collapse
-                  activeKey={advancedSettingsOpen ? ['advanced'] : []}
-                  onChange={(keys) => setAdvancedSettingsOpen(keys.includes('advanced'))}
+                <button
+                  type='button'
+                  className='compact-advanced-toggle'
+                  onClick={() => setAdvancedSettingsOpen((v) => !v)}
                 >
-                  <Collapse.Panel
-                    header={
-                      <div className='flex items-center gap-2'>
-                        <IconSetting size={16} />
-                        <Text className='font-medium'>{t('高级设置')}</Text>
-                      </div>
-                    }
-                    itemKey='advanced'
-                  >
-                    {advancedSettingsContent}
-                  </Collapse.Panel>
-                </Collapse>
-                ) : (
-                  /* Desktop: toggle button to open side panel */
-                  <div
-                    className='flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors hover:bg-gray-50'
+                  <span>{t('高级')}</span>
+                  <IconChevronDown
+                    size={14}
                     style={{
-                      backgroundColor: advancedSettingsOpen ? 'var(--semi-color-primary-light-default)' : 'var(--semi-color-fill-0)',
-                      border: '1px solid var(--semi-color-fill-2)',
+                      transform: advancedSettingsOpen ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.15s',
                     }}
-                    onClick={() => setAdvancedSettingsOpen(!advancedSettingsOpen)}
-                  >
-                    <div className='flex items-center gap-2'>
-                      <IconSetting size={16} />
-                      <Text className='font-medium'>{t('高级设置')}</Text>
-                    </div>
-                    <div className='flex items-center gap-1 text-sm' style={{ color: 'var(--semi-color-primary)' }}>
-                      <Text size='small' style={{ color: 'var(--semi-color-primary)' }}>
-                        {advancedSettingsOpen ? t('收起') : isEdit ? t('向左展开') : t('向右展开')}
-                      </Text>
-                      <IconChevronDown
-                        size={14}
-                        style={{
-                          transform: advancedSettingsOpen
-                            ? 'rotate(180deg)'
-                            : isEdit ? 'rotate(90deg)' : 'rotate(-90deg)',
-                          transition: 'transform 0.2s',
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+                  />
+                </button>
+                {advancedSettingsOpen && advancedSettingsContent}
               </div>
             </Spin>
-
-            {/* Desktop: Advanced Settings Side Panel - rendered inside Form tree */}
-            {!isMobile && advancedSettingsOpen && (
-              <div
-                className='fixed top-0 h-full overflow-y-auto z-[999] semi-sidesheet-inner'
-                style={{
-                  width: 600,
-                  [isEdit ? 'right' : 'left']: 600,
-                  backgroundColor: 'var(--semi-color-bg-0)',
-                  borderLeft: isEdit ? 'none' : '1px solid var(--semi-color-border)',
-                  borderRight: isEdit ? '1px solid var(--semi-color-border)' : 'none',
-                  animation: `slideIn${isEdit ? 'Left' : 'Right'} 0.3s ease-out`,
-                }}
-              >
-                <div className='semi-sidesheet-header'>
-                  <div className='semi-sidesheet-title'>
-                    <Space>
-                      <Tag color='cyan' shape='circle'>
-                        {t('高级')}
-                      </Tag>
-                      <Title heading={4} className='m-0'>
-                        {t('高级设置')}
-                      </Title>
-                    </Space>
-                  </div>
-                  <Button
-                    className='semi-sidesheet-close'
-                    type='tertiary'
-                    theme='borderless'
-                    icon={<IconClose />}
-                    size='small'
-                    onClick={() => setAdvancedSettingsOpen(false)}
-                  />
-                </div>
-                <div className='semi-sidesheet-body' style={{ padding: 0 }}>
-                  <div className='p-2 space-y-3'>
-                    <Card className='!rounded-2xl shadow-sm border-0'>
-                      <div className='flex items-center mb-4'>
-                        <Avatar
-                          size='small'
-                          color='orange'
-                          className='mr-2 shadow-md'
-                        >
-                          <IconSetting size={16} />
-                        </Avatar>
-                        <div>
-                          <Text className='text-lg font-medium'>
-                            {t('高级设置')}
-                          </Text>
-                          <div className='text-xs text-gray-600'>
-                            {t('渠道的高级配置选项')}
-                          </div>
-                        </div>
-                      </div>
-                      {advancedSettingsContent}
-                    </Card>
-                  </div>
-                </div>
-              </div>
-            )}
             </>
           );
           }}

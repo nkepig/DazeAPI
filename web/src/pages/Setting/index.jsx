@@ -9,7 +9,6 @@ import {
   Settings,
   Calculator,
   Activity,
-  ChevronDown,
   Megaphone,
 } from 'lucide-react';
 
@@ -20,38 +19,11 @@ import PerformanceSetting from '../../components/settings/PerformanceSetting';
 import AnnouncementSetting from '../../components/settings/AnnouncementSetting';
 
 const sections = [
-  { key: 'announcement', icon: Megaphone, label: '公告管理', Component: AnnouncementSetting },
-  { key: 'operation', icon: Settings, label: '运营设置', Component: OperationSetting },
-  { key: 'ratio', icon: Calculator, label: '模型定价', Component: RatioSetting },
-  { key: 'performance', icon: Activity, label: '性能设置', Component: PerformanceSetting },
+  { key: 'announcement', icon: Megaphone, navLabel: '公告', label: '公告管理', Component: AnnouncementSetting },
+  { key: 'operation', icon: Settings, navLabel: '运营', label: '运营设置', Component: OperationSetting },
+  { key: 'ratio', icon: Calculator, navLabel: '定价', label: '模型定价', Component: RatioSetting },
+  { key: 'performance', icon: Activity, navLabel: '性能', label: '性能设置', Component: PerformanceSetting },
 ];
-
-function SectionBlock({ sectionKey, icon: Icon, label, children, open, onToggle, t }) {
-  return (
-    <div id={`section-${sectionKey}`} className='mb-8'>
-      <button
-        onClick={onToggle}
-        className='w-full flex items-center justify-between py-3 bg-transparent border-0 cursor-pointer transition-colors'
-      >
-        <span className='flex items-center gap-2.5 text-[15px] font-medium text-[#1A1A1A]'>
-          <Icon size={18} strokeWidth={1.5} color='#999' />
-          {t(label)}
-        </span>
-        <ChevronDown
-          size={16}
-          strokeWidth={1.5}
-          color='#C8C8C8'
-          style={{
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease',
-          }}
-        />
-      </button>
-      {open && <div className='pt-2 pb-4'>{children}</div>}
-      <div className='border-b border-[#F0F0F0]' />
-    </div>
-  );
-}
 
 const Setting = () => {
   const { t } = useTranslation();
@@ -62,14 +34,16 @@ const Setting = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const section = params.get('section');
-    if (section) {
+    if (section && sections.some((s) => s.key === section)) {
       setActiveSection(section);
-      setTimeout(() => {
-        const el = document.getElementById(`section-${section}`);
-        if (el) { window.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' }); }
-      }, 100);
     }
   }, [location.search]);
+
+  const switchSection = (key) => {
+    setActiveSection(key);
+    navigate(`?section=${key}`);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
 
   if (!isRoot()) {
     return (
@@ -79,53 +53,41 @@ const Setting = () => {
     );
   }
 
+  const current = sections.find((s) => s.key === activeSection) || sections[1];
+  const ActiveComponent = current.Component;
+
   return (
     <div className='px-6 lg:px-10 py-8'>
-      <div className='mb-6'>
-        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('运营设置')}</h1>
-        <p className='text-[13px] text-[#999] mt-1'>{t('管理核心运营配置')}</p>
-      </div>
+      <h1 className='text-[22px] font-semibold text-[#1A1A1A] mb-6'>{t(current.label)}</h1>
 
-      {/* Quick nav */}
-      <div className='flex gap-2 flex-wrap mb-8'>
-        {sections.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => {
-              setActiveSection(key);
-              navigate(`?section=${key}`);
-              const el = document.getElementById(`section-${key}`);
-              if (el) { window.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' }); }
-            }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all border ${
-              activeSection === key
-                ? 'text-[#1A1A1A] border-[#1A1A1A] bg-white'
-                : 'text-[#999] border-[#EBEBEB] bg-white hover:bg-[#F5F5F5] hover:text-[#1A1A1A]'
-            }`}
-          >
-            {t(label)}
-          </button>
-        ))}
-      </div>
+      <div className='flex flex-col md:flex-row gap-8 items-start'>
+        <nav className='md:sticky md:top-[calc(var(--nav-height)+24px)] w-full md:w-36 shrink-0'>
+          <div className='flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0'>
+            {sections.map(({ key, icon: Icon, navLabel }) => {
+              const active = activeSection === key;
+              return (
+                <button
+                  key={key}
+                  type='button'
+                  onClick={() => switchSection(key)}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg cursor-pointer border-0 text-left transition-colors whitespace-nowrap ${
+                    active
+                      ? 'bg-[#F5F5F5] text-[#1A1A1A] font-medium'
+                      : 'bg-transparent text-[#999] hover:bg-[#FAFAFA] hover:text-[#1A1A1A]'
+                  }`}
+                >
+                  <Icon size={15} strokeWidth={1.5} />
+                  {t(navLabel)}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-      {sections.map(({ key, icon, label, Component }) => (
-        <SectionBlock
-          key={key}
-          sectionKey={key}
-          icon={icon}
-          label={label}
-          open={activeSection === key}
-          t={t}
-          onToggle={() => {
-            const nextKey = activeSection === key ? '' : key;
-            setActiveSection(nextKey || key);
-            navigate(nextKey ? `?section=${nextKey}` : '?section=operation');
-            window.scrollTo({ top: 0, behavior: 'auto' });
-          }}
-        >
-          {activeSection === key ? <Component /> : null}
-        </SectionBlock>
-      ))}
+        <div className='flex-1 min-w-0 w-full'>
+          <ActiveComponent />
+        </div>
+      </div>
     </div>
   );
 };

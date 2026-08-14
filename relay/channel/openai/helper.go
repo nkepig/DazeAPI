@@ -1,13 +1,10 @@
 package openai
 
 import (
-	"strings"
-
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
@@ -72,48 +69,6 @@ func handleGeminiFormat(c *gin.Context, data string, info *relaycommon.RelayInfo
 	c.Render(-1, common.CustomEvent{Data: "data: " + string(geminiResponseStr)})
 	_ = helper.FlushWriter(c)
 	return nil
-}
-
-func ProcessStreamResponse(streamResponse dto.ChatCompletionsStreamResponse, responseTextBuilder *strings.Builder, toolCount *int) error {
-	for _, choice := range streamResponse.Choices {
-		responseTextBuilder.WriteString(choice.Delta.GetContentString())
-		responseTextBuilder.WriteString(choice.Delta.GetReasoningContent())
-		if choice.Delta.ToolCalls != nil {
-			if len(choice.Delta.ToolCalls) > *toolCount {
-				*toolCount = len(choice.Delta.ToolCalls)
-			}
-			for _, tool := range choice.Delta.ToolCalls {
-				responseTextBuilder.WriteString(tool.Function.Name)
-				responseTextBuilder.WriteString(tool.Function.Arguments)
-			}
-		}
-	}
-	return nil
-}
-
-// accumulateStreamText incrementally extracts completion text from one SSE data
-// payload for local token estimation fallback. Avoids buffering all stream
-// chunks and joining them into a giant JSON array at the end.
-func accumulateStreamText(relayMode int, data string, responseTextBuilder *strings.Builder, toolCount *int) {
-	if data == "" {
-		return
-	}
-	switch relayMode {
-	case relayconstant.RelayModeChatCompletions:
-		var streamResponse dto.ChatCompletionsStreamResponse
-		if err := common.Unmarshal(common.StringToByteSlice(data), &streamResponse); err != nil {
-			return
-		}
-		_ = ProcessStreamResponse(streamResponse, responseTextBuilder, toolCount)
-	case relayconstant.RelayModeCompletions:
-		var streamResponse dto.CompletionsStreamResponse
-		if err := common.Unmarshal(common.StringToByteSlice(data), &streamResponse); err != nil {
-			return
-		}
-		for _, choice := range streamResponse.Choices {
-			responseTextBuilder.WriteString(choice.Text)
-		}
-	}
 }
 
 func handleLastResponse(lastStreamData string, responseId *string, createAt *int64,

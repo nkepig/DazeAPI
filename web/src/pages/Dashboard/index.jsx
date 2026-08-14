@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Activity, Wallet, Building2 } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { API, isAdmin, renderQuota, goToRecharge, getTodayStartTimestamp } from '../../helpers';
 import { UserContext } from '../../context/User';
@@ -67,6 +67,7 @@ const Dashboard = () => {
   const [userState] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
   const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, models: 0 });
+  const [runwayDays, setRunwayDays] = useState(null);
   const [rawData, setRawData] = useState([]);
   const [chartRange, setChartRange] = useState(1);
   const [metric, setMetric] = useState('quota');
@@ -81,7 +82,9 @@ const Dashboard = () => {
     try {
       const now = Math.floor(Date.now() / 1000);
       const todayStart = getTodayStartTimestamp();
-      const rangeStart = chartRange === 1 ? todayStart : todayStart - chartRange * 86400;
+      const chartStart = chartRange === 1 ? todayStart : todayStart - (chartRange - 1) * 86400;
+      const sevenDayStart = todayStart - 6 * 86400;
+      const rangeStart = Math.min(chartStart, sevenDayStart);
 
       const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
       const sep = endpoint.includes('?') ? '&' : '?';
@@ -119,10 +122,17 @@ const Dashboard = () => {
           });
         }
 
+        const balance = userState?.user?.quota || 0;
+        const sevenDayQuota = records
+          .filter((r) => r.created_at >= sevenDayStart)
+          .reduce((sum, r) => sum + (r.quota || 0), 0);
+        const avgDaily = sevenDayQuota / 7;
+        setRunwayDays(avgDaily > 0 ? Math.floor(balance / avgDaily) : null);
+
         setStats({
           quota: todayQuota,
           requests: todayCount,
-          balance: userState?.user?.quota || 0,
+          balance,
           models: modelCount,
         });
       }
@@ -229,10 +239,10 @@ const Dashboard = () => {
   );
 
   const statItems = [
-    { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v, 2) },
-    { icon: Activity, label: t('今日请求次数'), value: stats.requests },
-    { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2) },
-    { icon: Building2, label: t('支持模型'), value: stats.models },
+    { key: 'quota', icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v, 2), isMoney: true },
+    { key: 'requests', icon: Activity, label: t('今日请求次数'), value: stats.requests },
+    { key: 'balance', icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2), isMoney: true },
+    { key: 'models', icon: Building2, label: t('支持模型'), value: stats.models, href: '/console/models' },
   ];
 
   const dataKey = metric;
@@ -249,31 +259,49 @@ const Dashboard = () => {
       <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 mb-10 pb-8 border-b border-[#F0F0F0]'>
         {statItems.map((item, i) => {
           const Icon = item.icon;
-          const isBalance = item.label === t('账户余额');
+          const isBalance = item.key === 'balance';
+          const displayValue = item.isMoney
+            ? (item.formatter ? item.formatter(item.value) : item.value)
+            : (item.formatter
+              ? <CountUp end={item.value} formatter={item.formatter} />
+              : <CountUp end={item.value} />);
           return (
-            <motion.div key={i} custom={i} variants={fadeUp} initial='hidden' animate='show'>
+            <motion.div
+              key={item.key}
+              custom={i}
+              variants={fadeUp}
+              initial='hidden'
+              animate='show'
+              className={item.href ? 'cursor-pointer' : undefined}
+              onClick={item.href ? () => navigate(item.href) : undefined}
+            >
               <div className='flex items-center gap-2 mb-2'>
                 <Icon size={16} strokeWidth={1.5} color='#999' />
                 <span className='text-[12px] text-[#999] font-medium'>{item.label}</span>
               </div>
               <div className='flex items-end gap-2'>
-                <p className='text-[26px] font-semibold text-[#1A1A1A] leading-tight'>
-                  {item.formatter
-                    ? <CountUp end={item.value} formatter={item.formatter} />
-                    : <CountUp end={item.value} />
-                  }
+                <p className={`text-[26px] font-semibold text-[#1A1A1A] leading-tight ${item.href ? 'hover:underline' : ''}`}>
+                  {displayValue}
                 </p>
                 {isBalance && (
                   <button
-                    onClick={() =>
-                      goToRecharge(navigate, statusState?.status)
-                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToRecharge(navigate, statusState?.status);
+                    }}
                     className='mb-1 text-[11px] text-[#2563eb] hover:text-[#1d4ed8] font-medium cursor-pointer border-none bg-transparent p-0'
                   >
                     {t('去充值')}
                   </button>
                 )}
               </div>
+              {isBalance && !loading && (
+                <p className='text-[11px] text-[#999] mt-1'>
+                  {runwayDays == null
+                    ? t('近 7 日无消耗')
+                    : t('按近 7 日均耗还可撑 {{days}} 天', { days: runwayDays })}
+                </p>
+              )}
             </motion.div>
           );
         })}
