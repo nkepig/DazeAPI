@@ -173,6 +173,24 @@ const ModelListCard = ({
                 </p>
               </div>
             )}
+            {priceInfo.audioInputPrice && (
+              <div>
+                <span className='text-[11px] text-[#888]'>{t('音频输入价格')}</span>
+                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
+                  {priceInfo.audioInputPrice}
+                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+                </p>
+              </div>
+            )}
+            {priceInfo.audioOutputPrice && (
+              <div>
+                <span className='text-[11px] text-[#888]'>{t('音频输出价格')}</span>
+                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
+                  {priceInfo.audioOutputPrice}
+                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -371,6 +389,10 @@ const Models = () => {
       pricedModel.cache_read_price != null ? pricedModel.cache_read_price : null;
     const rawCreateCachePrice =
       pricedModel.cache_write_price != null ? pricedModel.cache_write_price : null;
+    const rawAudioInputPrice =
+      pricedModel.audio_input_price > 0 ? pricedModel.audio_input_price : null;
+    const rawAudioOutputPrice =
+      pricedModel.audio_output_price > 0 ? pricedModel.audio_output_price : null;
     return {
       type: 'token',
       inputPrice: displayPrice(rawInputPrice),
@@ -378,6 +400,10 @@ const Models = () => {
       cachePrice: rawCachePrice != null ? displayPrice(rawCachePrice) : null,
       createCachePrice:
         rawCreateCachePrice != null ? displayPrice(rawCreateCachePrice) : null,
+      audioInputPrice:
+        rawAudioInputPrice != null ? displayPrice(rawAudioInputPrice) : null,
+      audioOutputPrice:
+        rawAudioOutputPrice != null ? displayPrice(rawAudioOutputPrice) : null,
       groupRatio: gr,
       hasUserMultiplier: pricedModel.user_multiplier != null,
     };
