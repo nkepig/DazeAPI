@@ -114,8 +114,6 @@ func batchUpdate() {
 		return
 	}
 
-	common.SysLog("batch update started")
-
 	for i := 0; i < BatchUpdateTypeCount; i++ {
 		batchUpdateLocks[i].Lock()
 		store := batchUpdateStores[i]
@@ -149,8 +147,6 @@ func batchUpdate() {
 			}
 		}
 	}
-
-	common.SysLog("batch update finished")
 }
 
 func RecordExist(err error) (bool, error) {
