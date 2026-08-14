@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -16,6 +15,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func applyOpenAIResponsesUsage(dst *dto.Usage, src *dto.Usage) {
+	if dst == nil || src == nil {
+		return
+	}
+	if src.InputTokens != 0 {
+		dst.PromptTokens = src.InputTokens
+	} else if src.PromptTokens != 0 {
+		dst.PromptTokens = src.PromptTokens
+	}
+	if src.OutputTokens != 0 {
+		dst.CompletionTokens = src.OutputTokens
+	} else if src.CompletionTokens != 0 {
+		dst.CompletionTokens = src.CompletionTokens
+	}
+	if src.TotalTokens != 0 {
+		dst.TotalTokens = src.TotalTokens
+	}
+	if src.InputTokensDetails != nil {
+		dst.PromptTokensDetails.CachedTokens = src.InputTokensDetails.CachedTokens
+	}
+}
 
 func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
@@ -45,24 +66,7 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 
 	usage := dto.Usage{}
 	if responsesResponse.Usage != nil {
-		if responsesResponse.Usage.InputTokens != 0 {
-			usage.PromptTokens = responsesResponse.Usage.InputTokens
-		} else {
-			usage.PromptTokens = responsesResponse.Usage.PromptTokens
-		}
-		if responsesResponse.Usage.OutputTokens != 0 {
-			usage.CompletionTokens = responsesResponse.Usage.OutputTokens
-		} else {
-			usage.CompletionTokens = responsesResponse.Usage.CompletionTokens
-		}
-		if responsesResponse.Usage.TotalTokens != 0 {
-			usage.TotalTokens = responsesResponse.Usage.TotalTokens
-		} else {
-			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-		}
-		if responsesResponse.Usage.InputTokensDetails != nil {
-			usage.PromptTokensDetails.CachedTokens = responsesResponse.Usage.InputTokensDetails.CachedTokens
-		}
+		applyOpenAIResponsesUsage(&usage, responsesResponse.Usage)
 	}
 	if info == nil || info.ResponsesUsageInfo == nil || info.ResponsesUsageInfo.BuiltInTools == nil {
 		return &usage, nil
@@ -88,7 +92,6 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	defer service.CloseResponseBodyGracefully(resp)
 
 	var usage = &dto.Usage{}
-	var responseTextBuilder strings.Builder
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
 
@@ -97,25 +100,10 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		if err := common.UnmarshalJsonStr(data, &streamResponse); err == nil {
 			sendResponsesStreamData(c, streamResponse, data)
 			switch streamResponse.Type {
-			case "response.completed":
+			case "response.completed", "response.incomplete":
 				if streamResponse.Response != nil {
 					if streamResponse.Response.Usage != nil {
-						if streamResponse.Response.Usage.InputTokens != 0 {
-							usage.PromptTokens = streamResponse.Response.Usage.InputTokens
-						} else if streamResponse.Response.Usage.PromptTokens != 0 {
-							usage.PromptTokens = streamResponse.Response.Usage.PromptTokens
-						}
-						if streamResponse.Response.Usage.OutputTokens != 0 {
-							usage.CompletionTokens = streamResponse.Response.Usage.OutputTokens
-						} else if streamResponse.Response.Usage.CompletionTokens != 0 {
-							usage.CompletionTokens = streamResponse.Response.Usage.CompletionTokens
-						}
-						if streamResponse.Response.Usage.TotalTokens != 0 {
-							usage.TotalTokens = streamResponse.Response.Usage.TotalTokens
-						}
-						if streamResponse.Response.Usage.InputTokensDetails != nil {
-							usage.PromptTokensDetails.CachedTokens = streamResponse.Response.Usage.InputTokensDetails.CachedTokens
-						}
+						applyOpenAIResponsesUsage(usage, streamResponse.Response.Usage)
 					}
 					if streamResponse.Response.HasImageGenerationCall() {
 						c.Set("image_generation_call", true)
@@ -123,9 +111,6 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 						c.Set("image_generation_call_size", streamResponse.Response.GetSize())
 					}
 				}
-			case "response.output_text.delta":
-				// 处理输出文本
-				responseTextBuilder.WriteString(streamResponse.Delta)
 			case dto.ResponsesOutputTypeItemDone:
 				// 函数调用处理
 				if streamResponse.Item != nil {
@@ -144,22 +129,6 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 		return true
 	})
-
-	if usage.CompletionTokens == 0 {
-		// 计算输出文本的 token 数量
-		tempStr := responseTextBuilder.String()
-		if len(tempStr) > 0 {
-			// 非正常结束，使用输出文本的 token 数量
-			completionTokens := service.CountTextToken(tempStr, info.UpstreamModelName)
-			usage.CompletionTokens = completionTokens
-		}
-	}
-
-	if usage.PromptTokens == 0 && usage.CompletionTokens != 0 {
-		usage.PromptTokens = info.GetEstimatePromptTokens()
-	}
-
-	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 
 	return usage, nil
 }

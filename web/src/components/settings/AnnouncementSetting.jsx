@@ -99,9 +99,8 @@ const AnnouncementSetting = () => {
           </Button>
         </Space>
       </div>
-      <div className='mt-4'>
-        <div className='text-sm font-medium mb-2'>{t('预览')}</div>
-        <div className='border rounded-xl p-4 bg-white'>
+        <div className='mt-6 pt-4 border-t border-[#F0F0F0]'>
+          <div className='text-[13px] font-medium text-[#1A1A1A] mb-3'>{t('预览')}</div>
           {content ? (
             <div>
               {version && (
@@ -116,7 +115,6 @@ const AnnouncementSetting = () => {
             <div className='text-gray-500 text-center py-8'>{t('暂无公告')}</div>
           )}
         </div>
-      </div>
     </div>
   );
 };

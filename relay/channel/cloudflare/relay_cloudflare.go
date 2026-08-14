@@ -35,7 +35,7 @@ func cfStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Res
 
 	helper.SetEventStreamHeaders(c)
 	id := helper.GetResponseID(c)
-	var responseText string
+	usage := &dto.Usage{}
 	isFirst := true
 
 	for scanner.Scan() {
@@ -58,7 +58,9 @@ func cfStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Res
 		}
 		for _, choice := range response.Choices {
 			choice.Delta.Role = "assistant"
-			responseText += choice.Delta.GetContentString()
+		}
+		if response.Usage != nil && (response.Usage.PromptTokens != 0 || response.Usage.CompletionTokens != 0 || response.Usage.TotalTokens != 0) {
+			usage = response.Usage
 		}
 		response.Id = id
 		response.Model = info.UpstreamModelName
@@ -75,7 +77,6 @@ func cfStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Res
 	if err := scanner.Err(); err != nil {
 		logger.LogError(c, "error_scanning_stream_response: "+err.Error())
 	}
-	usage := service.ResponseText2Usage(c, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens())
 	if info.ShouldIncludeUsage {
 		response := helper.GenerateFinalUsageResponse(id, info.StartTime.Unix(), info.UpstreamModelName, *usage)
 		err := helper.ObjectData(c, response)
@@ -102,12 +103,7 @@ func cfHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response)
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
 	response.Model = info.UpstreamModelName
-	var responseText string
-	for _, choice := range response.Choices {
-		responseText += choice.Message.StringContent()
-	}
-	usage := service.ResponseText2Usage(c, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens())
-	response.Usage = *usage
+	usage := &response.Usage
 	response.Id = helper.GetResponseID(c)
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
@@ -143,6 +139,6 @@ func cfSTTHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respon
 	c.Writer.WriteHeader(resp.StatusCode)
 	_, _ = c.Writer.Write(jsonResponse)
 
-	usage := service.ResponseText2Usage(c, cfResp.Result.Text, info.UpstreamModelName, info.GetEstimatePromptTokens())
+	usage := &dto.Usage{}
 	return nil, usage
 }

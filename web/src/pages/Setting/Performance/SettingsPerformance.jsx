@@ -254,20 +254,12 @@ export default function SettingsPerformance(props) {
           getFormApi={(formAPI) => (refForm.current = formAPI)}
           style={{ marginBottom: 15 }}
         >
-          <Form.Section text={t('磁盘缓存设置（磁盘换内存）')}>
-            <Banner
-              type='info'
-              description={t(
-                '启用磁盘缓存后，大请求体将临时存储到磁盘而非内存，可显著降低内存占用，适用于处理包含大量图片/文件的请求。建议在 SSD 环境下使用。',
-              )}
-              style={{ marginBottom: 16 }}
-            />
+          <Form.Section text={t('磁盘缓存')}>
             <Row gutter={16}>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.Switch
                   field={'performance_setting.disk_cache_enabled'}
                   label={t('启用磁盘缓存')}
-                  extraText={t('将大请求体临时存储到磁盘')}
                   size='default'
                   checkedText='｜'
                   uncheckedText='〇'
@@ -280,7 +272,6 @@ export default function SettingsPerformance(props) {
                 <Form.InputNumber
                   field={'performance_setting.disk_cache_threshold_mb'}
                   label={t('磁盘缓存阈值 (MB)')}
-                  extraText={t('请求体超过此大小时使用磁盘缓存')}
                   min={1}
                   max={1024}
                   onChange={handleFieldChange(
@@ -299,7 +290,7 @@ export default function SettingsPerformance(props) {
                           free: formatBytes(stats.disk_space_info.free),
                           total: formatBytes(stats.disk_space_info.total),
                         })
-                      : t('磁盘缓存占用的最大空间')
+                      : undefined
                   }
                   min={100}
                   max={102400}
@@ -329,19 +320,11 @@ export default function SettingsPerformance(props) {
           </Form.Section>
 
           <Form.Section text={t('系统性能监控')}>
-            <Banner
-              type='info'
-              description={t(
-                '启用性能监控后，当系统资源使用率超过设定阈值时，将拒绝新的 Relay 请求 (/v1, /v1beta 等)，以保护系统稳定性。',
-              )}
-              style={{ marginBottom: 16 }}
-            />
             <Row gutter={16}>
               <Col xs={24} sm={12} md={6} lg={6} xl={6}>
                 <Form.Switch
                   field={'performance_setting.monitor_enabled'}
                   label={t('启用性能监控')}
-                  extraText={t('超过阈值时拒绝新请求')}
                   size='default'
                   checkedText='｜'
                   uncheckedText='〇'
@@ -354,7 +337,6 @@ export default function SettingsPerformance(props) {
                 <Form.InputNumber
                   field={'performance_setting.monitor_cpu_threshold'}
                   label={t('CPU 阈值 (%)')}
-                  extraText={t('CPU 使用率超过此值时拒绝请求')}
                   min={0}
                   max={100}
                   onChange={handleFieldChange(
@@ -367,7 +349,6 @@ export default function SettingsPerformance(props) {
                 <Form.InputNumber
                   field={'performance_setting.monitor_memory_threshold'}
                   label={t('内存 阈值 (%)')}
-                  extraText={t('内存使用率超过此值时拒绝请求')}
                   min={0}
                   max={100}
                   onChange={handleFieldChange(
@@ -380,7 +361,6 @@ export default function SettingsPerformance(props) {
                 <Form.InputNumber
                   field={'performance_setting.monitor_disk_threshold'}
                   label={t('磁盘 阈值 (%)')}
-                  extraText={t('磁盘使用率超过此值时拒绝请求')}
                   min={0}
                   max={100}
                   onChange={handleFieldChange(
@@ -401,13 +381,6 @@ export default function SettingsPerformance(props) {
 
       {/* 服务器日志管理 */}
       <Form.Section text={t('服务器日志管理')}>
-        <Banner
-          type='info'
-          description={t(
-            '管理服务器运行日志文件。日志文件会随运行时间不断累积，建议定期清理以释放磁盘空间。',
-          )}
-          style={{ marginBottom: 16 }}
-        />
         {logInfo === null ? null : logInfo.enabled ? (
           <>
             <Descriptions

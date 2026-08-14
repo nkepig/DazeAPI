@@ -16,7 +16,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { UserContext } from '../../context/User';
-import { isRoot, isAdmin, getSystemName, stringToColor, getAdminPermissions } from '../../helpers';
+import { isRoot, isAdmin, getSystemName, stringToColor, getAdminPermissions, renderQuota } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
 import { Avatar } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
@@ -290,7 +290,13 @@ const NavBar = () => {
                   <Avatar size='extra-extra-small' color={stringToColor(userState.user?.username || '')}>
                     {(userState.user?.display_name || userState.user?.username || '').slice(0, 1).toUpperCase()}
                   </Avatar>
-                  {(userState.user?.display_name || userState.user?.username || '').slice(0, 8)}
+                  <span className='max-w-[72px] truncate'>
+                    {(userState.user?.display_name || userState.user?.username || '').slice(0, 8)}
+                  </span>
+                  <span className='w-px h-3 bg-[#EBEBEB]' />
+                  <span className='tabular-nums font-semibold'>
+                    {renderQuota(userState.user?.quota || 0, 2)}
+                  </span>
                 </button>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -307,6 +313,9 @@ const NavBar = () => {
                         {userState.user?.display_name || userState.user?.username}
                       </p>
                       <p className='text-xs text-[#999] truncate'>{userState.user?.email || ''}</p>
+                      <p className='text-xs font-medium text-[#1A1A1A] tabular-nums mt-1'>
+                        {renderQuota(userState.user?.quota || 0, 2)}
+                      </p>
                     </div>
                     <Link
                       to='/console/personal'

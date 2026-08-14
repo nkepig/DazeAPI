@@ -22,38 +22,18 @@ import {
   API,
   showError,
   showSuccess,
-  getCurrencyConfig,
 } from '../../../../helpers';
 import { quotaToDisplayAmount, displayAmountToQuota } from '../../../../helpers/quota';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
-import {
-  Button,
-  SideSheet,
-  Space,
-  Spin,
-  Typography,
-  Card,
-  Tag,
-  Avatar,
-  Form,
-  Col,
-  Row,
-} from '@douyinfe/semi-ui';
-import { StatusPill } from '../../../common/ui/StatusPill';
-import {
-  IconCreditCard,
-  IconSave,
-  IconClose,
-  IconKey,
-} from '@douyinfe/semi-icons';
+import { Button, Modal, Spin, Form } from '@douyinfe/semi-ui';
+import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-const { Text, Title } = Typography;
 
 const EditTokenModal = (props) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [userGroups, setUserGroups] = useState([]);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
   const isEdit = props.editingToken.id !== undefined;
@@ -67,19 +47,18 @@ const EditTokenModal = (props) => {
     block_ips: '',
   });
 
-  const { symbol } = getCurrencyConfig();
-
   const loadUserGroups = async () => {
     try {
       const res = await API.get('/api/user/self/groups');
       if (res.data.success) {
         const groups = res.data.data || {};
-        const groupOptions = Object.entries(groups).map(([name, info]) => ({
-          label: `${name}${info.desc ? ' - ' + info.desc : ''}`,
-          value: name,
-          ...info,
-        }));
-        setUserGroups(groupOptions);
+        setUserGroups(
+          Object.entries(groups).map(([name, info]) => ({
+            label: info.desc ? `${name} · ${info.desc}` : name,
+            value: name,
+            ...info,
+          })),
+        );
       }
     } catch (error) {
       console.error('Failed to load user groups:', error);
@@ -92,12 +71,13 @@ const EditTokenModal = (props) => {
 
   const loadToken = async () => {
     setLoading(true);
-    let res = await API.get(`/api/token/${props.editingToken.id}`);
+    const res = await API.get(`/api/token/${props.editingToken.id}`);
     const { success, message, data } = res.data;
     if (success) {
       data.remain_quota = quotaToDisplayAmount(data.remain_quota || 0);
-      if (formApiRef.current) {
-        formApiRef.current.setValues({ ...getInitValues(), ...data });
+      formApiRef.current?.setValues({ ...getInitValues(), ...data });
+      if ((data.allow_ips || data.block_ips)) {
+        setAdvancedOpen(true);
       }
     } else {
       showError(message);
@@ -106,16 +86,9 @@ const EditTokenModal = (props) => {
   };
 
   useEffect(() => {
-    if (formApiRef.current) {
-      if (!isEdit) {
-        formApiRef.current.setValues(getInitValues());
-      }
-    }
-  }, [props.editingToken.id]);
-
-  useEffect(() => {
     if (props.visiable) {
       loadUserGroups();
+      setAdvancedOpen(false);
       if (isEdit) {
         loadToken();
       } else {
@@ -128,10 +101,10 @@ const EditTokenModal = (props) => {
 
   const submit = async (values) => {
     setLoading(true);
+    const localInputs = { ...values };
+    localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
     if (isEdit) {
-      const { ...localInputs } = values;
-      localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
-      let res = await API.put(`/api/token/`, {
+      const res = await API.put(`/api/token/`, {
         ...localInputs,
         id: parseInt(props.editingToken.id),
       });
@@ -144,11 +117,8 @@ const EditTokenModal = (props) => {
         showError(t(message));
       }
     } else {
-      const { ...localInputs } = values;
-      const baseName =
-        values.name.trim() === '' ? 'default' : values.name.trim();
-      localInputs.name = baseName;
-      localInputs.remain_quota = displayAmountToQuota(localInputs.remain_quota);
+      localInputs.name =
+        (values.name || '').trim() === '' ? 'default' : values.name.trim();
       const res = await API.post(`/api/token/`, localInputs);
       const { success, message } = res.data;
       if (success) {
@@ -164,186 +134,119 @@ const EditTokenModal = (props) => {
   };
 
   return (
-    <SideSheet
-      placement={isEdit ? 'right' : 'left'}
-      title={
-        <Space>
-          {isEdit ? (
-            <StatusPill variant='info'>{t('更新')}</StatusPill>
-          ) : (
-            <StatusPill variant='success'>{t('新建')}</StatusPill>
-          )}
-          <Title heading={4} className='m-0'>
-            {isEdit ? t('更新令牌信息') : t('创建新的令牌')}
-          </Title>
-        </Space>
-      }
-      bodyStyle={{ padding: '0' }}
+    <Modal
+      className='compact-modal'
+      title={isEdit ? t('编辑令牌') : t('添加令牌')}
       visible={props.visiable}
-      width={isMobile ? '100%' : 600}
+      onCancel={handleCancel}
+      width={isMobile ? '100%' : 420}
+      centered
+      closable
+      maskClosable={false}
       footer={
-        <div className='flex justify-end bg-white'>
-          <Space>
-            <Button
-              theme='solid'
-              className='!rounded-lg'
-              onClick={() => formApiRef.current?.submitForm()}
-              icon={<IconSave />}
-              loading={loading}
-            >
-              {t('提交')}
-            </Button>
-            <Button
-              theme='light'
-              className='!rounded-lg'
-              type='primary'
-              onClick={handleCancel}
-              icon={<IconClose />}
-            >
-              {t('取消')}
-            </Button>
-          </Space>
+        <div className='flex justify-end gap-2'>
+          <Button theme='light' type='tertiary' onClick={handleCancel}>
+            {t('取消')}
+          </Button>
+          <Button
+            theme='solid'
+            type='primary'
+            loading={loading}
+            onClick={() => formApiRef.current?.submitForm()}
+          >
+            {t('保存')}
+          </Button>
         </div>
       }
-      closeIcon={null}
-      onCancel={() => handleCancel()}
     >
       <Spin spinning={loading}>
         <Form
+          className='compact-form'
           key={isEdit ? 'edit' : 'new'}
           initValues={getInitValues()}
           getFormApi={(api) => (formApiRef.current = api)}
           onSubmit={submit}
         >
           {({ values }) => (
-            <div className='p-2'>
-              {/* 基本信息 */}
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='blue' className='mr-2 shadow-md'>
-                    <IconKey size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('基本信息')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('设置令牌的基本信息')}
-                    </div>
-                  </div>
+            <>
+              <Form.Input
+                field='name'
+                label={t('名称')}
+                placeholder={t('我的令牌')}
+                rules={[{ required: true, message: t('请输入名称') }]}
+                showClear
+              />
+              <Form.Select
+                field='group'
+                label={t('分组')}
+                placeholder={t('默认')}
+                optionList={userGroups}
+                showClear
+                filter
+                style={{ width: '100%' }}
+              />
+              <div className='flex items-end gap-3'>
+                <div className='flex-1 min-w-0'>
+                  <Form.InputNumber
+                    field='remain_quota'
+                    label={t('额度')}
+                    placeholder='0.00'
+                    disabled={values.unlimited_quota}
+                    step={1}
+                    precision={2}
+                    hideButtons
+                    style={{ width: '100%' }}
+                    rules={
+                      values.unlimited_quota
+                        ? []
+                        : [{ required: true, message: t('请输入额度') }]
+                    }
+                  />
                 </div>
-                <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.Input
-                      field='name'
-                      label={t('名称')}
-                      placeholder={t('请输入名称')}
-                      rules={[{ required: true, message: t('请输入名称') }]}
-                      showClear
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.Select
-                      field='group'
-                      label={t('分组')}
-                      placeholder={t('请选择分组')}
-                      optionList={userGroups}
-                      showClear
-                      filter
-                      style={{ width: '100%' }}
-                      extraText={t('选择分组以应用对应的分组折扣')}
-                    />
-                  </Col>
-                </Row>
-              </Card>
+                <Form.Switch
+                  field='unlimited_quota'
+                  label={t('无限')}
+                  style={{ marginBottom: 14 }}
+                />
+              </div>
 
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='green' className='mr-2 shadow-md'>
-                    <IconCreditCard size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('额度设置')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('设置令牌可用额度')}
-                    </div>
-                  </div>
+              <button
+                type='button'
+                className='compact-advanced-toggle'
+                onClick={() => setAdvancedOpen((v) => !v)}
+              >
+                <span>{t('高级 · IP 限制')}</span>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: advancedOpen ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.15s',
+                  }}
+                />
+              </button>
+              {advancedOpen && (
+                <div className='pt-2'>
+                  <Form.TextArea
+                    field='allow_ips'
+                    label={t('IP 白名单')}
+                    placeholder={'1.2.3.4\n10.0.0.0/8'}
+                    autosize
+                    rows={2}
+                  />
+                  <Form.TextArea
+                    field='block_ips'
+                    label={t('IP 黑名单')}
+                    placeholder={'5.6.7.8\n192.168.0.0/16'}
+                    autosize
+                    rows={2}
+                  />
                 </div>
-                <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.InputNumber
-                      field='remain_quota'
-                      label={t('额度')}
-                      placeholder={t('请输入额度')}
-                      type='number'
-                      disabled={values.unlimited_quota}
-                      extraText={
-                        values.unlimited_quota
-                          ? ''
-                          : `${symbol}${(values.remain_quota || 0).toFixed(2)}`
-                      }
-                      step={1}
-                      precision={2}
-                      rules={
-                        values.unlimited_quota
-                          ? []
-                          : [{ required: true, message: t('请输入额度') }]
-                      }
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.Switch
-                      field='unlimited_quota'
-                      label={t('无限额度')}
-                      size='default'
-                      extraText={t(
-                        '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
-                      )}
-                    />
-                  </Col>
-                </Row>
-              </Card>
-
-              {/* 访问控制 */}
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='orange' className='mr-2 shadow-md'>
-                    <IconKey size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('IP 访问控制')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('限制可以使用该令牌的客户端 IP')}
-                    </div>
-                  </div>
-                </div>
-                <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.TextArea
-                      field='allow_ips'
-                      label={t('IP 白名单')}
-                      placeholder={t('每行一个 IP 或 CIDR，例如 1.2.3.4 或 10.0.0.0/8')}
-                      autosize
-                      rows={3}
-                      extraText={t('配置后仅白名单内的 IP 可以使用该令牌，留空则不限制')}
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.TextArea
-                      field='block_ips'
-                      label={t('IP 黑名单')}
-                      placeholder={t('每行一个 IP 或 CIDR，例如 5.6.7.8 或 192.168.0.0/16')}
-                      autosize
-                      rows={3}
-                      extraText={t('黑名单内的 IP 将被拒绝访问，优先级高于白名单')}
-                    />
-                  </Col>
-                </Row>
-              </Card>
-
-            </div>
+              )}
+            </>
           )}
         </Form>
       </Spin>
-    </SideSheet>
+    </Modal>
   );
 };
 

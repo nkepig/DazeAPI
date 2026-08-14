@@ -34,42 +34,23 @@ import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import {
   Button,
   Modal,
-  SideSheet,
-  Space,
   Spin,
-  Typography,
-  Card,
-  Tag,
   Form,
-  Avatar,
-  Row,
-  Col,
   InputNumber,
   Select,
 } from '@douyinfe/semi-ui';
-import {
-  IconUser,
-  IconSave,
-  IconClose,
-  IconUserGroup,
-  IconPlus,
-} from '@douyinfe/semi-icons';
-import { DollarSign } from 'lucide-react';
-
-const { Text, Title } = Typography;
+import { ChevronDown } from 'lucide-react';
 
 const EditUserModal = (props) => {
   const { t } = useTranslation();
   const userId = props.editingUser.id;
   const [loading, setLoading] = useState(true);
   const [addQuotaModalOpen, setIsModalOpen] = useState(false);
-  const [addQuotaLocal, setAddQuotaLocal] = useState('');
   const [addAmountLocal, setAddAmountLocal] = useState('');
-  const [originalQuota, setOriginalQuota] = useState(0);
   const [pendingQuotaDelta, setPendingQuotaDelta] = useState(0);
-  const [userGroup, setUserGroup] = useState('');
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [groupOverrides, setGroupOverrides] = useState({});
   const [groupList, setGroupList] = useState([]);
@@ -105,9 +86,7 @@ const EditUserModal = (props) => {
     if (success) {
       data.password = '';
       data.quota = quotaToDisplayAmount(data.quota || 0);
-      setOriginalQuota(data.quota || 0);
       setPendingQuotaDelta(0);
-      setUserGroup(data.group || data.username || '');
       const groupEntries = [];
       const overrides = {};
       if (data.group_ratio) {
@@ -116,10 +95,10 @@ const EditUserModal = (props) => {
           let idCounter = 0;
           for (const [g, v] of Object.entries(parsed)) {
             const ratio = typeof v === 'number' ? Number(v.toFixed(2)) : 1;
-              groupEntries.push({
-                id: `existing-${idCounter++}`,
-                name: g,
-                ratio: ratio,
+            groupEntries.push({
+              id: `existing-${idCounter++}`,
+              name: g,
+              ratio,
               isNew: false,
             });
             overrides[g] = ratio;
@@ -130,6 +109,7 @@ const EditUserModal = (props) => {
       }
       setGroupList(groupEntries);
       setGroupOverrides(overrides);
+      setAdvancedOpen(groupEntries.length > 0);
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
@@ -143,7 +123,7 @@ const EditUserModal = (props) => {
 
   const submit = async (values) => {
     setLoading(true);
-    let payload = { ...values };
+    const payload = { ...values };
     payload.quota = displayAmountToQuota(payload.quota || 0);
     if (userId) {
       payload.id = parseInt(userId);
@@ -183,288 +163,216 @@ const EditUserModal = (props) => {
 
   return (
     <>
-      <SideSheet
-        placement='right'
-        title={
-          <Space>
-            <Tag color='blue' shape='circle'>
-              {t(isEdit ? '编辑' : '新建')}
-            </Tag>
-            <Title heading={4} className='m-0'>
-              {isEdit ? t('编辑用户') : t('创建用户')}
-            </Title>
-          </Space>
-        }
-        bodyStyle={{ padding: 0 }}
+      <Modal
+        className='compact-modal'
+        title={isEdit ? t('编辑用户') : t('创建用户')}
         visible={props.visible}
-        width={isMobile ? '100%' : 640}
+        onCancel={handleCancel}
+        width={isMobile ? '100%' : 420}
+        centered
+        closable
+        maskClosable={false}
         footer={
-          <div className='flex justify-end bg-white'>
-            <Space>
-              <Button
-                theme='solid'
-                onClick={() => formApiRef.current?.submitForm()}
-                icon={<IconSave />}
-                loading={loading}
-              >
-                {t('提交')}
-              </Button>
-              <Button
-                theme='light'
-                type='primary'
-                onClick={handleCancel}
-                icon={<IconClose />}
-              >
-                {t('取消')}
-              </Button>
-            </Space>
+          <div className='flex justify-end gap-2'>
+            <Button theme='light' type='tertiary' onClick={handleCancel}>
+              {t('取消')}
+            </Button>
+            <Button
+              theme='solid'
+              type='primary'
+              loading={loading}
+              onClick={() => formApiRef.current?.submitForm()}
+            >
+              {t('保存')}
+            </Button>
           </div>
         }
-        closeIcon={null}
-        onCancel={handleCancel}
       >
         <Spin spinning={loading}>
           <Form
+            className='compact-form'
             initValues={getInitValues()}
             getFormApi={(api) => (formApiRef.current = api)}
             onSubmit={submit}
           >
-            {({ values }) => (
-              <div className='p-2 space-y-3'>
-                {/* 基本信息 */}
-                <Card className='!rounded-2xl shadow-sm border-0'>
-                  <div className='flex items-center mb-2'>
-                    <Avatar size='small' color='blue' className='mr-2 shadow-md'>
-                      <IconUser size={16} />
-                    </Avatar>
-                    <div>
-                      <Text className='text-lg font-medium'>{t('基本信息')}</Text>
-                      <div className='text-xs text-gray-600'>{t('用户的基本账户信息')}</div>
-                    </div>
-                  </div>
-                  <Row gutter={12}>
-                    <Col span={24}>
-                       <Form.Input
-                        field='username'
-                        label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('用户名')}</span>}
-                        placeholder={t('新用户名')}
-                        rules={[{ required: true, message: t('请输入用户名') }]}
-                        showClear
-                      />
-                    </Col>
-                    <Col span={24}>
-                       <Form.Input
-                        field='password'
-                        label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('密码')}</span>}
-                        placeholder={t('新密码')}
-                        mode='password'
-                        showClear
-                      />
-                    </Col>
-                    <Col span={24}>
-                       <Form.Input
-                        field='display_name'
-                        label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('显示名称')}</span>}
-                        placeholder={t('新显示名')}
-                        showClear
-                      />
-                    </Col>
-                    <Col span={24}>
-                      <Form.Input
-                        field='remark'
-                        label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('备注')}</span>}
-                        placeholder={t('管理员可见')}
-                        showClear
-                      />
-                    </Col>
-                  </Row>
-                </Card>
+            {() => (
+              <>
+                <Form.Input
+                  field='username'
+                  label={t('用户名')}
+                  placeholder={t('登录名')}
+                  rules={[{ required: true, message: t('请输入用户名') }]}
+                  showClear
+                />
+                <Form.Input
+                  field='password'
+                  label={t('密码')}
+                  placeholder={t('留空则不修改')}
+                  mode='password'
+                  showClear
+                />
+                <Form.Input
+                  field='display_name'
+                  label={t('显示名称')}
+                  placeholder={t('可选')}
+                  showClear
+                />
+                <Form.Input
+                  field='remark'
+                  label={t('备注')}
+                  placeholder={t('仅管理员可见')}
+                  showClear
+                />
 
-                {/* 权限设置 */}
                 {userId && (
-                  <Card className='!rounded-2xl shadow-sm border-0'>
-                    <div className='flex items-center mb-2'>
-                      <Avatar size='small' color='green' className='mr-2 shadow-md'>
-                        <IconUserGroup size={16} />
-                      </Avatar>
-                    <div>
-                      <Text className='text-lg font-medium'>{t('权限设置')}</Text>
-                      <div className='text-xs text-gray-600'>{t('用户额度管理')}</div>
+                  <div className='flex items-end gap-2'>
+                    <div className='flex-1 min-w-0'>
+                      <Form.InputNumber
+                        field='quota'
+                        label={t('余额')}
+                        step={1}
+                        precision={2}
+                        disabled
+                        hideButtons
+                        style={{ width: '100%' }}
+                      />
                     </div>
-                    </div>
-                    <Row gutter={12}>
-                      <Col span={10}>
-                        <Form.InputNumber
-                          field='quota'
-                          label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('剩余额度')}</span>}
-                          placeholder={t('剩余额度')}
-                          step={1}
-                          precision={2}
-                          disabled
-                          extraText={`${getCurrencyConfig().symbol}${(values.quota || 0).toFixed(2)}`}
-                          rules={[{ required: true, message: t('请输入额度') }]}
-                          style={{ width: '100%' }}
-                        />
-                      </Col>
-                      <Col span={14}>
-                        <Form.Slot label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('调整余额')}</span>}>
-                          <Button icon={<IconPlus />} onClick={() => setIsModalOpen(true)} />
-                        </Form.Slot>
-                      </Col>
-                    </Row>
-                  </Card>
+                    <Button
+                      style={{ marginBottom: 14 }}
+                      onClick={() => setIsModalOpen(true)}
+                    >
+                      {t('调整')}
+                    </Button>
+                  </div>
                 )}
 
-                {/* 分组倍率配置 — 管理员可见（受 manage_users 白名单约束） */}
                 {userId && isAdmin() && (
-                  <Card className='!rounded-2xl shadow-sm border-0'>
-                    <div className='flex items-center mb-2'>
-                      <Avatar size='small' color='orange' className='mr-2 shadow-md'>
-                        <DollarSign size={16} />
-                      </Avatar>
-                      <div className='flex-1'>
-                        <Text className='text-lg font-medium'>{t('分组倍率配置')}</Text>
-                        <div className='text-xs text-gray-600'>
-                          {Object.keys(groupOverrides).length === 0
-                            ? t('当前为测试用户状态，所有分组可用，倍率为1')
-                            : t('配置各分组的倍率，不在列表中的分组将不可用')}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className='space-y-2'>
-                      <div className='mb-3'>
+                  <>
+                    <button
+                      type='button'
+                      className='compact-advanced-toggle'
+                      onClick={() => setAdvancedOpen((v) => !v)}
+                    >
+                      <span>{t('高级 · 分组倍率')}</span>
+                      <ChevronDown
+                        size={14}
+                        style={{
+                          transform: advancedOpen ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.15s',
+                        }}
+                      />
+                    </button>
+                    {advancedOpen && (
+                      <div className='pt-2 pb-2'>
                         <Select
-                          placeholder={t('选择渠道分组')}
+                          placeholder={t('添加分组')}
                           value=''
                           onChange={(value) => {
                             if (value && !groupOverrides[value]) {
-                              setGroupList((prev) => [...prev, { id: `channel-${value}`, name: value, ratio: 1.0, isNew: false }]);
+                              setGroupList((prev) => [
+                                ...prev,
+                                { id: `channel-${value}`, name: value, ratio: 1.0, isNew: false },
+                              ]);
                               setGroupOverrides((prev) => ({ ...prev, [value]: 1.0 }));
                             }
                           }}
                           optionList={availableGroups
                             .filter((g) => !groupOverrides[g])
                             .map((g) => ({ label: g, value: g }))}
-                          style={{ width: '100%' }}
+                          style={{ width: '100%', marginBottom: 8 }}
                           size='small'
                         />
-                      </div>
-
-                      {groupList.length === 0 && (
-                        <Text type='secondary' size='small'>
-                          {t('暂无配置，从上方下拉选择分组')}
-                        </Text>
-                      )}
-
-                      {groupList.map((item, index) => (
-                        <div
-                          key={item.id || item.name}
-                          className='flex items-center gap-2 px-3 py-2 rounded-lg bg-[#fafafa] hover:bg-[#f5f5f5] transition-colors'
-                        >
-                          <Text strong style={{ minWidth: 80, fontSize: 13 }}>
-                            {item.name}
-                          </Text>
-                          <InputNumber
-                            min={0.01}
-                            max={1000}
-                            step={0.01}
-                            precision={2}
-                            value={item.ratio ?? 1}
-                            onChange={(v) => {
-                              const ratio = v == null ? 1 : Number(v.toFixed(2));
-                              setGroupList((prev) => {
-                                const next = [...prev];
-                                next[index] = { ...next[index], ratio };
-                                return next;
-                              });
-                              if (item.name) {
-                                setGroupOverrides((prev) => ({ ...prev, [item.name]: ratio }));
-                              }
-                            }}
-                            size='small'
-                            style={{ width: 90 }}
-                          />
-                          <Button
-                            type='danger'
-                            size='small'
-                            theme='borderless'
-                            onClick={() => {
-                              setGroupList((prev) => prev.filter((_, i) => i !== index));
-                              if (item.name) {
-                                setGroupOverrides((prev) => {
-                                  const next = { ...prev };
-                                  delete next[item.name];
+                        {groupList.map((item, index) => (
+                          <div
+                            key={item.id || item.name}
+                            className='flex items-center gap-2 py-2 border-b border-[#F0F0F0]'
+                          >
+                            <span className='text-[13px] font-medium min-w-[72px]'>
+                              {item.name}
+                            </span>
+                            <InputNumber
+                              min={0.01}
+                              max={1000}
+                              step={0.01}
+                              precision={2}
+                              value={item.ratio ?? 1}
+                              onChange={(v) => {
+                                const ratio = v == null ? 1 : Number(v.toFixed(2));
+                                setGroupList((prev) => {
+                                  const next = [...prev];
+                                  next[index] = { ...next[index], ratio };
                                   return next;
                                 });
-                              }
-                            }}
-                          >
-                            {t('删除')}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
+                                if (item.name) {
+                                  setGroupOverrides((prev) => ({ ...prev, [item.name]: ratio }));
+                                }
+                              }}
+                              size='small'
+                              style={{ width: 90 }}
+                            />
+                            <button
+                              type='button'
+                              className='text-[12px] text-[#999] bg-transparent border-0 cursor-pointer hover:text-[#1A1A1A]'
+                              onClick={() => {
+                                setGroupList((prev) => prev.filter((_, i) => i !== index));
+                                if (item.name) {
+                                  setGroupOverrides((prev) => {
+                                    const next = { ...prev };
+                                    delete next[item.name];
+                                    return next;
+                                  });
+                                }
+                              }}
+                            >
+                              {t('删除')}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
+              </>
             )}
           </Form>
         </Spin>
-      </SideSheet>
+      </Modal>
 
-      {/* 添加额度模态框 */}
       <Modal
+        className='compact-modal'
         centered
         visible={addQuotaModalOpen}
         onOk={() => {
           addLocalQuota();
           setIsModalOpen(false);
-          setAddQuotaLocal('');
           setAddAmountLocal('');
         }}
         onCancel={() => setIsModalOpen(false)}
-        closable={null}
-        title={
-          <div className='flex items-center'>
-            <IconPlus className='mr-2' />
-            {t('调整余额')}
-          </div>
-        }
+        title={t('调整余额')}
+        okText={t('确定')}
+        cancelText={t('取消')}
+        width={360}
       >
-        <div className='mb-4'>
-          {(() => {
-            const current = formApiRef.current?.getValue('quota') || 0;
-            const addVal = parseFloat(addAmountLocal) || 0;
-            const previewColor =
-              addVal > 0 ? '#16a34a' : addVal < 0 ? '#dc2626' : 'var(--semi-color-text-1)';
-            return (
-              <Text className='block mb-2' style={{ color: previewColor, fontWeight: 600 }}>
-                {`${t('新额度：')}${getCurrencyConfig().symbol}${(current + addVal).toFixed(2)}`}
-              </Text>
-            );
-          })()}
-        </div>
-        <Text type='tertiary' size='small' className='block mb-3'>
-          {t('输入正数表示增加，输入负数表示减少；提交时会基于用户最新余额做增减，不会覆盖期间已发生的消耗。')}
-        </Text>
-        <div className='mb-3'>
-          <div className='mb-1'>
-            <Text size='small' style={{ fontWeight: 600 }}>{t('金额')}</Text>
-          </div>
-          <InputNumber
-            min={-999999999}
-            prefix={getCurrencyConfig().symbol}
-            placeholder={t('输入金额，负数表示减少')}
-            value={addAmountLocal}
-            precision={2}
-            onChange={(val) => {
-              setAddAmountLocal(val ?? '');
-            }}
-            style={{ width: '100%' }}
-            showClear
-          />
-        </div>
+        {(() => {
+          const current = formApiRef.current?.getValue('quota') || 0;
+          const addVal = parseFloat(addAmountLocal) || 0;
+          return (
+            <p className='text-[13px] text-[#666] mb-3'>
+              {t('新额度：')}{getCurrencyConfig().symbol}{(current + addVal).toFixed(2)}
+            </p>
+          );
+        })()}
+        <p className='compact-hint'>{t('正数增加，负数减少。提交时按最新余额增减，不会覆盖期间消耗。')}</p>
+        <InputNumber
+          min={-999999999}
+          prefix={getCurrencyConfig().symbol}
+          placeholder={t('金额')}
+          value={addAmountLocal}
+          precision={2}
+          onChange={(val) => setAddAmountLocal(val ?? '')}
+          style={{ width: '100%' }}
+          showClear
+        />
       </Modal>
     </>
   );

@@ -20,23 +20,8 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useState, useRef } from 'react';
 import { API, showError, showSuccess } from '../../../../helpers';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
-import {
-  Button,
-  SideSheet,
-  Space,
-  Spin,
-  Typography,
-  Card,
-  Tag,
-  Avatar,
-  Form,
-  Row,
-  Col,
-} from '@douyinfe/semi-ui';
-import { IconSave, IconClose, IconUserAdd } from '@douyinfe/semi-icons';
+import { Button, Modal, Spin, Form } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
-
-const { Text, Title } = Typography;
 
 const AddUserModal = (props) => {
   const { t } = useTranslation();
@@ -71,115 +56,73 @@ const AddUserModal = (props) => {
   };
 
   return (
-    <>
-      <SideSheet
-        placement={'left'}
-        title={
-          <Space>
-            <Tag color='green' shape='circle'>
-              {t('新建')}
-            </Tag>
-            <Title heading={4} className='m-0'>
-              {t('添加用户')}
-            </Title>
-          </Space>
-        }
-        bodyStyle={{ padding: '0' }}
-        visible={props.visible}
-        width={isMobile ? '100%' : 600}
-        footer={
-          <div className='flex justify-end bg-white'>
-            <Space>
-              <Button
-                theme='solid'
-                onClick={() => formApiRef.current?.submitForm()}
-                icon={<IconSave />}
-                loading={loading}
-              >
-                {t('提交')}
-              </Button>
-              <Button
-                theme='light'
-                type='primary'
-                onClick={handleCancel}
-                icon={<IconClose />}
-              >
-                {t('取消')}
-              </Button>
-            </Space>
-          </div>
-        }
-        closeIcon={null}
-        onCancel={() => handleCancel()}
-      >
-        <Spin spinning={loading}>
-          <Form
-            initValues={getInitValues()}
-            getFormApi={(api) => (formApiRef.current = api)}
-            onSubmit={submit}
-            onSubmitFail={(errs) => {
-              const first = Object.values(errs)[0];
-              if (first) showError(Array.isArray(first) ? first[0] : first);
-              formApiRef.current?.scrollToError();
-            }}
+    <Modal
+      className='compact-modal'
+      title={t('添加用户')}
+      visible={props.visible}
+      onCancel={handleCancel}
+      width={isMobile ? '100%' : 420}
+      centered
+      closable
+      maskClosable={false}
+      footer={
+        <div className='flex justify-end gap-2'>
+          <Button theme='light' type='tertiary' onClick={handleCancel}>
+            {t('取消')}
+          </Button>
+          <Button
+            theme='solid'
+            type='primary'
+            loading={loading}
+            onClick={() => formApiRef.current?.submitForm()}
           >
-            <div className='p-2'>
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='blue' className='mr-2 shadow-md'>
-                    <IconUserAdd size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('用户信息')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('创建新用户账户')}
-                    </div>
-                  </div>
-                </div>
-
-                <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.Input
-                      field='username'
-                      label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('用户名')}</span>}
-                      placeholder={t('请输入用户名')}
-                      rules={[{ required: true, message: t('请输入用户名') }]}
-                      showClear
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.Input
-                      field='display_name'
-                      label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('显示名称')}</span>}
-                      placeholder={t('请输入显示名称')}
-                      showClear
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.Input
-                      field='password'
-                      label={<span style={{fontSize: '12px', fontWeight: 600}}>{t('密码')}</span>}
-                      type='password'
-                      placeholder={t('请输入密码')}
-                      rules={[{ required: true, message: t('请输入密码') }]}
-                      showClear
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <Form.Input
-                      field='remark'
-                      label={<span style={{fontSize: '12px', fontWeight: 600, color: '#000'}}>{t('备注')}</span>}
-                      placeholder={t('管理员可见')}
-                      showClear
-                    />
-                  </Col>
-                </Row>
-              </Card>
-            </div>
-          </Form>
-        </Spin>
-      </SideSheet>
-    </>
+            {t('保存')}
+          </Button>
+        </div>
+      }
+    >
+      <Spin spinning={loading}>
+        <Form
+          className='compact-form'
+          initValues={getInitValues()}
+          getFormApi={(api) => (formApiRef.current = api)}
+          onSubmit={submit}
+          onSubmitFail={(errs) => {
+            const first = Object.values(errs)[0];
+            if (first) showError(Array.isArray(first) ? first[0] : first);
+            formApiRef.current?.scrollToError();
+          }}
+        >
+          <Form.Input
+            field='username'
+            label={t('用户名')}
+            placeholder={t('登录名')}
+            rules={[{ required: true, message: t('请输入用户名') }]}
+            showClear
+          />
+          <Form.Input
+            field='display_name'
+            label={t('显示名称')}
+            placeholder={t('可选')}
+            showClear
+          />
+          <Form.Input
+            field='password'
+            label={t('密码')}
+            type='password'
+            placeholder={t('登录密码')}
+            rules={[{ required: true, message: t('请输入密码') }]}
+            showClear
+          />
+          <Form.Input
+            field='remark'
+            label={t('备注')}
+            placeholder={t('仅管理员可见')}
+            showClear
+          />
+        </Form>
+      </Spin>
+    </Modal>
   );
 };
 

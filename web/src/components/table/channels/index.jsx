@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
-import { Space, Button } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import BubbleFilter from '../../common/BubbleFilter';
 import ChannelsTable from './ChannelsTable';
@@ -99,18 +98,14 @@ const ChannelsPage = () => {
         onCancel={channelsData.closeUpstreamUpdateModal}
       />
 
-      <div className='flex items-center justify-between mb-4'>
-        <Space align='center'>
-          <h2 className='text-lg font-semibold'>{channelsData.t('渠道管理')}</h2>
-        </Space>
-        <Button
-          size='small'
-          theme='light'
-          style={{ color: '#DE886D', borderColor: '#DE886D' }}
+      <div className='flex justify-end mb-4'>
+        <button
+          type='button'
           onClick={() => setClawdSettingsOpen(true)}
+          className='px-3 py-1.5 text-[13px] font-medium text-[#1A1A1A] bg-white border border-[#EBEBEB] rounded-lg cursor-pointer hover:bg-[#F5F5F5] transition-colors'
         >
           {channelsData.t('渠道守护')}
-        </Button>
+        </button>
       </div>
 
       <CardPro

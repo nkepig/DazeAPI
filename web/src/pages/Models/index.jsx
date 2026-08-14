@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Search, Layers } from 'lucide-react';
-import { API, showError, getLobeHubIcon } from '../../helpers';
+import { Search, Layers, Copy } from 'lucide-react';
+import { API, showError, showSuccess, copy, getLobeHubIcon } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 import {
   applyTierToRecord,
@@ -56,14 +56,30 @@ const ModelListCard = ({
       ? t('按量计费')
       : t('按次计费');
 
+  const handleCopyName = async () => {
+    if (await copy(model.model_name)) {
+      showSuccess(t('已复制：') + model.model_name);
+    }
+  };
+
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.2 }}
-      className='bg-white border border-[#EBEBEB] rounded-xl p-5 hover:shadow-md transition-all'
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      role='button'
+      tabIndex={0}
+      title={t('点击复制模型名称')}
+      onClick={handleCopyName}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCopyName();
+        }
+      }}
+      className='py-4 pr-6 border-b border-[#F0F0F0] hover:bg-[#FAFAFA] transition-colors cursor-pointer'
     >
       <div className='flex items-start justify-between mb-3'>
         <div className='flex-1 min-w-0'>
@@ -112,7 +128,10 @@ const ModelListCard = ({
             <button
               key={`tier-${model.model_name}-${index}`}
               type='button'
-              onClick={() => onTierIndexChange(index)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTierIndexChange(index);
+              }}
               onMouseEnter={() => onTierIndexChange(index)}
               className='transition-all duration-150 cursor-pointer border-0 outline-none'
               style={{
@@ -483,7 +502,25 @@ const Models = () => {
               <button
                 key={g}
                 type='button'
-                onClick={() => setFilterGroup(g)}
+                title={t('点击复制该分组模型')}
+                onClick={async () => {
+                  setFilterGroup(g);
+                  const names = models
+                    .filter((m) => {
+                      const eg = m.enable_groups;
+                      if (!Array.isArray(eg) || eg.length === 0) return true;
+                      if (eg.every((x) => x === '')) return true;
+                      return eg.includes(g);
+                    })
+                    .map((m) => m.model_name);
+                  if (names.length === 0) {
+                    showError(t('该分组暂无模型'));
+                    return;
+                  }
+                  if (await copy(names.join(','))) {
+                    showSuccess(t('已复制分组模型'));
+                  }
+                }}
                 className='transition-all duration-150 cursor-pointer border-0 outline-none inline-flex items-center gap-1.5'
                 style={{
                   padding: '4px 12px',
@@ -498,6 +535,7 @@ const Models = () => {
                 {groupRatio[g] !== 1 && (
                   <span className={filterGroup === g ? 'opacity-80' : ''}>· {groupRatio[g]}x</span>
                 )}
+                <Copy size={11} strokeWidth={2} className='opacity-70' />
               </button>
             ))}
           </div>
@@ -511,7 +549,7 @@ const Models = () => {
       {loading ? (
         <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
           {[...Array(6)].map((_, i) => (
-            <div key={i} className='rounded-xl p-5 animate-pulse bg-white border border-[#EBEBEB]'>
+            <div key={i} className='py-4 pr-6 animate-pulse border-b border-[#F0F0F0]'>
               <div className='h-5 bg-gray-200 rounded w-2/3 mb-4' />
               <div className='space-y-2'>
                 <div className='h-3 bg-gray-100 rounded w-full' />
