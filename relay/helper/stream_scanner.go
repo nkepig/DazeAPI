@@ -298,11 +298,6 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			return
 		case <-stopChan:
 			// scanner 自然结束（读到 [DONE] 或上游 EOF）
-			if drainMode {
-				logger.LogInfo(c, "drain completed after client disconnect")
-			} else {
-				logger.LogInfo(c, "streaming finished")
-			}
 			return
 		case <-drainDeadline:
 			// 客户端断开后的排空总时长超限，放弃提取 usage
@@ -312,7 +307,6 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			// 客户端断开连接：进入排空模式，继续读上游
 			if !drainMode {
 				drainMode = true
-				logger.LogInfo(c, "client disconnected, draining upstream for usage")
 				drainDeadline = time.After(DefaultStreamDrainTimeout)
 				clientDone = nil
 			}

@@ -27,16 +27,16 @@ type TokenDetails struct {
 }
 
 type QuotaInfo struct {
-	InputDetails  TokenDetails
-	OutputDetails TokenDetails
-	ModelName     string
-	UsePerCall    bool
-	PerCallPrice  float64
-	PromptPrice   float64
-	CompletionPrice float64
-	AudioInputPrice float64
+	InputDetails     TokenDetails
+	OutputDetails    TokenDetails
+	ModelName        string
+	UsePerCall       bool
+	PerCallPrice     float64
+	PromptPrice      float64
+	CompletionPrice  float64
+	AudioInputPrice  float64
 	AudioOutputPrice float64
-	GroupDiscount float64
+	GroupDiscount    float64
 }
 
 func calculateAudioQuota(info QuotaInfo) int64 {
@@ -104,14 +104,14 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 			TextTokens:  textOutTokens,
 			AudioTokens: audioOutTokens,
 		},
-		ModelName:       modelName,
-		UsePerCall:      modelPricing.UsePerCallPricing,
-		PerCallPrice:    modelPricing.PerCallPrice,
-		PromptPrice:     modelPricing.PromptPrice,
-		CompletionPrice: modelPricing.CompletionPrice,
-		AudioInputPrice: modelPricing.AudioInputPrice,
+		ModelName:        modelName,
+		UsePerCall:       modelPricing.UsePerCallPricing,
+		PerCallPrice:     modelPricing.PerCallPrice,
+		PromptPrice:      modelPricing.PromptPrice,
+		CompletionPrice:  modelPricing.CompletionPrice,
+		AudioInputPrice:  modelPricing.AudioInputPrice,
 		AudioOutputPrice: modelPricing.AudioOutputPrice,
-		GroupDiscount:   groupDiscount,
+		GroupDiscount:    groupDiscount,
 	}
 
 	quotaMicrodollars := calculateAudioQuota(quotaInfo)
@@ -128,7 +128,6 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 	if err != nil {
 		return err
 	}
-	logger.LogInfo(ctx, "realtime streaming consume quota success, quota: "+fmt.Sprintf("%d", quotaMicrodollars))
 	return nil
 }
 
@@ -161,14 +160,14 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 			TextTokens:  textOutTokens,
 			AudioTokens: audioOutTokens,
 		},
-		ModelName:       modelName,
-		UsePerCall:      modelPricing.UsePerCallPricing,
-		PerCallPrice:    modelPricing.PerCallPrice,
-		PromptPrice:     modelPricing.PromptPrice,
-		CompletionPrice: modelPricing.CompletionPrice,
-		AudioInputPrice: modelPricing.AudioInputPrice,
+		ModelName:        modelName,
+		UsePerCall:       modelPricing.UsePerCallPricing,
+		PerCallPrice:     modelPricing.PerCallPrice,
+		PromptPrice:      modelPricing.PromptPrice,
+		CompletionPrice:  modelPricing.CompletionPrice,
+		AudioInputPrice:  modelPricing.AudioInputPrice,
 		AudioOutputPrice: modelPricing.AudioOutputPrice,
-		GroupDiscount:   groupDiscount,
+		GroupDiscount:    groupDiscount,
 	}
 
 	quotaMicrodollars := calculateAudioQuota(quotaInfo)
@@ -262,14 +261,14 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 			TextTokens:  textOutTokens,
 			AudioTokens: audioOutTokens,
 		},
-		ModelName:       relayInfo.OriginModelName,
-		UsePerCall:      modelPricing.UsePerCallPricing,
-		PerCallPrice:    modelPricing.PerCallPrice,
-		PromptPrice:     modelPricing.PromptPrice,
-		CompletionPrice: modelPricing.CompletionPrice,
-		AudioInputPrice: modelPricing.AudioInputPrice,
+		ModelName:        relayInfo.OriginModelName,
+		UsePerCall:       modelPricing.UsePerCallPricing,
+		PerCallPrice:     modelPricing.PerCallPrice,
+		PromptPrice:      modelPricing.PromptPrice,
+		CompletionPrice:  modelPricing.CompletionPrice,
+		AudioInputPrice:  modelPricing.AudioInputPrice,
 		AudioOutputPrice: modelPricing.AudioOutputPrice,
-		GroupDiscount:   groupDiscount,
+		GroupDiscount:    groupDiscount,
 	}
 
 	quotaMicrodollars := calculateAudioQuota(quotaInfo)
