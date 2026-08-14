@@ -114,7 +114,7 @@ const ClawdMascot = () => {
     height: `${MASCOT_H}px`,
     transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
     transition: `transform ${WALK_MS}ms ease-in-out`,
-    zIndex: 9999,
+    zIndex: 90,
     pointerEvents: 'auto',
     cursor: 'pointer',
     userSelect: 'none',
