@@ -16,7 +16,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { UserContext } from '../../context/User';
-import { isRoot, isAdmin, getSystemName, stringToColor, getAdminPermissions, renderQuota } from '../../helpers';
+import { isRoot, isAdmin, getSystemName, getLogo, stringToColor, getAdminPermissions, renderQuota } from '../../helpers';
 import { updateAPI } from '../../helpers/api';
 import { Avatar } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
@@ -131,12 +131,18 @@ const NavBar = () => {
   const activeLang = normalizeLanguage(i18n.language) || 'zh-CN';
   const currentLang = languages.find((l) => l.code === activeLang)?.label || '简体中文';
   const systemName = getSystemName();
+  const logo = getLogo() || '/favicon.png';
 
   return (
     <nav className='fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)] bg-white/80 backdrop-blur-lg'>
       <div className='h-full px-6 lg:px-10 flex items-center justify-between'>
         {/* Logo */}
-        <Link to='/' className='flex items-center gap-3 no-underline shrink-0'>
+        <Link to='/' className='flex items-center gap-2.5 no-underline shrink-0'>
+          <img
+            src={logo}
+            alt={systemName}
+            className='w-8 h-8 rounded-lg object-cover'
+          />
           <span className='text-[18px] font-bold text-[#1A1A1A] leading-none'>{systemName}</span>
         </Link>
 

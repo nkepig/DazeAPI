@@ -28,6 +28,8 @@ import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import { Button, Modal, Spin, Form } from '@douyinfe/semi-ui';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ModalTitle } from '../../../common/ui/FormSection';
+import QuotaAmountField from '../../../common/ui/QuotaAmountField';
 
 const EditTokenModal = (props) => {
   const { t } = useTranslation();
@@ -136,10 +138,19 @@ const EditTokenModal = (props) => {
   return (
     <Modal
       className='compact-modal'
-      title={isEdit ? t('编辑令牌') : t('添加令牌')}
+      title={
+        <ModalTitle
+          title={isEdit ? t('编辑令牌') : t('添加令牌')}
+          subtitle={
+            isEdit
+              ? t('更新额度、分组与访问限制')
+              : t('创建用于调用 API 的访问密钥')
+          }
+        />
+      }
       visible={props.visiable}
       onCancel={handleCancel}
-      width={isMobile ? '100%' : 420}
+      width={isMobile ? '100%' : 680}
       centered
       closable
       maskClosable={false}
@@ -179,36 +190,18 @@ const EditTokenModal = (props) => {
               <Form.Select
                 field='group'
                 label={t('分组')}
-                placeholder={t('默认')}
+                placeholder={t('请选择分组')}
                 optionList={userGroups}
-                showClear
                 filter
                 style={{ width: '100%' }}
+                rules={[{ required: true, message: t('请选择分组') }]}
               />
-              <div className='flex items-end gap-3'>
-                <div className='flex-1 min-w-0'>
-                  <Form.InputNumber
-                    field='remain_quota'
-                    label={t('额度')}
-                    placeholder='0.00'
-                    disabled={values.unlimited_quota}
-                    step={1}
-                    precision={2}
-                    hideButtons
-                    style={{ width: '100%' }}
-                    rules={
-                      values.unlimited_quota
-                        ? []
-                        : [{ required: true, message: t('请输入额度') }]
-                    }
-                  />
-                </div>
-                <Form.Switch
-                  field='unlimited_quota'
-                  label={t('无限')}
-                  style={{ marginBottom: 14 }}
-                />
-              </div>
+              <QuotaAmountField
+                unlimited={!!values.unlimited_quota}
+                onUnlimitedChange={(checked) =>
+                  formApiRef.current?.setValue('unlimited_quota', checked)
+                }
+              />
 
               <button
                 type='button'
@@ -225,22 +218,22 @@ const EditTokenModal = (props) => {
                 />
               </button>
               {advancedOpen && (
-                <div className='pt-2'>
+                <>
                   <Form.TextArea
                     field='allow_ips'
                     label={t('IP 白名单')}
                     placeholder={'1.2.3.4\n10.0.0.0/8'}
                     autosize
-                    rows={2}
+                    rows={3}
                   />
                   <Form.TextArea
                     field='block_ips'
                     label={t('IP 黑名单')}
                     placeholder={'5.6.7.8\n192.168.0.0/16'}
                     autosize
-                    rows={2}
+                    rows={3}
                   />
-                </div>
+                </>
               )}
             </>
           )}

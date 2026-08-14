@@ -110,7 +110,7 @@ export function getSystemName() {
 
 export function getLogo() {
   let logo = localStorage.getItem('logo');
-  if (!logo) return '/logo.png';
+  if (!logo) return '/favicon.png';
   return logo;
 }
 

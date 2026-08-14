@@ -22,6 +22,7 @@ import { API, showError, showSuccess } from '../../../../helpers';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import { Button, Modal, Spin, Form } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
+import { ModalTitle } from '../../../common/ui/FormSection';
 
 const AddUserModal = (props) => {
   const { t } = useTranslation();
@@ -58,10 +59,15 @@ const AddUserModal = (props) => {
   return (
     <Modal
       className='compact-modal'
-      title={t('添加用户')}
+      title={
+        <ModalTitle
+          title={t('添加用户')}
+          subtitle={t('创建登录账号与初始密码')}
+        />
+      }
       visible={props.visible}
       onCancel={handleCancel}
-      width={isMobile ? '100%' : 420}
+      width={isMobile ? '100%' : 680}
       centered
       closable
       maskClosable={false}
