@@ -48,8 +48,10 @@ func OaiResponsesCompactionHandler(c *gin.Context, resp *http.Response) (*dto.Us
 			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 		}
 		if compactResp.Usage.InputTokensDetails != nil {
-			usage.PromptTokensDetails.CachedTokens = compactResp.Usage.InputTokensDetails.CachedTokens
+			usage.InputTokensDetails = compactResp.Usage.InputTokensDetails
 		}
+		usage.PromptTokensDetails = compactResp.Usage.PromptTokensDetails
+		usage.NormalizeInputTokenDetails()
 	}
 
 	return &usage, nil

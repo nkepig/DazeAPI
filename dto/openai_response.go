@@ -254,9 +254,58 @@ type OpenAIVideoResponse struct {
 type InputTokenDetails struct {
 	CachedTokens         int `json:"cached_tokens"`
 	CachedCreationTokens int `json:"cached_creation_tokens,omitempty"`
-	TextTokens           int `json:"text_tokens"`
-	AudioTokens          int `json:"audio_tokens"`
-	ImageTokens          int `json:"image_tokens"`
+	// CacheWriteTokens is the official OpenAI field (GPT-5.6+):
+	// Responses: usage.input_tokens_details.cache_write_tokens
+	// Chat Completions: usage.prompt_tokens_details.cache_write_tokens
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
+	TextTokens       int `json:"text_tokens"`
+	AudioTokens      int `json:"audio_tokens"`
+	ImageTokens      int `json:"image_tokens"`
+}
+
+func (d *InputTokenDetails) normalizeCacheWrite() {
+	if d == nil {
+		return
+	}
+	if d.CachedCreationTokens == 0 && d.CacheWriteTokens > 0 {
+		d.CachedCreationTokens = d.CacheWriteTokens
+	}
+	if d.CacheWriteTokens == 0 && d.CachedCreationTokens > 0 {
+		d.CacheWriteTokens = d.CachedCreationTokens
+	}
+}
+
+// NormalizeInputTokenDetails folds OpenAI Responses input_tokens_details and
+// cache_write_tokens into prompt_tokens_details so billing/logs see cache writes.
+func (u *Usage) NormalizeInputTokenDetails() {
+	if u == nil {
+		return
+	}
+	u.PromptTokensDetails.normalizeCacheWrite()
+	if u.InputTokensDetails == nil {
+		return
+	}
+	u.InputTokensDetails.normalizeCacheWrite()
+	src := u.InputTokensDetails
+	if u.PromptTokensDetails.CachedTokens == 0 {
+		u.PromptTokensDetails.CachedTokens = src.CachedTokens
+	}
+	if u.PromptTokensDetails.CachedCreationTokens == 0 {
+		u.PromptTokensDetails.CachedCreationTokens = src.CachedCreationTokens
+	}
+	if u.PromptTokensDetails.CacheWriteTokens == 0 {
+		u.PromptTokensDetails.CacheWriteTokens = src.CacheWriteTokens
+	}
+	if u.PromptTokensDetails.ImageTokens == 0 {
+		u.PromptTokensDetails.ImageTokens = src.ImageTokens
+	}
+	if u.PromptTokensDetails.AudioTokens == 0 {
+		u.PromptTokensDetails.AudioTokens = src.AudioTokens
+	}
+	if u.PromptTokensDetails.TextTokens == 0 {
+		u.PromptTokensDetails.TextTokens = src.TextTokens
+	}
+	u.PromptTokensDetails.normalizeCacheWrite()
 }
 
 type OutputTokenDetails struct {

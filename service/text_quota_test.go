@@ -340,3 +340,41 @@ func TestCalculateTextQuotaSummaryOpenRouterKimiBilling(t *testing.T) {
 	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
 	require.Equal(t, int64(18272), summary.QuotaMicrodollars)
 }
+
+func TestCalculateTextQuotaSummaryOpenAIResponsesCacheWriteTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		RelayFormat:     types.RelayFormatOpenAIResponses,
+		OriginModelName: "gpt-5.6-sol",
+		PriceData: types.PriceData{
+			PromptPrice:     5,
+			CompletionPrice: 30,
+			CacheReadPrice:  0.5,
+			CacheWritePrice: 6.25,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+	}
+
+	usage := &dto.Usage{
+		PromptTokens:     89907,
+		CompletionTokens: 1413,
+		InputTokensDetails: &dto.InputTokenDetails{
+			CachedTokens:     81243,
+			CacheWriteTokens: 8661,
+		},
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, 81243, summary.CacheTokens)
+	require.Equal(t, 8661, summary.CacheCreationTokens)
+	// uncached prompt = 89907 - 81243 - 8661 = 3
+	// quota = 3*5 + 81243*0.5 + 8661*6.25 + 1413*30
+	//       = 15 + 40621.5 + 54131.25 + 42390 = 137157.75 => 137158
+	require.Equal(t, int64(137158), summary.QuotaMicrodollars)
+}

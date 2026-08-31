@@ -76,9 +76,16 @@ const EditTokenModal = (props) => {
     const res = await API.get(`/api/token/${props.editingToken.id}`);
     const { success, message, data } = res.data;
     if (success) {
-      data.remain_quota = quotaToDisplayAmount(data.remain_quota || 0);
-      formApiRef.current?.setValues({ ...getInitValues(), ...data });
-      if ((data.allow_ips || data.block_ips)) {
+      const allowIps = data.allow_ips ?? '';
+      const blockIps = data.block_ips ?? '';
+      formApiRef.current?.setValues({
+        ...getInitValues(),
+        ...data,
+        remain_quota: quotaToDisplayAmount(data.remain_quota || 0),
+        allow_ips: allowIps,
+        block_ips: blockIps,
+      });
+      if (allowIps || blockIps) {
         setAdvancedOpen(true);
       }
     } else {
@@ -217,24 +224,22 @@ const EditTokenModal = (props) => {
                   }}
                 />
               </button>
-              {advancedOpen && (
-                <>
-                  <Form.TextArea
-                    field='allow_ips'
-                    label={t('IP 白名单')}
-                    placeholder={'1.2.3.4\n10.0.0.0/8'}
-                    autosize
-                    rows={3}
-                  />
-                  <Form.TextArea
-                    field='block_ips'
-                    label={t('IP 黑名单')}
-                    placeholder={'5.6.7.8\n192.168.0.0/16'}
-                    autosize
-                    rows={3}
-                  />
-                </>
-              )}
+              <div hidden={!advancedOpen}>
+                <Form.TextArea
+                  field='allow_ips'
+                  label={t('IP 白名单')}
+                  placeholder={'1.2.3.4\n10.0.0.0/8'}
+                  autosize
+                  rows={3}
+                />
+                <Form.TextArea
+                  field='block_ips'
+                  label={t('IP 黑名单')}
+                  placeholder={'5.6.7.8\n192.168.0.0/16'}
+                  autosize
+                  rows={3}
+                />
+              </div>
             </>
           )}
         </Form>
