@@ -424,10 +424,10 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 						usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 					}
 					if streamResp.Response.Usage.InputTokensDetails != nil {
-						usage.PromptTokensDetails.CachedTokens = streamResp.Response.Usage.InputTokensDetails.CachedTokens
-						usage.PromptTokensDetails.ImageTokens = streamResp.Response.Usage.InputTokensDetails.ImageTokens
-						usage.PromptTokensDetails.AudioTokens = streamResp.Response.Usage.InputTokensDetails.AudioTokens
+						usage.InputTokensDetails = streamResp.Response.Usage.InputTokensDetails
 					}
+					usage.PromptTokensDetails = streamResp.Response.Usage.PromptTokensDetails
+					usage.NormalizeInputTokenDetails()
 					if streamResp.Response.Usage.CompletionTokenDetails.ReasoningTokens != 0 {
 						usage.CompletionTokenDetails.ReasoningTokens = streamResp.Response.Usage.CompletionTokenDetails.ReasoningTokens
 					}

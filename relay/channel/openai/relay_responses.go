@@ -34,8 +34,10 @@ func applyOpenAIResponsesUsage(dst *dto.Usage, src *dto.Usage) {
 		dst.TotalTokens = src.TotalTokens
 	}
 	if src.InputTokensDetails != nil {
-		dst.PromptTokensDetails.CachedTokens = src.InputTokensDetails.CachedTokens
+		dst.InputTokensDetails = src.InputTokensDetails
 	}
+	dst.PromptTokensDetails = src.PromptTokensDetails
+	dst.NormalizeInputTokenDetails()
 }
 
 func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

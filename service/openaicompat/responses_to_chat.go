@@ -30,10 +30,10 @@ func ResponsesResponseToChatCompletionsResponse(resp *dto.OpenAIResponsesRespons
 			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 		}
 		if resp.Usage.InputTokensDetails != nil {
-			usage.PromptTokensDetails.CachedTokens = resp.Usage.InputTokensDetails.CachedTokens
-			usage.PromptTokensDetails.ImageTokens = resp.Usage.InputTokensDetails.ImageTokens
-			usage.PromptTokensDetails.AudioTokens = resp.Usage.InputTokensDetails.AudioTokens
+			usage.InputTokensDetails = resp.Usage.InputTokensDetails
 		}
+		usage.PromptTokensDetails = resp.Usage.PromptTokensDetails
+		usage.NormalizeInputTokenDetails()
 		if resp.Usage.CompletionTokenDetails.ReasoningTokens != 0 {
 			usage.CompletionTokenDetails.ReasoningTokens = resp.Usage.CompletionTokenDetails.ReasoningTokens
 		}
