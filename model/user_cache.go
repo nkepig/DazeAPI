@@ -116,6 +116,9 @@ func GetUserCache(userId int) (userCache *UserBase, err error) {
 	if err != nil {
 		return nil, err // Return nil and error if DB lookup fails
 	}
+	// Fold unflushed batch deltas into the rebuilt Quota so a cache miss
+	// does not resurrect a stale DB snapshot (or drop an in-flight pre-consume).
+	user.Quota += pendingBatchDelta(BatchUpdateTypeUserQuota, userId)
 
 	// Create cache object from user data
 	userCache = &UserBase{
@@ -150,7 +153,26 @@ func cacheIncrUserQuota(userId int, delta int64) error {
 	if !common.RedisEnabled {
 		return nil
 	}
-	return common.RedisHIncrBy(getUserCacheKey(userId), "Quota", delta)
+	key := getUserCacheKey(userId)
+	ok, err := common.RedisHIncrByIfComplete(key, "Quota", delta)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+	// Key missing or incomplete: rebuild a complete hash from DB+pending, then apply delta.
+	if _, err := GetUserCache(userId); err != nil {
+		return err
+	}
+	ok, err = common.RedisHIncrByIfComplete(key, "Quota", delta)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("user quota cache still incomplete after rebuild: userId=%d", userId)
+	}
+	return nil
 }
 
 func cacheDecrUserQuota(userId int, delta int64) error {
