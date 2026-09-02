@@ -807,6 +807,7 @@ func GetUserQuota(id int, fromDB bool) (quota int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	quota += pendingBatchDelta(BatchUpdateTypeUserQuota, id)
 
 	return quota, nil
 }

@@ -52,6 +52,18 @@ func addNewRecord(type_ int, id int, value int) {
 	}
 }
 
+// pendingBatchDelta returns in-memory quota deltas that have not been flushed
+// to DB yet. Used when reconstructing Redis cache after a miss so the rebuilt
+// Quota matches the live HINCRBY value instead of a stale DB snapshot.
+func pendingBatchDelta(type_ int, id int) int {
+	if !common.BatchUpdateEnabled || type_ < 0 || type_ >= BatchUpdateTypeCount {
+		return 0
+	}
+	batchUpdateLocks[type_].Lock()
+	defer batchUpdateLocks[type_].Unlock()
+	return batchUpdateStores[type_][id]
+}
+
 func sortedUpdateIDs(updates map[int]int) []int {
 	ids := make([]int, 0, len(updates))
 	for id := range updates {

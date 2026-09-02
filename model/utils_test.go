@@ -3,6 +3,8 @@ package model
 import (
 	"strings"
 	"testing"
+
+	"github.com/QuantumNous/new-api/common"
 )
 
 func TestBatchSingleColumnSQL(t *testing.T) {
@@ -21,5 +23,30 @@ func TestBatchTokenQuotaSQL(t *testing.T) {
 	}
 	if strings.Contains(got, " SET quota ") || strings.Contains(got, "THEN quota ") {
 		t.Fatal("token batch SQL must not reference tokens.quota")
+	}
+}
+
+func TestPendingBatchDelta(t *testing.T) {
+	prev := common.BatchUpdateEnabled
+	common.BatchUpdateEnabled = true
+	t.Cleanup(func() {
+		common.BatchUpdateEnabled = prev
+		batchUpdateLocks[BatchUpdateTypeUserQuota].Lock()
+		delete(batchUpdateStores[BatchUpdateTypeUserQuota], 7)
+		batchUpdateLocks[BatchUpdateTypeUserQuota].Unlock()
+	})
+
+	if got := pendingBatchDelta(BatchUpdateTypeUserQuota, 7); got != 0 {
+		t.Fatalf("empty pending = %d, want 0", got)
+	}
+	addNewRecord(BatchUpdateTypeUserQuota, 7, -100)
+	addNewRecord(BatchUpdateTypeUserQuota, 7, 40)
+	if got := pendingBatchDelta(BatchUpdateTypeUserQuota, 7); got != -60 {
+		t.Fatalf("pending = %d, want -60", got)
+	}
+
+	common.BatchUpdateEnabled = false
+	if got := pendingBatchDelta(BatchUpdateTypeUserQuota, 7); got != 0 {
+		t.Fatalf("disabled pending = %d, want 0", got)
 	}
 }
