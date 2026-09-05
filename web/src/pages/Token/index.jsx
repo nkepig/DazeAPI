@@ -25,7 +25,7 @@ import TokensTable from '../../components/table/tokens';
 const Token = () => {
   const { t } = useTranslation();
   return (
-    <div className='px-6 lg:px-10 py-8'>
+    <div className='px-6 lg:px-10 py-8 page-fade'>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

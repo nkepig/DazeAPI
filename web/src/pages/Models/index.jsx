@@ -1,3 +1,21 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 import React, { useEffect, useState, useMemo, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -79,7 +97,7 @@ const ModelListCard = ({
           handleCopyName();
         }
       }}
-      className='py-4 pr-6 border-b border-[#F0F0F0] hover:bg-[#FAFAFA] transition-colors cursor-pointer'
+      className='model-card'
     >
       <div className='flex items-start justify-between mb-3'>
         <div className='flex-1 min-w-0'>
@@ -220,6 +238,7 @@ const ModelListCard = ({
           </p>
         </div>
       )}
+      <span className='model-card-drawer'>{t('复制 ID')} →</span>
     </motion.div>
   );
 };
@@ -431,7 +450,7 @@ const Models = () => {
   const userGroups = Object.keys(groupRatio);
 
   return (
-    <div className='px-6 lg:px-10 py-8'>
+    <div className='px-6 lg:px-10 py-8 page-fade'>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className='mb-8'>
         <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('模型列表')}</h1>
         <p className='text-[13px] text-[#999] mt-1'>{t('浏览所有可以通过 API 调用的模型')}</p>
@@ -442,7 +461,7 @@ const Models = () => {
         <input
           type='text' value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder={t('搜索模型名称...')}
-          className='w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-[#EBEBEB] rounded-lg focus:outline-none focus:border-[#999] transition-colors'
+          className='w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-[#EBEBEB] rounded-lg focus:outline-none focus:border-[#1A1A1A] transition-colors'
         />
       </div>
 
@@ -542,14 +561,10 @@ const Models = () => {
         </div>
       )}
 
-      <div className='mb-4 text-[12px] text-[#999]'>
-        {!loading && `${t('共')} ${filteredModels.length} ${t('个模型')}`}
-      </div>
-
       {loading ? (
         <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
           {[...Array(6)].map((_, i) => (
-            <div key={i} className='py-4 pr-6 animate-pulse border-b border-[#F0F0F0]'>
+            <div key={i} className='model-card animate-pulse'>
               <div className='h-5 bg-gray-200 rounded w-2/3 mb-4' />
               <div className='space-y-2'>
                 <div className='h-3 bg-gray-100 rounded w-full' />

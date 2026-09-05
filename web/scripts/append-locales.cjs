@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 
 const files = [
-  'src/pages/Chat2Link/index.jsx',
   'src/components/auth/TwoFAVerification.jsx',
   'src/components/settings/DashboardSetting.jsx',
 ];

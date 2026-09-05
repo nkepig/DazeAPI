@@ -23,6 +23,8 @@ const RegisterForm = lazy(() => import('./components/auth/RegisterForm'));
 const LoginForm = lazy(() => import('./components/auth/LoginForm'));
 const PasswordResetForm = lazy(() => import('./components/auth/PasswordResetForm'));
 const PasswordResetConfirm = lazy(() => import('./components/auth/PasswordResetConfirm'));
+const UserAgreement = lazy(() => import('./pages/UserAgreement'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
 function Loading() {
   return (
@@ -70,6 +72,8 @@ function App() {
         <Route path='/login' element={<Suspense fallback={<Loading />}><LoginForm /></Suspense>} />
         <Route path='/register' element={<Suspense fallback={<Loading />}><RegisterForm /></Suspense>} />
         <Route path='/reset' element={<Suspense fallback={<Loading />}><PasswordResetForm /></Suspense>} />
+        <Route path='/user-agreement' element={<Suspense fallback={<Loading />}><UserAgreement /></Suspense>} />
+        <Route path='/privacy-policy' element={<Suspense fallback={<Loading />}><PrivacyPolicy /></Suspense>} />
         <Route path='*' element={<NotFound />} />
       </Routes>
     </SetupCheck>

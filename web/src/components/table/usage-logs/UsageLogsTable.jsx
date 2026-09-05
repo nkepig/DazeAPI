@@ -17,8 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useMemo } from 'react';
-import { Empty, Descriptions } from '@douyinfe/semi-ui';
+import React, { useMemo, useState } from 'react';
+import { Empty, Descriptions, SideSheet } from '@douyinfe/semi-ui';
 import CardTable from '../../common/ui/CardTable';
 import {
   IllustrationNoResult,
@@ -42,12 +42,18 @@ const LogsTable = (logsData) => {
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
     openRetryAttemptsDrawer,
-    hasExpandableRows,
     isAdminUser,
     billingDisplayMode,
     t,
     COLUMN_KEYS,
   } = logsData;
+
+  // Row detail drawer state (right-side slide-out)
+  const [detailKey, setDetailKey] = useState(null);
+  const detailRecord = useMemo(
+    () => logs.find((l) => l.key === detailKey),
+    [logs, detailKey],
+  );
 
   // Get all columns
   const allColumns = useMemo(() => {
@@ -87,22 +93,18 @@ const LogsTable = (logsData) => {
       : visibleColumnsList;
   }, [compactMode, visibleColumnsList]);
 
-  const expandRowRender = (record, index) => {
-    return (
-      <div style={{ width: '100%' }}>
-        <Descriptions data={expandData[record.key]} />
-      </div>
-    );
-  };
+  const hasDetail = (record) =>
+    expandData[record.key] && expandData[record.key].length > 0;
 
   return (
+    <>
     <CardTable
       columns={tableColumns}
-      {...(hasExpandableRows() && {
-        expandedRowRender: expandRowRender,
-        expandRowByClick: true,
-        rowExpandable: (record) =>
-          expandData[record.key] && expandData[record.key].length > 0,
+      onRow={(record) => ({
+        onClick: () => {
+          if (hasDetail(record)) setDetailKey(record.key);
+        },
+        style: { cursor: hasDetail(record) ? 'pointer' : 'default' },
       })}
       dataSource={logs}
       rowKey='key'
@@ -133,6 +135,24 @@ const LogsTable = (logsData) => {
       }}
       hidePagination={true}
     />
+
+    {/* Log detail: right-side drawer instead of inline row expansion */}
+    <SideSheet
+      title={
+        detailRecord
+          ? `${t('调用详情')} · ${detailRecord.model_name || ''}`
+          : t('调用详情')
+      }
+      visible={detailKey != null}
+      onCancel={() => setDetailKey(null)}
+      placement='right'
+      width={520}
+    >
+      {detailRecord && (
+        <Descriptions data={expandData[detailRecord.key]} />
+      )}
+    </SideSheet>
+    </>
   );
 };
 

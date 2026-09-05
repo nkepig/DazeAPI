@@ -465,7 +465,6 @@ const EditChannelModal = (props) => {
     }
   };
 
-
   const loadChannel = async () => {
     setLoading(true);
     let res = await API.get(`/api/channel/${channelId}`);
@@ -756,7 +755,6 @@ const EditChannelModal = (props) => {
       // ignore
     }
   };
-
 
   const handleRefreshCodexCredential = async () => {
     if (!isEdit) return;
@@ -1473,26 +1471,36 @@ const EditChannelModal = (props) => {
                 </FormSection>
                 <FormSection
                   title={t('调度与网络')}
-                  desc={t('优先级、权重、超时与代理')}
+                  desc={t('优先级、权重、超时和代理；失败时是否自动禁用该渠道')}
                 >
                 <div className='compact-switch-row'>
-                  <span className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</span>
+                  <div>
+                    <div className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</div>
+                    <p className='compact-hint' style={{ margin: '4px 0 0' }}>
+                      {t('把完整请求/响应写入磁盘排障，会持续占用存储，默认关闭')}
+                    </p>
+                  </div>
                   <Form.Switch
                     field='request_record_enabled'
                     noLabel
+                    checked={inputs.request_record_enabled === true}
                     style={{ marginBottom: 0 }}
                     onChange={(value) => handleInputChange('request_record_enabled', value)}
-                    initValue={inputs.request_record_enabled}
                   />
                 </div>
                 <div className='compact-switch-row'>
-                  <span className='text-[13px] text-[#1A1A1A]'>{t('自动禁用')}</span>
+                  <div>
+                    <div className='text-[13px] text-[#1A1A1A]'>{t('自动禁用')}</div>
+                    <p className='compact-hint' style={{ margin: '4px 0 0' }}>
+                      {t('上游连续失败时自动停用该渠道')}
+                    </p>
+                  </div>
                   <Form.Switch
                     field='auto_ban'
                     noLabel
+                    checked={autoBan}
                     style={{ marginBottom: 0 }}
                     onChange={(value) => setAutoBan(value)}
-                    initValue={autoBan}
                   />
                 </div>
                 <Form.Input
@@ -1652,7 +1660,7 @@ const EditChannelModal = (props) => {
                       <Form.Input
                         field='other'
                         label={t('知识库 ID')}
-                        placeholder={'知识库ID'}
+                        placeholder={t('知识库ID')}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
@@ -1672,7 +1680,7 @@ const EditChannelModal = (props) => {
                       <Form.Input
                         field='other'
                         label={t('智能体ID')}
-                        placeholder={'智能体ID'}
+                        placeholder={t('智能体ID')}
                         onChange={(value) => handleInputChange('other', value)}
                         showClear
                       />
