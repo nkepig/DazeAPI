@@ -13,10 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
-
-	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -82,26 +79,6 @@ type APGC2DGPTUsageResponse struct {
 	TotalAvailable float64 `json:"total_available"`
 	TotalGranted   float64 `json:"total_granted"`
 	TotalUsed      float64 `json:"total_used"`
-}
-
-type SiliconFlowUsageResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Status  bool   `json:"status"`
-	Data    struct {
-		ID            string `json:"id"`
-		Name          string `json:"name"`
-		Image         string `json:"image"`
-		Email         string `json:"email"`
-		IsAdmin       bool   `json:"isAdmin"`
-		Balance       string `json:"balance"`
-		Status        string `json:"status"`
-		Introduction  string `json:"introduction"`
-		Role          string `json:"role"`
-		ChargeBalance string `json:"chargeBalance"`
-		TotalBalance  string `json:"totalBalance"`
-		Category      string `json:"category"`
-	} `json:"data"`
 }
 
 type DeepSeekUsageResponse struct {
@@ -202,28 +179,6 @@ func updateChannelAPI2GPTBalance(channel *model.Channel) (float64, error) {
 	return response.TotalRemaining, nil
 }
 
-func updateChannelSiliconFlowBalance(channel *model.Channel) (float64, error) {
-	url := "https://api.siliconflow.cn/v1/user/info"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
-	if err != nil {
-		return 0, err
-	}
-	response := SiliconFlowUsageResponse{}
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return 0, err
-	}
-	if response.Code != 20000 {
-		return 0, fmt.Errorf("code: %d, message: %s", response.Code, response.Message)
-	}
-	balance, err := strconv.ParseFloat(response.Data.TotalBalance, 64)
-	if err != nil {
-		return 0, err
-	}
-	channel.UpdateBalance(balance)
-	return balance, nil
-}
-
 func updateChannelDeepSeekBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.deepseek.com/user/balance"
 	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
@@ -284,40 +239,6 @@ func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 	return balance, nil
 }
 
-func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
-	url := "https://api.moonshot.cn/v1/users/me/balance"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
-	if err != nil {
-		return 0, err
-	}
-
-	type MoonshotBalanceData struct {
-		AvailableBalance float64 `json:"available_balance"`
-		VoucherBalance   float64 `json:"voucher_balance"`
-		CashBalance      float64 `json:"cash_balance"`
-	}
-
-	type MoonshotBalanceResponse struct {
-		Code   int                 `json:"code"`
-		Data   MoonshotBalanceData `json:"data"`
-		Scode  string              `json:"scode"`
-		Status bool                `json:"status"`
-	}
-
-	response := MoonshotBalanceResponse{}
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return 0, err
-	}
-	if !response.Status || response.Code != 0 {
-		return 0, fmt.Errorf("failed to update moonshot balance, status: %v, code: %d, scode: %s", response.Status, response.Code, response.Scode)
-	}
-	availableBalanceCny := response.Data.AvailableBalance
-	availableBalanceUsd := decimal.NewFromFloat(availableBalanceCny).Div(decimal.NewFromFloat(operation_setting.Price)).InexactFloat64()
-	channel.UpdateBalance(availableBalanceUsd)
-	return availableBalanceUsd, nil
-}
-
 func updateChannelBalance(channel *model.Channel) (float64, error) {
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
@@ -330,8 +251,6 @@ func updateChannelBalance(channel *model.Channel) (float64, error) {
 		}
 	case constant.ChannelTypeAzure:
 		return 0, errors.New("尚未实现")
-	case constant.ChannelTypeCustom:
-		baseURL = channel.GetBaseURL()
 	//case common.ChannelTypeOpenAISB:
 	//	return updateChannelOpenAISBBalance(channel)
 	case constant.ChannelTypeAIProxy:
@@ -340,14 +259,10 @@ func updateChannelBalance(channel *model.Channel) (float64, error) {
 		return updateChannelAPI2GPTBalance(channel)
 	case constant.ChannelTypeAIGC2D:
 		return updateChannelAIGC2DBalance(channel)
-	case constant.ChannelTypeSiliconFlow:
-		return updateChannelSiliconFlowBalance(channel)
 	case constant.ChannelTypeDeepSeek:
 		return updateChannelDeepSeekBalance(channel)
 	case constant.ChannelTypeOpenRouter:
 		return updateChannelOpenRouterBalance(channel)
-	case constant.ChannelTypeMoonshot:
-		return updateChannelMoonshotBalance(channel)
 	default:
 		return 0, errors.New("尚未实现")
 	}

@@ -91,7 +91,7 @@ const TaskLogsFilters = ({
             <Button
               type='tertiary'
               htmlType='submit'
-              loading={loading}
+              disabled={loading}
               size='small'
             >
               {t('查询')}

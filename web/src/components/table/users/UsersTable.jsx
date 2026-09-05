@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo, useState } from 'react';
-import { Empty } from '@douyinfe/semi-ui';
 import CardTable from '../../common/ui/CardTable';
 import { getUsersColumns } from './UsersColumnDefs';
 import PromoteUserModal from './modals/PromoteUserModal';
@@ -143,7 +142,7 @@ const UsersTable = (usersData) => {
         hidePagination={true}
         loading={loading}
         onRow={handleRow}
-        empty={<Empty image={null} description={t('搜索无结果')} />}
+        empty={<></>}
         className='overflow-hidden'
         size='middle'
       />

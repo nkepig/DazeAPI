@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Empty } from '@douyinfe/semi-ui';
 import CardTable from '../../common/ui/CardTable';
 import { getTokensColumns } from './TokensColumnDefs';
 
@@ -92,7 +91,7 @@ const TokensTable = (tokensData) => {
       hidePagination={true}
       loading={loading}
       onRow={handleRow}
-      empty={<Empty image={null} description={t('搜索无结果')} />}
+      empty={<></>}
       className='overflow-hidden'
       size='middle'
     />

@@ -17,14 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Table,
   Card,
-  Skeleton,
   Pagination,
-  Empty,
   Button,
   Collapsible,
 } from '@douyinfe/semi-ui';
@@ -59,17 +57,25 @@ const CardTable = ({
   };
 
   if (!isMobile) {
+    const { empty: _empty, ...restTableProps } = tableProps;
     const finalTableProps = hidePagination
-      ? { ...tableProps, pagination: false }
-      : tableProps;
+      ? { ...restTableProps, pagination: false }
+      : restTableProps;
+
+    const quiet = !showSkeleton && (!dataSource || dataSource.length === 0);
 
     return (
-      <div ref={tableWrapperRef}>
+      <div
+        ref={tableWrapperRef}
+        className={[showSkeleton && 'daze-awaiting', quiet && 'daze-table-quiet'].filter(Boolean).join(' ') || undefined}
+        aria-busy={showSkeleton ? 'true' : undefined}
+      >
         <Table
           columns={columns}
           dataSource={dataSource}
-          loading={loading}
+          loading={false}
           rowKey={rowKey}
+          empty={<></>}
           {...finalTableProps}
         />
       </div>
@@ -77,57 +83,8 @@ const CardTable = ({
   }
 
   if (showSkeleton) {
-    const visibleCols = columns.filter((col) => {
-      if (tableProps?.visibleColumns && col.key) {
-        return tableProps.visibleColumns[col.key];
-      }
-      return true;
-    });
-
-    const renderSkeletonCard = (key) => {
-      const placeholder = (
-        <div className='p-2'>
-          {visibleCols.map((col, idx) => {
-            if (!col.title) {
-              return (
-                <div key={idx} className='mt-2 flex justify-end'>
-                  <Skeleton.Title active style={{ width: 100, height: 24 }} />
-                </div>
-              );
-            }
-
-            return (
-              <div
-                key={idx}
-                className='flex justify-between items-center py-1 border-b last:border-b-0 border-dashed'
-                style={{ borderColor: 'var(--semi-color-border)' }}
-              >
-                <Skeleton.Title active style={{ width: 80, height: 14 }} />
-                <Skeleton.Title
-                  active
-                  style={{
-                    width: `${50 + (idx % 3) * 10}%`,
-                    maxWidth: 180,
-                    height: 14,
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      );
-
-      return (
-        <Card key={key} className='!rounded-2xl shadow-sm'>
-          <Skeleton loading={true} active placeholder={placeholder}></Skeleton>
-        </Card>
-      );
-    };
-
     return (
-      <div className='flex flex-col gap-2'>
-        {[1, 2, 3].map((i) => renderSkeletonCard(i))}
-      </div>
+      <div className='daze-awaiting' style={{ minHeight: 280 }} aria-busy='true' />
     );
   }
 
@@ -208,12 +165,7 @@ const CardTable = ({
   };
 
   if (isEmpty) {
-    if (tableProps.empty) return tableProps.empty;
-    return (
-      <div className='flex justify-center p-4'>
-        <Empty description='No Data' />
-      </div>
-    );
+    return null;
   }
 
   return (

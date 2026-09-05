@@ -98,16 +98,6 @@ const ChannelsPage = () => {
         onCancel={channelsData.closeUpstreamUpdateModal}
       />
 
-      <div className='flex justify-end mb-4'>
-        <button
-          type='button'
-          onClick={() => setClawdSettingsOpen(true)}
-          className='px-3 py-1.5 text-[13px] font-medium text-[#1A1A1A] bg-white border border-[#EBEBEB] rounded-lg cursor-pointer hover:bg-[#F5F5F5] transition-colors'
-        >
-          {channelsData.t('渠道守护')}
-        </button>
-      </div>
-
       <CardPro
         type='type3'
         tabsArea={null}
@@ -117,7 +107,7 @@ const ChannelsPage = () => {
               {!channelsData.enableTagMode ? (
                 <BubbleFilter
                   size='small'
-                  label='类别'
+                  label={channelsData.t('类别')}
                   options={channelTypeOptions}
                   value={channelsData.activeTypeKey}
                   onChange={(nextValue) => {
@@ -136,7 +126,10 @@ const ChannelsPage = () => {
               <ChannelsActions {...channelsData} />
             </div>
             <div className='flex items-center gap-2 w-full flex-wrap'>
-              <ChannelsFilters {...channelsData} />
+              <ChannelsFilters
+                {...channelsData}
+                onOpenClawd={() => setClawdSettingsOpen(true)}
+              />
             </div>
           </div>
         }

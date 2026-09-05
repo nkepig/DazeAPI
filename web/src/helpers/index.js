@@ -27,6 +27,5 @@ export * from './log';
 export * from './data';
 export * from './token';
 export * from './boolean';
-export * from './dashboard';
 export * from './statusCodeRules';
 export * from './quota';

@@ -52,7 +52,6 @@ import {
 } from '../../../../helpers';
 import ModelSelectModal from './ModelSelectModal';
 import SingleModelSelectModal from './SingleModelSelectModal';
-import OllamaModelModal from './OllamaModelModal';
 import JSONEditor from '../../../common/ui/JSONEditor';
 import FormSection, { ModalTitle } from '../../../common/ui/FormSection';
 import ParamOverrideEditor from '../../../common/ui/ParamOverrideEditor';
@@ -83,15 +82,7 @@ const REGION_EXAMPLE = {
   'claude-3-5-sonnet-20240620': 'europe-west1',
 };
 
-const DEPRECATED_DOUBAO_CODING_PLAN_BASE_URL = 'doubao-coding-plan';
-
-// 支持并且已适配通过接口获取模型列表的渠道类型
-const MODEL_FETCHABLE_TYPES = new Set([
-  1, 4, 14, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43,
-]);
-
 function type2secretPrompt(type) {
-  // inputs.type === 15 ? '按照如下格式输入：APIKey|SecretKey' : (inputs.type === 18 ? '按照如下格式输入：APPID|APISecret|APIKey' : '请输入渠道对应的鉴权密钥')
   switch (type) {
     case 15:
       return '按照如下格式输入：APIKey|SecretKey';
@@ -99,16 +90,8 @@ function type2secretPrompt(type) {
       return '按照如下格式输入：APPID|APISecret|APIKey';
     case 22:
       return '按照如下格式输入：APIKey-AppId，例如：fastgpt-0sp2gtvfdgyi4k30jwlgwf1i-64f335d84283f05518e9e041';
-    case 23:
-      return '按照如下格式输入：AppId|SecretId|SecretKey';
     case 33:
       return '按照如下格式输入：Ak|Sk|Region';
-    case 45:
-      return '请输入渠道对应的鉴权密钥, 豆包语音输入：AppId|AccessToken';
-    case 50:
-      return '按照如下格式输入: AccessKey|SecretKey, 如果上游是New API，则直接输ApiKey';
-    case 51:
-      return '按照如下格式输入: AccessKey|SecretAccessKey';
     case 57:
       return '请输入 JSON 格式的 OAuth 凭据（必须包含 access_token 和 account_id）';
     default:
@@ -239,11 +222,9 @@ const EditChannelModal = (props) => {
   const [modelMappingValueKey, setModelMappingValueKey] = useState('');
   const [modelMappingValueSelected, setModelMappingValueSelected] =
     useState('');
-  const [ollamaModalVisible, setOllamaModalVisible] = useState(false);
   const formApiRef = useRef(null);
   const [channelSearchValue, setChannelSearchValue] = useState('');
   const [isEnterpriseAccount, setIsEnterpriseAccount] = useState(false); // 是否为企业账户
-  const [doubaoApiEditUnlocked, setDoubaoApiEditUnlocked] = useState(false); // 豆包渠道自定义 API 地址隐藏入口
   const redirectModelList = useMemo(() => {
     const mapping = inputs.model_mapping;
     if (typeof mapping !== 'string') return [];
@@ -310,41 +291,13 @@ const EditChannelModal = (props) => {
   // 高级设置折叠状态
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
   const formContainerRef = useRef(null);
-  const doubaoApiClickCountRef = useRef(0);
   const initialBaseUrlRef = useRef('');
   const initialModelsRef = useRef([]);
   const initialModelMappingRef = useRef('');
   const initialStatusCodeMappingRef = useRef('');
-  const doubaoCodingPlanDeprecationMessage =
-    'Doubao Coding Plan 不再允许新增。根据火山方舟文档，Coding 套餐额度仅适用于 AI Coding 产品内调用，不适用于单独 API 调用；在非 AI Coding 产品中使用对应的 Base URL 和 API Key 可能被视为违规，并可能导致订阅停用或账号封禁。';
-  const canKeepDeprecatedDoubaoCodingPlan =
-    initialBaseUrlRef.current === DEPRECATED_DOUBAO_CODING_PLAN_BASE_URL;
-  const doubaoCodingPlanOptionLabel = (
-    <Tooltip content={doubaoCodingPlanDeprecationMessage} position='left'>
-      <span className='inline-flex items-center gap-2'>
-        <span>Doubao Coding Plan</span>
-      </span>
-    </Tooltip>
-  );
-
-  // 2FA状态更新辅助函数
   const updateTwoFAState = (updates) => {
     setTwoFAState((prev) => ({ ...prev, ...updates }));
   };
-  const handleApiConfigSecretClick = () => {
-    if (inputs.type !== 45) return;
-    const next = doubaoApiClickCountRef.current + 1;
-    doubaoApiClickCountRef.current = next;
-    if (next >= 10) {
-      setDoubaoApiEditUnlocked((unlocked) => {
-        if (!unlocked) {
-          showInfo(t('已解锁豆包自定义 API 地址编辑'));
-        }
-        return true;
-      });
-    }
-  };
-
   const handleChannelOtherSettingsChange = (key, value) => {
     if (formApiRef.current) {
       formApiRef.current.setValue(key, value);
@@ -432,13 +385,6 @@ const EditChannelModal = (props) => {
           break;
         case 36:
           localModels = ['suno_music', 'suno_lyrics'];
-          break;
-        case 45:
-          localModels = getChannelModels(value);
-          setInputs((prevInputs) => ({
-            ...prevInputs,
-            base_url: 'https://ark.cn-beijing.volces.com',
-          }));
           break;
         default:
           localModels = getChannelModels(value);
@@ -539,14 +485,6 @@ const EditChannelModal = (props) => {
         data.proxy = '';
         data.image_convert_mode = 'disabled';
         data.timeout = 0;
-      }
-
-      if (
-        data.type === 45 &&
-        (!data.base_url ||
-          (typeof data.base_url === 'string' && data.base_url.trim() === ''))
-      ) {
-        data.base_url = 'https://ark.cn-beijing.volces.com';
       }
 
       initialBaseUrlRef.current = data.base_url || '';
@@ -778,13 +716,6 @@ const EditChannelModal = (props) => {
   };
 
   useEffect(() => {
-    if (inputs.type !== 45) {
-      doubaoApiClickCountRef.current = 0;
-      setDoubaoApiEditUnlocked(false);
-    }
-  }, [inputs.type]);
-
-  useEffect(() => {
     const modelMap = new Map();
 
     originModelOptions.forEach((option) => {
@@ -888,9 +819,6 @@ const EditChannelModal = (props) => {
     formApiRef.current?.reset();
     // 重置企业账户状态
     setIsEnterpriseAccount(false);
-    // 重置豆包隐藏入口状态
-    setDoubaoApiEditUnlocked(false);
-    doubaoApiClickCountRef.current = 0;
     setModelSearchValue('');
     // 重置高级设置折叠状态
     setAdvancedSettingsOpen(false);
@@ -1015,13 +943,6 @@ const EditChannelModal = (props) => {
     }
     if (!Array.isArray(localInputs.models)) {
       localInputs.models = [];
-    }
-    if (
-      localInputs.type === 45 &&
-      (!localInputs.base_url || localInputs.base_url.trim() === '')
-    ) {
-      showInfo(t('请输入API地址！'));
-      return;
     }
     const hasModelMapping =
       typeof localInputs.model_mapping === 'string' &&
@@ -1676,16 +1597,6 @@ const EditChannelModal = (props) => {
                       />
                     )}
 
-                    {inputs.type === 49 && (
-                      <Form.Input
-                        field='other'
-                        label={t('智能体ID')}
-                        placeholder={t('智能体ID')}
-                        onChange={(value) => handleInputChange('other', value)}
-                        showClear
-                      />
-                    )}
-
                     </FormSection>
 
                   {/* API Configuration Section */}
@@ -1694,8 +1605,6 @@ const EditChannelModal = (props) => {
                       title={t('上游连接')}
                       desc={t('接口地址与鉴权密钥')}
                     >
-                    <div onClick={handleApiConfigSecretClick}>
-
                       {inputs.type === 3 && (
                         <>
                           <Form.Input
@@ -1732,31 +1641,13 @@ const EditChannelModal = (props) => {
                         </>
                       )}
 
-                      {inputs.type === 8 && (
-                        <>
-                          <p className='compact-hint'>{t('转发站请用 OpenAI 类型。')}</p>
-                          <Form.Input
-                            field='base_url'
-                            label={t('Base URL')}
-                            placeholder='https://api.openai.com/v1/chat/completions'
-                            onChange={(value) =>
-                              handleInputChange('base_url', value)
-                            }
-                            showClear
-                            disabled={isIonetLocked}
-                          />
-                        </>
-                      )}
-
                       {inputs.type === 37 && (
                         <p className='compact-hint'>{t('仅适配 chatflow / agent。')}</p>
                       )}
 
                       {inputs.type !== 3 &&
-                        inputs.type !== 8 &&
                         inputs.type !== 22 &&
-                        inputs.type !== 36 &&
-                        (inputs.type !== 45 || doubaoApiEditUnlocked) && (
+                        inputs.type !== 36 && (
                           <Form.Input
                             field='base_url'
                             label={t('API 地址')}
@@ -1799,38 +1690,6 @@ const EditChannelModal = (props) => {
                         </div>
                       )}
 
-                      {inputs.type === 45 && !doubaoApiEditUnlocked && (
-                        <div>
-                          <Form.Select
-                            field='base_url'
-                            label={t('API地址')}
-                            placeholder={t('请选择API地址')}
-                            onChange={(value) =>
-                              handleInputChange('base_url', value)
-                            }
-                            optionList={[
-                              {
-                                value: 'https://ark.cn-beijing.volces.com',
-                                label: 'https://ark.cn-beijing.volces.com',
-                              },
-                              {
-                                value:
-                                  'https://ark.ap-southeast.bytepluses.com',
-                                label:
-                                  'https://ark.ap-southeast.bytepluses.com',
-                              },
-                              {
-                                value: DEPRECATED_DOUBAO_CODING_PLAN_BASE_URL,
-                                label: doubaoCodingPlanOptionLabel,
-                                disabled: !canKeepDeprecatedDoubaoCodingPlan,
-                              },
-                            ]}
-                            defaultValue='https://ark.cn-beijing.volces.com'
-                            disabled={isIonetLocked}
-                          />
-                        </div>
-                      )}
-
                       {!isIonetLocked && (
                         <div className='mt-2'>
                           <Form.TextArea
@@ -1845,7 +1704,6 @@ const EditChannelModal = (props) => {
                           />
                         </div>
                       )}
-                    </div>
                     </FormSection>
                   )}
 
@@ -2058,35 +1916,6 @@ const EditChannelModal = (props) => {
           setModelMappingValueModalVisible(false);
         }}
         onCancel={() => setModelMappingValueModalVisible(false)}
-      />
-
-      <OllamaModelModal
-        visible={ollamaModalVisible}
-        onCancel={() => setOllamaModalVisible(false)}
-        channelId={channelId}
-        channelInfo={inputs}
-        onModelsUpdate={(options = {}) => {
-          // 当模型更新后，重新获取模型列表以更新表单
-          fetchUpstreamModelList('models', { silent: !!options.silent });
-        }}
-        onApplyModels={({ mode, modelIds } = {}) => {
-          if (!Array.isArray(modelIds) || modelIds.length === 0) {
-            return;
-          }
-          const existingModels = Array.isArray(inputs.models)
-            ? inputs.models.map(String)
-            : [];
-          const incoming = modelIds.map(String);
-          const nextModels = Array.from(
-            new Set([...existingModels, ...incoming]),
-          );
-
-          handleInputChange('models', nextModels);
-          if (formApiRef.current) {
-            formApiRef.current.setValue('models', nextModels);
-          }
-          showSuccess(t('模型列表已追加更新'));
-        }}
       />
     </>
   );

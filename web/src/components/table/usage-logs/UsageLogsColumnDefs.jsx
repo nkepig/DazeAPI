@@ -151,6 +151,28 @@ function renderFirstUseTime(type, t) {
   return <StatusPill variant='danger'>{` ${time} s `}</StatusPill>;
 }
 
+function copyableValue(value) {
+  if (value === undefined || value === null) return '';
+  const text = String(value).trim();
+  return text === '' || text === '-' ? '' : text;
+}
+
+function Copyable({ text, copyText, children, className, style }) {
+  const value = copyableValue(text);
+  if (!value) {
+    return children ?? null;
+  }
+  return (
+    <span
+      className={className}
+      style={{ cursor: 'pointer', ...style }}
+      onClick={(event) => copyText(event, value)}
+    >
+      {children}
+    </span>
+  );
+}
+
 function renderBillingTag(record, t) {
   const other = getLogOther(record.other);
   if (other?.billing_source === 'subscription') {
@@ -455,6 +477,7 @@ export const getLogsColumns = ({
           }
         }
 
+        const channelCopy = copyableValue(record.channel_name) || copyableValue(text);
         return isAdminUser &&
           (record.type === 0 ||
             record.type === 2 ||
@@ -464,22 +487,24 @@ export const getLogsColumns = ({
             <span style={{ position: 'relative', display: 'inline-block' }}>
               {record.channel_name ? (
                 <Tooltip content={record.channel_name}>
-                  <span>
+                  <Copyable text={channelCopy} copyText={copyText}>
                     <Tag
                       color={colors[parseInt(text) % colors.length]}
                       shape='circle'
                     >
                       {text}
                     </Tag>
-                  </span>
+                  </Copyable>
                 </Tooltip>
               ) : (
-                <Tag
-                  color={colors[parseInt(text) % colors.length]}
-                  shape='circle'
-                >
-                  {text}
-                </Tag>
+                <Copyable text={channelCopy} copyText={copyText}>
+                  <Tag
+                    color={colors[parseInt(text) % colors.length]}
+                    shape='circle'
+                  >
+                    {text}
+                  </Tag>
+                </Copyable>
               )}
               {showMarker && (
                 <Tooltip
@@ -541,7 +566,7 @@ export const getLogsColumns = ({
             <Avatar
               size='extra-small'
               color={stringToColor(text)}
-              style={{ marginRight: 4 }}
+              style={{ marginRight: 4, cursor: 'pointer' }}
               onClick={(event) => {
                 event.stopPropagation();
                 showUserInfoFunc(record.user_id);
@@ -549,7 +574,7 @@ export const getLogsColumns = ({
             >
               {typeof text === 'string' && text.slice(0, 1)}
             </Avatar>
-            {text}
+            <Copyable text={text} copyText={copyText}>{text}</Copyable>
           </div>
         ) : (
           <></>
@@ -568,9 +593,11 @@ export const getLogsColumns = ({
           record.type === 5 ||
           record.type === 6 ? (
           <div>
-            <Tag color={stringToColor(tokenGroup)} shape='circle'>
-              {tokenGroup}
-            </Tag>
+            <Copyable text={tokenGroup} copyText={copyText}>
+              <Tag color={stringToColor(tokenGroup)} shape='circle'>
+                {tokenGroup}
+              </Tag>
+            </Copyable>
           </div>
         ) : (
           <></>
@@ -597,12 +624,14 @@ export const getLogsColumns = ({
             ? String(text)
             : '-';
         return (
-          <Typography.Text
-            ellipsis={{ showTooltip: true }}
-            style={{ maxWidth: 200 }}
-          >
-            {name}
-          </Typography.Text>
+          <Copyable text={name} copyText={copyText}>
+            <Typography.Text
+              ellipsis={{ showTooltip: true }}
+              style={{ maxWidth: 200, cursor: name === '-' ? 'default' : 'pointer' }}
+            >
+              {name}
+            </Typography.Text>
+          </Copyable>
         );
       },
     },

@@ -17,9 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import React, { useEffect, useState, useMemo, useContext } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Search, Layers, Copy } from 'lucide-react';
+import { Search, Copy } from 'lucide-react';
 import { API, showError, showSuccess, copy, getLobeHubIcon } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 import {
@@ -81,12 +80,7 @@ const ModelListCard = ({
   };
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
+    <div
       role='button'
       tabIndex={0}
       title={t('点击复制模型名称')}
@@ -239,7 +233,7 @@ const ModelListCard = ({
         </div>
       )}
       <span className='model-card-drawer'>{t('复制 ID')} →</span>
-    </motion.div>
+    </div>
   );
 };
 
@@ -450,13 +444,13 @@ const Models = () => {
   const userGroups = Object.keys(groupRatio);
 
   return (
-    <div className='px-6 lg:px-10 py-8 page-fade'>
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className='mb-8'>
+    <div className='px-6 lg:px-10 py-8'>
+      <div className='daze-reveal mb-8'>
         <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('模型列表')}</h1>
         <p className='text-[13px] text-[#999] mt-1'>{t('浏览所有可以通过 API 调用的模型')}</p>
-      </motion.div>
+      </div>
 
-      <div className='mb-4 relative max-w-[400px]'>
+      <div className='daze-reveal mb-4 relative max-w-[400px]' style={{ '--daze-delay': '40ms' }}>
         <Search size={15} strokeWidth={1.5} className='absolute left-3 top-1/2 -translate-y-1/2 text-[#C8C8C8]' />
         <input
           type='text' value={search} onChange={(e) => setSearch(e.target.value)}
@@ -466,7 +460,7 @@ const Models = () => {
       </div>
 
       {vendorOptions.length > 0 && (
-        <div className='mb-5'>
+        <div className='daze-reveal mb-5' style={{ '--daze-delay': '80ms' }}>
           <p className='text-[11px] text-[#bbb] font-medium uppercase tracking-wider mb-2'>{t('供应商')}</p>
           <div className='flex gap-1.5 flex-wrap'>
             {[
@@ -499,7 +493,7 @@ const Models = () => {
       )}
 
       {userGroups.length > 0 && (
-        <div className='mb-5'>
+        <div className='daze-reveal mb-5' style={{ '--daze-delay': '120ms' }}>
           <p className='text-[11px] text-[#bbb] font-medium uppercase tracking-wider mb-2'>{t('可用分组')}</p>
           <div className='flex gap-1.5 flex-wrap'>
             <button
@@ -562,27 +556,11 @@ const Models = () => {
       )}
 
       {loading ? (
-        <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className='model-card animate-pulse'>
-              <div className='h-5 bg-gray-200 rounded w-2/3 mb-4' />
-              <div className='space-y-2'>
-                <div className='h-3 bg-gray-100 rounded w-full' />
-                <div className='h-3 bg-gray-100 rounded w-3/4' />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : filteredModels.length === 0 ? (
-        <div className='flex flex-col items-center justify-center py-20 text-[#C8C8C8]'>
-          <Layers size={40} strokeWidth={1} className='mb-3' />
-          <p className='text-sm text-[#999]'>{t('未找到模型')}</p>
-        </div>
-      ) : (
+        <div className='daze-awaiting' style={{ minHeight: 280 }} aria-busy='true' />
+      ) : filteredModels.length === 0 ? null : (
         <>
           <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
-            <AnimatePresence mode='popLayout'>
-              {paginatedModels.map((model) => {
+            {paginatedModels.map((model, i) => {
                 const tiers = isTieredPricing(model) ? sortTiers(model.tiers) : [];
                 const rawTierIndex = tierIndexByModel[model.model_name] ?? 0;
                 const tierIndex =
@@ -593,8 +571,12 @@ const Models = () => {
                 const priceInfo = getPriceInfo(model, activeTier);
                 const color = getCardColor(model.vendor_name);
                 return (
-                  <ModelListCard
+                  <div
                     key={model.model_name}
+                    className='daze-reveal'
+                    style={{ '--daze-delay': `${160 + Math.min(i, 8) * 28}ms` }}
+                  >
+                  <ModelListCard
                     model={model}
                     vendorsMap={vendorsMap}
                     color={color}
@@ -609,9 +591,9 @@ const Models = () => {
                     }
                     t={t}
                   />
-                );
-              })}
-            </AnimatePresence>
+                  </div>
+              );
+            })}
           </div>
 
           {totalPages > 1 && (

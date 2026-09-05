@@ -145,7 +145,6 @@ export const useChannelsData = () => {
     updateAllChannelsBalance: crudState.updateAllChannelsBalance,
     updateChannelBalance: testState.updateChannelBalance,
     fixChannelsAbilities: crudState.fixChannelsAbilities,
-    checkOllamaVersion: testState.checkOllamaVersion,
     testChannel: testState.testChannel,
     batchTestModels: testState.batchTestModels,
     handleCloseModal: testState.handleCloseModal,
