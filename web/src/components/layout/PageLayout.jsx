@@ -34,8 +34,12 @@ const PageLayout = () => {
     }
   };
 
-  const refreshUser = useCallback(async () => {
+  const lastUserRefreshRef = React.useRef(0);
+  const refreshUser = useCallback(async (force = false) => {
     if (!localStorage.getItem('user')) return;
+    const now = Date.now();
+    if (!force && now - lastUserRefreshRef.current < 30000) return;
+    lastUserRefreshRef.current = now;
     try {
       const res = await API.get('/api/user/self');
       const { success, data } = res.data;
@@ -69,7 +73,7 @@ if (success) {
     const systemName = getSystemName();
     if (systemName) document.title = systemName;
     loadStatus().catch(console.error);
-    refreshUser();
+    refreshUser(true);
   }, []);
 
   useEffect(() => {

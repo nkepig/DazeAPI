@@ -30,25 +30,29 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import ChannelSuccessRatePanel from '../../components/dashboard/GroupSuccessRatePanel';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.06, duration: 0.35, ease: 'easeOut' },
-  }),
-};
-
-function CountUp({ end, duration = 1200, prefix = '', suffix = '', formatter }) {
+function CountUp({ end, duration = 480, prefix = '', suffix = '', formatter }) {
   const [val, setVal] = useState(0);
+  const fromRef = React.useRef(0);
   useEffect(() => {
-    if (end === 0) { setVal(0); return; }
+    const from = fromRef.current;
+    if (end === from) {
+      setVal(end);
+      return undefined;
+    }
     const start = performance.now();
+    let raf;
     const step = (now) => {
       const p = Math.min((now - start) / duration, 1);
-      setVal(Math.round((1 - Math.pow(1 - p, 3)) * end));
-      if (p < 1) requestAnimationFrame(step);
+      const next = Math.round(from + (1 - Math.pow(1 - p, 3)) * (end - from));
+      setVal(next);
+      if (p < 1) {
+        raf = requestAnimationFrame(step);
+      } else {
+        fromRef.current = end;
+      }
     };
-    requestAnimationFrame(step);
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
   }, [end, duration]);
   if (formatter) return <>{formatter(val)}</>;
   return <>{prefix}{val.toLocaleString()}{suffix}</>;
@@ -162,8 +166,8 @@ const Dashboard = () => {
 
   const username = userState?.user?.display_name || userState?.user?.username || '';
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const now = Math.floor(Date.now() / 1000);
       const todayStart = getTodayStartTimestamp();
@@ -234,13 +238,13 @@ const Dashboard = () => {
     }
   }, [chartRange]);
 
-  // Initial load
+  // Initial load / range change
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Auto refresh every 5 minutes
+  // Auto refresh every 5 minutes without flashing the page
   useEffect(() => {
     const intervalId = setInterval(() => {
-      loadData();
+      loadData({ silent: true });
     }, 300000);
     return () => clearInterval(intervalId);
   }, [loadData]);
@@ -249,7 +253,7 @@ const Dashboard = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        loadData();
+        loadData({ silent: true });
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -379,14 +383,12 @@ const Dashboard = () => {
   const dataKey = metric;
 
   return (
-    <div className='px-6 lg:px-10 py-8 page-fade'>
-      {/* Welcome */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className='mb-8'>
+    <div className='px-6 lg:px-10 py-8'>
+      <div className='daze-reveal mb-8'>
         <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t(getGreeting())}, {username}</h1>
         <p className='text-[13px] text-[#999] mt-1'>{today}</p>
-      </motion.div>
+      </div>
 
-      {/* Stats */}
       <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 mb-8'>
         {statItems.map((item, i) => {
           const Icon = item.icon;
@@ -397,13 +399,10 @@ const Dashboard = () => {
               ? <CountUp end={item.value} formatter={item.formatter} />
               : <CountUp end={item.value} />);
           return (
-            <motion.div
+            <div
               key={item.key}
-              custom={i}
-              variants={fadeUp}
-              initial='hidden'
-              animate='show'
-              className={item.href ? 'cursor-pointer' : undefined}
+              className={`daze-reveal ${item.href ? 'cursor-pointer' : ''}`}
+              style={{ '--daze-delay': `${40 + i * 35}ms` }}
               onClick={item.href ? () => navigate(item.href) : undefined}
             >
               <div className='flex items-center gap-2 mb-2'>
@@ -433,7 +432,7 @@ const Dashboard = () => {
                     : t('按近 7 日均耗还可撑 {{days}} 天', { days: runwayDays })}
                 </p>
               )}
-            </motion.div>
+            </div>
           );
         })}
       </div>
@@ -441,9 +440,9 @@ const Dashboard = () => {
       {/* Smart guide banner */}
       {guide && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
           className='dash-guide'
         >
           <span className='dash-guide-text'>{guide.text}</span>
@@ -461,7 +460,7 @@ const Dashboard = () => {
       )}
 
       {/* API quickstart */}
-      <motion.div custom={4} variants={fadeUp} initial='hidden' animate='show' className='dash-quickstart'>
+      <div className='dash-quickstart daze-reveal' style={{ '--daze-delay': '190ms' }}>
         <div className='dash-qs-head'>
           <div className='flex items-center gap-2 shrink-0'>
             <Terminal size={14} strokeWidth={1.8} color='#9AA0B0' />
@@ -490,10 +489,10 @@ const Dashboard = () => {
             {copied ? t('已复制') : t('复制')}
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Chart */}
-      <motion.div custom={6} variants={fadeUp} initial='hidden' animate='show' className='daze-card'>
+      <div className='daze-card daze-reveal' style={{ '--daze-delay': '235ms' }}>
         {/* Controls Row */}
         <div className='flex items-center justify-between mb-4 flex-wrap gap-3'>
           <h2 className='daze-micro-label'>{t('调用趋势')}</h2>
@@ -619,7 +618,7 @@ const Dashboard = () => {
         )}
 
         {/* Chart area — extra bottom padding so XAxis labels aren't clipped */}
-        <div className='h-[300px]'>
+        <div className='h-[300px] relative overflow-hidden'>
           {!loading && (
             <ResponsiveContainer width='100%' height='100%'>
               <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 60, bottom: chartRange === 1 ? 20 : 36 }}>
@@ -656,25 +655,24 @@ const Dashboard = () => {
                   stroke={selectedModel === 'all' ? '#6366f1' : CHART_COLORS[modelNames.indexOf(selectedModel) % CHART_COLORS.length]}
                   strokeWidth={1.8}
                   fill='url(#fillGrad)'
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
           )}
           {loading && (
-            <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
-              {t('加载中')}...
-            </div>
+            <div className='daze-awaiting h-full' aria-busy='true' />
           )}
           {!loading && !chartData.some((d) => d[dataKey] > 0) && (
-            <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
-              {t('暂无数据')}
-            </div>
+            <div className='h-full' />
           )}
         </div>
-      </motion.div>
+      </div>
 
       {/* Channel Success Rate - Admin only */}
-      <ChannelSuccessRatePanel />
+      <div className='daze-reveal' style={{ '--daze-delay': '280ms' }}>
+        <ChannelSuccessRatePanel />
+      </div>
     </div>
   );
 };

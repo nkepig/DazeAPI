@@ -59,30 +59,32 @@ import { SiDiscord } from 'react-icons/si';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ShieldCheck, Zap, Headphones, Receipt, ChevronDown } from 'lucide-react';
 
-const METRICS = [
-  { label: 'UPTIME', value: '99.97%', style: { top: '8%', left: '6%' } },
-  { label: 'RESPONSE_TIME', value: '8ms', style: { top: '14%', right: '8%' } },
-  { label: 'THROUGHPUT', value: '12K/RPS', style: { bottom: '18%', left: '7%' } },
-  { label: 'ACCURACY', value: '99.1%', style: { bottom: '10%', right: '6%' } },
-  { label: 'CACHE_HIT', value: '94.2%', style: { top: '40%', left: '4%' } },
-  { label: 'QUALITY_SCORE', value: '98.6%', style: { top: '36%', right: '4%' } },
-  { label: 'BUILD', value: 'STABLE', style: { top: '4%', left: '44%' } },
-  { label: 'OPTIMIZATION', value: 'ENABLED', style: { bottom: '14%', left: '50%' } },
-  { label: 'EFFECT_RATE', value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
-  { label: 'HEALTH_CHECK', value: 'PASSING', style: { top: '24%', right: '20%', opacity: 0.5 } },
-  { label: 'PERFORMANCE', value: 'OPTIMAL', style: { bottom: '35%', left: '18%', opacity: 0.5 } },
-  { label: 'MAINTENANCE', value: 'SCHEDULED', style: { top: '22%', left: '22%', opacity: 0.5 } },
-];
-
 const LoginForm = () => {
   let navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const metrics = useMemo(() => [
+    { label: t('运行时间'), value: '99.97%', style: { top: '8%', left: '6%' } },
+    { label: t('响应时间'), value: '8ms', style: { top: '14%', right: '8%' } },
+    { label: t('吞吐量'), value: '12K/RPS', style: { bottom: '18%', left: '7%' } },
+    { label: t('准确率'), value: '99.1%', style: { bottom: '10%', right: '6%' } },
+    { label: t('缓存命中'), value: '94.2%', style: { top: '40%', left: '4%' } },
+    { label: t('质量分数'), value: '98.6%', style: { top: '36%', right: '4%' } },
+    { label: t('构建状态'), value: t('稳定'), style: { top: '4%', left: '44%' } },
+    { label: t('优化状态'), value: t('已启用'), style: { bottom: '14%', left: '50%' } },
+    { label: t('有效率'), value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
+    { label: t('健康检查'), value: t('通过'), style: { top: '24%', right: '20%', opacity: 0.5 } },
+    { label: t('性能状态'), value: t('最优'), style: { bottom: '35%', left: '18%', opacity: 0.5 } },
+    { label: t('维护状态'), value: t('计划中'), style: { top: '22%', left: '22%', opacity: 0.5 } },
+  ], [t, i18n.language]);
+  const showFormRef = useRef(false);
   const canvasRef = useRef(null);
   const rootRef = useRef(null);
   const metricsRef = useRef([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const logoRef = useRef(null);
+  const taglineTextRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
+  showFormRef.current = showForm;
   const [formMode, setFormMode] = useState('email');
   const systemName = getSystemName();
 
@@ -129,12 +131,19 @@ const LoginForm = () => {
 
   const hasOAuthLoginOptions = false;
 
-  // Canvas data stream — "thunder" edition: fading trails + fast glowing bolt columns
+  // Canvas data stream — rAF at ~20fps, paused when hidden / login overlay open
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let w, h, cols = [];
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
+    let w = 0;
+    let h = 0;
+    let gap = 22;
+    let cols = [];
+    let raf = 0;
+    let last = 0;
     const chars = 'DAZEAI_v2.0_API_DATA_SYNC_1010101';
     const spawn = () => ({
       y: Math.random() * -30,
@@ -142,71 +151,123 @@ const LoginForm = () => {
       bolt: Math.random() < 0.14,
     });
     const resize = () => {
-      w = canvas.width = window.innerWidth;
-      h = canvas.height = window.innerHeight;
-      cols = Array.from({ length: Math.floor(w / 20) }, () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      gap = w > 1400 ? 28 : 22;
+      cols = Array.from({ length: Math.floor(w / gap) }, () => {
         const c = spawn();
         c.y = Math.random() * (h / 20);
         return c;
       });
     };
-    const draw = () => {
-      // Semi-transparent white wash → previous frames fade into trails
-      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    const draw = (now) => {
+      raf = requestAnimationFrame(draw);
+      if (document.hidden || showFormRef.current) return;
+      if (now - last < 50) return;
+      last = now;
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.fillRect(0, 0, w, h);
       ctx.font = '12px monospace';
       cols.forEach((c, i) => {
         const ch = chars[(Math.random() * chars.length) | 0];
-        const x = i * 20;
+        const x = i * gap;
         const y = c.y * 20;
-        if (c.bolt) {
-          // Bolt column: pure black head with a soft glow, falls fast
-          ctx.shadowBlur = 9;
-          ctx.shadowColor = 'rgba(0,0,0,0.75)';
-          ctx.fillStyle = '#000';
-        } else {
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        }
+        ctx.fillStyle = c.bolt ? '#111' : 'rgba(0,0,0,0.42)';
         ctx.fillText(ch, x, y);
-        ctx.shadowBlur = 0;
         c.y += c.bolt ? c.speed * 2.4 : c.speed;
         if (y > h && Math.random() > 0.96) cols[i] = spawn();
       });
     };
     resize();
-    const timer = setInterval(draw, 50);
+    raf = requestAnimationFrame(draw);
     window.addEventListener('resize', resize);
-    return () => { clearInterval(timer); window.removeEventListener('resize', resize); };
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+    };
   }, []);
 
-  // Mouse tracking for logo parallax + metric push
+  // Logo parallax + metric push — only while the pointer is moving
   useEffect(() => {
+    let raf = 0;
+    let running = false;
+    let lastMove = 0;
     const onMove = (e) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
+      lastMove = performance.now();
       if (logoRef.current) {
         const mx = (e.clientX - window.innerWidth / 2) / 25;
         const my = (e.clientY - window.innerHeight / 2) / 25;
         logoRef.current.style.transform = `perspective(1000px) rotateX(${-my}deg) rotateY(${mx}deg)`;
       }
+      if (!running) {
+        running = true;
+        raf = requestAnimationFrame(tick);
+      }
     };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
+    const tick = () => {
+      if (document.hidden || showFormRef.current) {
+        running = false;
+        return;
+      }
+      const m = mouseRef.current;
+      metricsRef.current.forEach((el) => {
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dist = Math.hypot(m.x - cx, m.y - cy);
+        if (dist < 180) {
+          const angle = Math.atan2(m.y - cy, m.x - cx);
+          const push = (180 - dist) * 0.4;
+          el.style.transform = `translate(${-Math.cos(angle) * push}px, ${-Math.sin(angle) * push}px) scale(1.08)`;
+          el.style.zIndex = '100';
+          el.style.opacity = '1';
+        } else {
+          el.style.transform = '';
+          el.style.zIndex = '50';
+          el.style.opacity = String(Math.max(0.22, Math.min(0.85, 1 - (dist - 180) / 600)));
+        }
+      });
+      if (performance.now() - lastMove > 360) {
+        running = false;
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
-  // Typewriter tagline
-  const TAGLINE = 'MULTI-MODEL API AGGREGATION PLATFORM';
-  const [typedTagline, setTypedTagline] = useState('');
+  // Typewriter tagline (DOM write, no React re-render per character)
+  const TAGLINE = t('多模型 API 聚合平台');
   useEffect(() => {
+    const el = taglineTextRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = TAGLINE;
+      return undefined;
+    }
+    el.textContent = '';
     let i = 0;
     const timer = setInterval(() => {
-      i++;
-      setTypedTagline(TAGLINE.slice(0, i));
+      i += 1;
+      el.textContent = TAGLINE.slice(0, i);
       if (i >= TAGLINE.length) clearInterval(timer);
     }, 45);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [TAGLINE]);
 
   // Terminal typing with syntax highlighting: starts when scrolled into view
   const terminalRef = useRef(null);
@@ -234,10 +295,10 @@ const LoginForm = () => {
         if (!entries[0].isIntersecting || timer) return;
         let i = 0;
         timer = setInterval(() => {
-          i += 2;
+          i += 4;
           setTypedCount(i);
           if (i >= codeTotalLen) clearInterval(timer);
-        }, 16);
+        }, 28);
         observer.disconnect();
       },
       { threshold: 0.3 },
@@ -262,37 +323,6 @@ const LoginForm = () => {
     );
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
-
-  // Unified rAF loop: metric push + focus fade (若隐若现)
-  useEffect(() => {
-    let raf;
-    const update = () => {
-      const m = mouseRef.current;
-      // Metrics: push away near cursor, fade with distance (focus reveal)
-      metricsRef.current.forEach((el) => {
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const dist = Math.hypot(m.x - cx, m.y - cy);
-        if (dist < 180) {
-          const angle = Math.atan2(m.y - cy, m.x - cx);
-          const push = (180 - dist) * 0.4;
-          el.style.transform = `translate(${-Math.cos(angle) * push}px, ${-Math.sin(angle) * push}px) scale(1.08)`;
-          el.style.zIndex = '100';
-          el.style.opacity = '1';
-        } else {
-          el.style.transform = '';
-          el.style.zIndex = '50';
-          const fade = Math.max(0.22, Math.min(0.85, 1 - (dist - 180) / 600));
-          el.style.opacity = String(fade);
-        }
-      });
-      raf = requestAnimationFrame(update);
-    };
-    raf = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
@@ -421,10 +451,10 @@ const LoginForm = () => {
   );
 
   const LANDING_FEATURES = [
-    { key: 'ha', icon: ShieldCheck, title: t('高可用架构'), desc: t('多通道故障自动转移，请求永远落到可用上游，SLA 有保障。'), metric: 'FAILOVER < 300MS · MULTI-CHANNEL' },
-    { key: 'fast', icon: Zap, title: t('闪电响应'), desc: t('智能路由与边缘缓存双重加速，平均延迟压至个位数毫秒。'), metric: 'AVG 8MS · P99 42MS' },
-    { key: 'support', icon: Headphones, title: t('全天候支持'), desc: t('7×24 小时技术响应，企业级问题不过夜。'), metric: '24/7 · RESPONSE < 1H' },
-    { key: 'billing', icon: Receipt, title: t('透明计费'), desc: t('Token 级成本明细，每一次调用都可追溯、可审计。'), metric: '100% TRACEABLE · PER-TOKEN' },
+    { key: 'ha', icon: ShieldCheck, title: t('高可用架构'), desc: t('多通道故障自动转移，请求永远落到可用上游，SLA 有保障。'), metric: t('故障转移 < 300MS · 多通道') },
+    { key: 'fast', icon: Zap, title: t('闪电响应'), desc: t('智能路由与边缘缓存双重加速，平均延迟压至个位数毫秒。'), metric: t('平均 8MS · P99 42MS') },
+    { key: 'support', icon: Headphones, title: t('全天候支持'), desc: t('7×24 小时技术响应，企业级问题不过夜。'), metric: t('全天候 · 响应 < 1H') },
+    { key: 'billing', icon: Receipt, title: t('透明计费'), desc: t('Token 级成本明细，每一次调用都可追溯、可审计。'), metric: t('100% 可追溯 · 按 Token') },
   ];
 
   return (
@@ -440,7 +470,7 @@ const LoginForm = () => {
         <div className='auth-hud-corner auth-hud-br' />
 
         <div className='auth-metrics-cloud'>
-          {METRICS.map((m, i) => (
+          {metrics.map((m, i) => (
             <div key={i} ref={(el) => (metricsRef.current[i] = el)} className='auth-metric-item' style={m.style}>
               <span>{m.label}</span>
               <strong>{m.value}</strong>
@@ -451,7 +481,7 @@ const LoginForm = () => {
         <div className='auth-content-overlay'>
           <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
           <p className='auth-tagline'>
-            {typedTagline}
+            <span ref={taglineTextRef} />
             <span className='auth-caret' />
           </p>
           <h1 className='auth-hero-headline'>{t('一个密钥，调用全球模型')}</h1>

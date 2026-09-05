@@ -97,9 +97,19 @@ const CardPro = ({
 
   return (
     <div className={`table-scroll-card ${className}`} style={style}>
-      {headerContent ? <div className='mb-4'>{headerContent}</div> : null}
-      {children}
-      {footerContent}
+      {headerContent ? (
+        <div className='daze-reveal mb-4' style={{ '--daze-delay': '45ms' }}>
+          {headerContent}
+        </div>
+      ) : null}
+      <div className='daze-reveal' style={{ '--daze-delay': '90ms' }}>
+        {children}
+      </div>
+      {footerContent ? (
+        <div className='daze-reveal' style={{ '--daze-delay': '135ms' }}>
+          {footerContent}
+        </div>
+      ) : null}
     </div>
   );
 };

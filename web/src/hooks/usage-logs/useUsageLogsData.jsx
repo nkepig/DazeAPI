@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -90,7 +90,8 @@ export const useLogsData = () => {
   const [logs, setLogs] = useState([]);
   const [expandData, setExpandData] = useState({});
   const [showStat, setShowStat] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
   const [loadingStat, setLoadingStat] = useState(false);
   const [activePage, setActivePage] = useState(1);
   const [logCount, setLogCount] = useState(0);
@@ -590,9 +591,10 @@ export const useLogsData = () => {
 
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null, customGroupFilter = null) => {
-    if (loading) {
+    if (loadingRef.current) {
       return;
     }
+    loadingRef.current = true;
     setLoading(true);
 
     let url = '';
@@ -644,6 +646,7 @@ export const useLogsData = () => {
         showError(error?.message || t('日志加载失败'));
       }
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };
@@ -686,23 +689,18 @@ export const useLogsData = () => {
     }
   };
 
-  // Initialize data
+  // Initialize data once the filter form is ready so today's date range is applied.
   useEffect(() => {
     const localPageSize =
       parseInt(localStorage.getItem('page-size')) || ITEMS_PER_PAGE;
     setPageSize(localPageSize);
-    loadLogs(activePage, localPageSize)
+    if (!formApi) return;
+    handleEyeClick();
+    loadLogs(1, localPageSize)
       .then()
       .catch((reason) => {
         showError(reason);
       });
-  }, []);
-
-  // Initialize statistics when formApi is available
-  useEffect(() => {
-    if (formApi) {
-      handleEyeClick();
-    }
   }, [formApi]);
 
   // Check if any record has expandable content

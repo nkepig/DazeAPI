@@ -25,7 +25,7 @@ import { useState, useEffect, useRef } from 'react';
  * @param {number} minimumTime - 最小显示时间（毫秒），默认 1000ms
  * @returns {boolean} showSkeleton - 是否显示骨架屏的状态
  */
-export const useMinimumLoadingTime = (loading, minimumTime = 1000) => {
+export const useMinimumLoadingTime = (loading, minimumTime = 180) => {
   const [showSkeleton, setShowSkeleton] = useState(loading);
   const loadingStartRef = useRef(Date.now());
 

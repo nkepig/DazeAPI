@@ -130,7 +130,7 @@ const LogsFilters = ({
 
             <Button
               htmlType='submit'
-              loading={loading}
+              disabled={loading}
               theme='solid'
               type='primary'
             >

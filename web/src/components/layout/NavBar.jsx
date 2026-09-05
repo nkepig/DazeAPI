@@ -1,4 +1,4 @@
-import React, { useContext, useState, useRef, useEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect, Suspense } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -20,8 +20,9 @@ import { isRoot, isAdmin, getSystemName, getLogo, stringToColor, getAdminPermiss
 import { updateAPI } from '../../helpers/api';
 import { Avatar } from '@douyinfe/semi-ui';
 import { normalizeLanguage } from '../../i18n/language';
-import AnnouncementModal from './AnnouncementModal';
+const AnnouncementModal = React.lazy(() => import('./AnnouncementModal'));
 import { API } from '../../helpers/api';
+import { prefetchConsolePage, prefetchConsolePages } from '../../helpers/prefetch';
 
 const navItems = [
   { key: 'dashboard', path: '/console/dashboard', icon: LayoutDashboard, label: '控制台' },
@@ -71,6 +72,16 @@ const NavBar = () => {
   useEffect(() => {
     fetchAnnouncement();
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1));
+    const id = idle(() => prefetchConsolePages());
+    return () => {
+      if (window.cancelIdleCallback) window.cancelIdleCallback(id);
+      else clearTimeout(id);
+    };
+  }, [isLoggedIn]);
 
   // 每次路由切换都重新判定未读状态：未读（含更新）则自动弹窗
   // 读完关闭后 localStorage 已记录当前版本，后续路由切换不会再弹，直到下次公告更新
@@ -134,7 +145,7 @@ const NavBar = () => {
   const logo = getLogo() || '/favicon.png';
 
   return (
-    <nav className='fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)] bg-white/80 backdrop-blur-lg'>
+    <nav className='fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)] bg-white/92 backdrop-blur-[8px]'>
       <div className='h-full px-6 lg:px-10 flex items-center justify-between'>
         {/* Logo */}
         <Link to='/' className='flex items-center gap-2.5 no-underline shrink-0'>
@@ -180,7 +191,10 @@ const NavBar = () => {
                   backgroundColor: 'transparent',
                   cursor: isLoggedIn ? 'pointer' : 'default',
                 }}
-                onMouseEnter={(e) => { if (isLoggedIn && !isActive) e.currentTarget.style.backgroundColor = '#F5F5F5'; }}
+                onMouseEnter={(e) => {
+                  if (isLoggedIn) prefetchConsolePage(item.path);
+                  if (isLoggedIn && !isActive) e.currentTarget.style.backgroundColor = '#F5F5F5';
+                }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 {t(item.label)}
@@ -202,7 +216,10 @@ const NavBar = () => {
                 color: location.pathname.startsWith('/console/channel') ? '#1A1A1A' : '#999',
                 backgroundColor: 'transparent',
               }}
-              onMouseEnter={(e) => { if (!location.pathname.startsWith('/console/channel')) e.currentTarget.style.backgroundColor = '#F5F5F5'; }}
+              onMouseEnter={(e) => {
+                prefetchConsolePage('/console/channel');
+                if (!location.pathname.startsWith('/console/channel')) e.currentTarget.style.backgroundColor = '#F5F5F5';
+              }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               {t('渠道管理')}
@@ -219,7 +236,10 @@ const NavBar = () => {
                 color: location.pathname.startsWith('/console/user') ? '#1A1A1A' : '#999',
                 backgroundColor: 'transparent',
               }}
-              onMouseEnter={(e) => { if (!location.pathname.startsWith('/console/user')) e.currentTarget.style.backgroundColor = '#F5F5F5'; }}
+              onMouseEnter={(e) => {
+                prefetchConsolePage('/console/user');
+                if (!location.pathname.startsWith('/console/user')) e.currentTarget.style.backgroundColor = '#F5F5F5';
+              }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               {t('用户管理')}
@@ -236,7 +256,10 @@ const NavBar = () => {
                 color: location.pathname.startsWith('/console/permission') ? '#1A1A1A' : '#999',
                 backgroundColor: 'transparent',
               }}
-              onMouseEnter={(e) => { if (!location.pathname.startsWith('/console/permission')) e.currentTarget.style.backgroundColor = '#F5F5F5'; }}
+              onMouseEnter={(e) => {
+                prefetchConsolePage('/console/permission');
+                if (!location.pathname.startsWith('/console/permission')) e.currentTarget.style.backgroundColor = '#F5F5F5';
+              }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               {t('权限管理')}
@@ -326,6 +349,7 @@ const NavBar = () => {
                     <Link
                       to='/console/personal'
                       onClick={() => setDropdownOpen(false)}
+                      onMouseEnter={() => prefetchConsolePage('/console/personal')}
                       className='flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A] no-underline hover:bg-[#F5F5F5] transition-colors'
                     >
                       <Settings size={15} strokeWidth={1.5} />
@@ -335,6 +359,7 @@ const NavBar = () => {
                       <Link
                         to='/console/setting'
                         onClick={() => setDropdownOpen(false)}
+                        onMouseEnter={() => prefetchConsolePage('/console/setting')}
                         className='flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A] no-underline hover:bg-[#F5F5F5] transition-colors'
                       >
                         <Settings size={15} strokeWidth={1.5} />
@@ -345,6 +370,7 @@ const NavBar = () => {
                         <Link
                           to='/console/setting'
                           onClick={() => setDropdownOpen(false)}
+                          onMouseEnter={() => prefetchConsolePage('/console/setting')}
                           className='flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A] no-underline hover:bg-[#F5F5F5] transition-colors'
                         >
                           <Settings size={15} strokeWidth={1.5} />
@@ -473,13 +499,17 @@ const NavBar = () => {
           </div>
         </motion.div>
       )}
-      <AnnouncementModal
-        visible={announcementVisible}
-        content={announcementContent}
-        version={announcementVersion}
-        onClose={closeAnnouncement}
-        isMobile={false}
-      />
+      {announcementVisible && (
+        <Suspense fallback={null}>
+          <AnnouncementModal
+            visible={announcementVisible}
+            content={announcementContent}
+            version={announcementVersion}
+            onClose={closeAnnouncement}
+            isMobile={false}
+          />
+        </Suspense>
+      )}
     </nav>
   );
 };

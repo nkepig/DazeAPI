@@ -17,9 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import ClawdChatPanel from './ClawdChatPanel';
+
+const ClawdChatPanel = React.lazy(() => import('./ClawdChatPanel'));
 
 const MASCOT_W = 56;
 const MASCOT_H = 42;
@@ -40,6 +41,7 @@ const getBasePoint = () => {
 const ClawdMascot = () => {
   const [pos, setPos] = useState(() => getBasePoint());
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [hasNewResponse, setHasNewResponse] = useState(false);
   const facingLeftRef = useRef(false);
@@ -98,6 +100,14 @@ const ClawdMascot = () => {
     }
   }, [chatOpen, startIdle]);
 
+  useEffect(() => {
+    if (chatOpen) setChatMounted(true);
+  }, [chatOpen]);
+
+  const prefetchChat = useCallback(() => {
+    import('./ClawdChatPanel');
+  }, []);
+
   const handleClickMascot = useCallback((e) => {
     e.stopPropagation();
     setChatOpen((prev) => !prev);
@@ -127,7 +137,10 @@ const ClawdMascot = () => {
         data-clawd-mascot
         style={containerStyle}
         onClick={handleClickMascot}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => {
+          setHovered(true);
+          prefetchChat();
+        }}
         onMouseLeave={() => setHovered(false)}
         role='button'
         tabIndex={-1}
@@ -258,14 +271,17 @@ const ClawdMascot = () => {
           }
         `}</style>
       </div>
-      {createPortal(
-        <ClawdChatPanel
-          visible={chatOpen}
-          onClose={() => setChatOpen(false)}
-          onNewResponse={() => setHasNewResponse(true)}
-        />,
-        document.body,
-      )}
+      {chatMounted &&
+        createPortal(
+          <Suspense fallback={null}>
+            <ClawdChatPanel
+              visible={chatOpen}
+              onClose={() => setChatOpen(false)}
+              onNewResponse={() => setHasNewResponse(true)}
+            />
+          </Suspense>,
+          document.body,
+        )}
     </>,
     document.body,
   );
