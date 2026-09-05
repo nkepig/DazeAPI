@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   API,
@@ -25,6 +25,7 @@ import {
   showSuccess,
   getCurrencyConfig,
   isAdmin,
+  setUserData,
 } from '../../../../helpers';
 import {
   quotaToDisplayAmount,
@@ -41,14 +42,17 @@ import {
 } from '@douyinfe/semi-ui';
 import { ChevronDown } from 'lucide-react';
 import { ModalTitle } from '../../../common/ui/FormSection';
+import { UserContext } from '../../../../context/User';
 
 const EditUserModal = (props) => {
   const { t } = useTranslation();
+  const [userState, userDispatch] = useContext(UserContext);
   const userId = props.editingUser.id;
   const [loading, setLoading] = useState(true);
   const [addQuotaModalOpen, setIsModalOpen] = useState(false);
   const [addAmountLocal, setAddAmountLocal] = useState('');
   const [pendingQuotaDelta, setPendingQuotaDelta] = useState(0);
+  const [quotaDisplay, setQuotaDisplay] = useState(0);
   const isMobile = useIsMobile();
   const formApiRef = useRef(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -88,6 +92,7 @@ const EditUserModal = (props) => {
       data.password = '';
       data.quota = quotaToDisplayAmount(data.quota || 0);
       setPendingQuotaDelta(0);
+      setQuotaDisplay(data.quota);
       const groupEntries = [];
       const overrides = {};
       if (data.group_ratio) {
@@ -125,7 +130,7 @@ const EditUserModal = (props) => {
   const submit = async (values) => {
     setLoading(true);
     const payload = { ...values };
-    payload.quota = displayAmountToQuota(payload.quota || 0);
+    payload.quota = displayAmountToQuota(quotaDisplay || 0);
     if (userId) {
       payload.id = parseInt(userId);
       const delta = Number(pendingQuotaDelta || 0);
@@ -147,7 +152,21 @@ const EditUserModal = (props) => {
     const { success, message } = res.data;
     if (success) {
       showSuccess(t('用户信息更新成功！'));
-      props.refresh();
+      const selfId = userState?.user?.id;
+      if (!userId || String(userId) === String(selfId)) {
+        try {
+          const selfRes = await API.get('/api/user/self');
+          if (selfRes.data?.success) {
+            userDispatch({ type: 'login', payload: selfRes.data.data });
+            setUserData(selfRes.data.data);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      if (typeof props.refresh === 'function') {
+        await props.refresh();
+      }
       props.handleClose();
     } else {
       showError(message);
@@ -156,9 +175,10 @@ const EditUserModal = (props) => {
   };
 
   const addLocalQuota = () => {
-    const current = formApiRef.current?.getValue('quota') || 0;
     const delta = parseFloat(addAmountLocal) || 0;
-    formApiRef.current?.setValue('quota', Number((current + delta).toFixed(2)));
+    if (!delta) return;
+    const next = Number((Number(quotaDisplay) + delta).toFixed(2));
+    setQuotaDisplay(next);
     setPendingQuotaDelta((prev) => prev + delta);
   };
 
@@ -201,7 +221,6 @@ const EditUserModal = (props) => {
             getFormApi={(api) => (formApiRef.current = api)}
             onSubmit={submit}
           >
-            {() => (
               <>
                 <Form.Input
                   field='username'
@@ -231,23 +250,24 @@ const EditUserModal = (props) => {
                 />
 
                 {userId && (
-                  <Form.InputNumber
-                    field='quota'
-                    label={t('余额')}
-                    step={1}
-                    precision={2}
-                    disabled
-                    hideButtons
-                    style={{ width: '100%' }}
-                    suffix={
-                      <Button
-                        size='small'
-                        onClick={() => setIsModalOpen(true)}
-                      >
+                  <div className='semi-form-field' style={{ width: '100%' }}>
+                    <label className='text-[14px] text-[var(--semi-color-text-0)] mb-2 block'>
+                      {t('余额')}
+                    </label>
+                    <div className='flex items-center gap-2'>
+                      <div className='quota-display'>
+                        <span className='quota-display-symbol'>
+                          {getCurrencyConfig().symbol}
+                        </span>
+                        <span className='quota-display-value'>
+                          {Number(quotaDisplay || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <Button size='small' onClick={() => setIsModalOpen(true)}>
                         {t('调整')}
                       </Button>
-                    }
-                  />
+                    </div>
+                  </div>
                 )}
 
                 {userId && isAdmin() && (
@@ -335,7 +355,6 @@ const EditUserModal = (props) => {
                   </>
                 )}
               </>
-            )}
           </Form>
         </Spin>
       </Modal>
@@ -356,11 +375,10 @@ const EditUserModal = (props) => {
         width={isMobile ? '100%' : 400}
       >
         {(() => {
-          const current = formApiRef.current?.getValue('quota') || 0;
           const addVal = parseFloat(addAmountLocal) || 0;
           return (
             <p className='text-[13px] text-[#666] mb-3'>
-              {t('新额度：')}{getCurrencyConfig().symbol}{(current + addVal).toFixed(2)}
+              {t('新额度：')}{getCurrencyConfig().symbol}{(Number(quotaDisplay) + addVal).toFixed(2)}
             </p>
           );
         })()}

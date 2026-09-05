@@ -57,6 +57,7 @@ import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ShieldCheck, Zap, Headphones, Receipt, ChevronDown } from 'lucide-react';
 
 const METRICS = [
   { label: 'UPTIME', value: '99.97%', style: { top: '8%', left: '6%' } },
@@ -66,7 +67,7 @@ const METRICS = [
   { label: 'CACHE_HIT', value: '94.2%', style: { top: '40%', left: '4%' } },
   { label: 'QUALITY_SCORE', value: '98.6%', style: { top: '36%', right: '4%' } },
   { label: 'BUILD', value: 'STABLE', style: { top: '4%', left: '44%' } },
-  { label: 'OPTIMIZATION', value: 'ENABLED', style: { bottom: '5%', left: '50%' } },
+  { label: 'OPTIMIZATION', value: 'ENABLED', style: { bottom: '14%', left: '50%' } },
   { label: 'EFFECT_RATE', value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
   { label: 'HEALTH_CHECK', value: 'PASSING', style: { top: '24%', right: '20%', opacity: 0.5 } },
   { label: 'PERFORMANCE', value: 'OPTIMAL', style: { bottom: '35%', left: '18%', opacity: 0.5 } },
@@ -77,6 +78,7 @@ const LoginForm = () => {
   let navigate = useNavigate();
   const { t } = useTranslation();
   const canvasRef = useRef(null);
+  const rootRef = useRef(null);
   const metricsRef = useRef([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const logoRef = useRef(null);
@@ -127,28 +129,49 @@ const LoginForm = () => {
 
   const hasOAuthLoginOptions = false;
 
-  // Canvas data stream
+  // Canvas data stream — "thunder" edition: fading trails + fast glowing bolt columns
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    let w, h, drops = [];
+    let w, h, cols = [];
     const chars = 'DAZEAI_v2.0_API_DATA_SYNC_1010101';
+    const spawn = () => ({
+      y: Math.random() * -30,
+      speed: 0.35 + Math.random() * 0.8,
+      bolt: Math.random() < 0.14,
+    });
     const resize = () => {
       w = canvas.width = window.innerWidth;
       h = canvas.height = window.innerHeight;
-      drops = Array(Math.floor(w / 20)).fill(1);
+      cols = Array.from({ length: Math.floor(w / 20) }, () => {
+        const c = spawn();
+        c.y = Math.random() * (h / 20);
+        return c;
+      });
     };
     const draw = () => {
-      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+      // Semi-transparent white wash → previous frames fade into trails
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
       ctx.fillRect(0, 0, w, h);
       ctx.font = '12px monospace';
-      ctx.fillStyle = '#000';
-      drops.forEach((y, i) => {
-        const ch = chars[Math.floor(Math.random() * chars.length)];
-        ctx.fillText(ch, i * 20, y * 20);
-        if (y * 20 > h && Math.random() > 0.975) drops[i] = 0;
-        drops[i]++;
+      cols.forEach((c, i) => {
+        const ch = chars[(Math.random() * chars.length) | 0];
+        const x = i * 20;
+        const y = c.y * 20;
+        if (c.bolt) {
+          // Bolt column: pure black head with a soft glow, falls fast
+          ctx.shadowBlur = 9;
+          ctx.shadowColor = 'rgba(0,0,0,0.75)';
+          ctx.fillStyle = '#000';
+        } else {
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        }
+        ctx.fillText(ch, x, y);
+        ctx.shadowBlur = 0;
+        c.y += c.bolt ? c.speed * 2.4 : c.speed;
+        if (y > h && Math.random() > 0.96) cols[i] = spawn();
       });
     };
     resize();
@@ -171,11 +194,82 @@ const LoginForm = () => {
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
 
-  // Metric push animation
+  // Typewriter tagline
+  const TAGLINE = 'MULTI-MODEL API AGGREGATION PLATFORM';
+  const [typedTagline, setTypedTagline] = useState('');
+  useEffect(() => {
+    let i = 0;
+    const timer = setInterval(() => {
+      i++;
+      setTypedTagline(TAGLINE.slice(0, i));
+      if (i >= TAGLINE.length) clearInterval(timer);
+    }, 45);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Terminal typing with syntax highlighting: starts when scrolled into view
+  const terminalRef = useRef(null);
+  const [typedCount, setTypedCount] = useState(0);
+  const CODE_SEGMENTS = useMemo(() => [
+    { text: '$ ', cls: 'tk-prompt' },
+    { text: 'curl ', cls: 'tk-cmd' },
+    { text: `${window.location.origin}/v1/chat/completions`, cls: 'tk-str' },
+    { text: ' \\\n    -H ', cls: 'tk-flag' },
+    { text: '"Authorization: Bearer sk-your-key"', cls: 'tk-str' },
+    { text: ' \\\n    -d ', cls: 'tk-flag' },
+    { text: '\'{"model":"gpt-5","messages":[{"role":"user","content":"Hello!"}]}\'', cls: 'tk-str' },
+    { text: '\n\n→ ', cls: 'tk-prompt' },
+    { text: '200 OK', cls: 'tk-ok' },
+    { text: ' · 8ms\n', cls: 'tk-dim' },
+    { text: '{"choices":[{"message":{"role":"assistant","content":"Hello!"}}],\n "usage":{"prompt_tokens":8,"completion_tokens":9,"total_tokens":17}}', cls: 'tk-dim' },
+  ], []);
+  const codeTotalLen = useMemo(() => CODE_SEGMENTS.reduce((n, s) => n + s.text.length, 0), [CODE_SEGMENTS]);
+  useEffect(() => {
+    const el = terminalRef.current;
+    if (!el) return;
+    let timer = null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting || timer) return;
+        let i = 0;
+        timer = setInterval(() => {
+          i += 2;
+          setTypedCount(i);
+          if (i >= codeTotalLen) clearInterval(timer);
+        }, 16);
+        observer.disconnect();
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => { observer.disconnect(); if (timer) clearInterval(timer); };
+  }, [codeTotalLen]);
+
+  // Scroll reveal: sections fade/slide in when entering the viewport and
+  // gently fade back out when leaving it (若隐若现, works in both directions)
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const els = root.querySelectorAll('.landing-reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          entry.target.classList.toggle('in-view', entry.isIntersecting);
+        });
+      },
+      { root, threshold: 0.15 },
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  // Unified rAF loop: metric push + focus fade (若隐若现)
   useEffect(() => {
     let raf;
     const update = () => {
       const m = mouseRef.current;
+      // Metrics: push away near cursor, fade with distance (focus reveal)
       metricsRef.current.forEach((el) => {
         if (!el) return;
         const r = el.getBoundingClientRect();
@@ -187,9 +281,12 @@ const LoginForm = () => {
           const push = (180 - dist) * 0.4;
           el.style.transform = `translate(${-Math.cos(angle) * push}px, ${-Math.sin(angle) * push}px) scale(1.08)`;
           el.style.zIndex = '100';
+          el.style.opacity = '1';
         } else {
           el.style.transform = '';
           el.style.zIndex = '50';
+          const fade = Math.max(0.22, Math.min(0.85, 1 - (dist - 180) / 600));
+          el.style.opacity = String(fade);
         }
       });
       raf = requestAnimationFrame(update);
@@ -242,7 +339,7 @@ const LoginForm = () => {
 
   async function handleSubmit() {
     if ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms) { showInfo(t('请先阅读并同意用户协议和隐私政策')); return; }
-    if (turnstileEnabled && !turnstileToken) { showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！'); return; }
+    if (turnstileEnabled && !turnstileToken) { showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！')); return; }
     setSubmitted(true); setLoginLoading(true);
     try {
       if (username && password) {
@@ -250,25 +347,25 @@ const LoginForm = () => {
         const { success, message, data } = res.data;
         if (success) {
           userDispatch({ type: 'login', payload: data }); setUserData(data); updateAPI();
-          showSuccess('登录成功！');
-          if (username === 'root' && password === '123456') Modal.error({ title: '您正在使用默认密码！', content: '请立刻修改默认密码！', centered: true });
+          showSuccess(t('登录成功！'));
+          if (username === 'root' && password === '123456') Modal.error({ title: t('您正在使用默认密码！'), content: t('请立刻修改默认密码！'), centered: true });
           navigate('/console/dashboard');
         } else showError(message);
-      } else showError('请输入用户名和密码！');
-    } catch { showError('登录失败，请重试'); }
+      } else showError(t('请输入用户名和密码！'));
+    } catch { showError(t('登录失败，请重试')); }
     finally { setLoginLoading(false); }
   }
 
   const onWeChatLoginClicked = requireTerms(() => { setWechatLoading(true); setShowWeChatLoginModal(true); setWechatLoading(false); });
   const onSubmitWeChatVerificationCode = async () => {
-    if (turnstileEnabled && !turnstileToken) { showInfo('请稍后几秒重试'); return; }
+    if (turnstileEnabled && !turnstileToken) { showInfo(t('请稍后几秒重试')); return; }
     setWechatCodeSubmitLoading(true);
     try {
       const res = await API.get(`/api/oauth/wechat?code=${inputs.wechat_verification_code}`);
       const { success, message, data } = res.data;
-      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); setUserData(data); updateAPI(); navigate('/'); showSuccess('登录成功！'); setShowWeChatLoginModal(false); }
+      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); setUserData(data); updateAPI(); navigate('/'); showSuccess(t('登录成功！')); setShowWeChatLoginModal(false); }
       else showError(message);
-    } catch { showError('登录失败，请重试'); }
+    } catch { showError(t('登录失败，请重试')); }
     finally { setWechatCodeSubmitLoading(false); }
   };
 
@@ -279,9 +376,9 @@ const LoginForm = () => {
     try {
       const res = await API.get('/api/oauth/telegram/login', { params });
       const { success, message, data } = res.data;
-      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); showSuccess('登录成功！'); setUserData(data); updateAPI(); navigate('/'); }
+      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); showSuccess(t('登录成功！')); setUserData(data); updateAPI(); navigate('/'); }
       else showError(message);
-    } catch { showError('登录失败，请重试'); }
+    } catch { showError(t('登录失败，请重试')); }
   };
 
   const handleGitHubClick = requireTerms(() => {
@@ -323,30 +420,133 @@ const LoginForm = () => {
     </div>
   );
 
+  const LANDING_FEATURES = [
+    { key: 'ha', icon: ShieldCheck, title: t('高可用架构'), desc: t('多通道故障自动转移，请求永远落到可用上游，SLA 有保障。'), metric: 'FAILOVER < 300MS · MULTI-CHANNEL' },
+    { key: 'fast', icon: Zap, title: t('闪电响应'), desc: t('智能路由与边缘缓存双重加速，平均延迟压至个位数毫秒。'), metric: 'AVG 8MS · P99 42MS' },
+    { key: 'support', icon: Headphones, title: t('全天候支持'), desc: t('7×24 小时技术响应，企业级问题不过夜。'), metric: '24/7 · RESPONSE < 1H' },
+    { key: 'billing', icon: Receipt, title: t('透明计费'), desc: t('Token 级成本明细，每一次调用都可追溯、可审计。'), metric: '100% TRACEABLE · PER-TOKEN' },
+  ];
+
   return (
-    <div className='auth-terminal-root'>
+    <div ref={rootRef} className='auth-terminal-root'>
       <canvas ref={canvasRef} className='auth-data-canvas' />
 
-      <div className='auth-metrics-cloud'>
-        {METRICS.map((m, i) => (
-          <div key={i} ref={(el) => (metricsRef.current[i] = el)} className='auth-metric-item' style={m.style}>
-            <span>{m.label}</span>
-            <strong>{m.value}</strong>
-          </div>
-        ))}
-      </div>
+      {/* ================= HERO ================= */}
+      <section className='auth-hero'>
+        {/* HUD corner brackets */}
+        <div className='auth-hud-corner auth-hud-tl' />
+        <div className='auth-hud-corner auth-hud-tr' />
+        <div className='auth-hud-corner auth-hud-bl' />
+        <div className='auth-hud-corner auth-hud-br' />
 
-      {/* Landing hero */}
-      <div className='auth-content-overlay'>
-        <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
-        <p className='auth-tagline'>MULTI-MODEL API AGGREGATION PLATFORM</p>
-        <nav className='auth-button-matrix'>
-          <button className='auth-neo-btn auth-btn-outline' onClick={() => { setShowForm(true); setFormMode('email'); }}>
-            Get Started
-          </button>
-          <a href='/docs' className='auth-neo-btn auth-btn-ghost'>View Docs</a>
-        </nav>
-      </div>
+        <div className='auth-metrics-cloud'>
+          {METRICS.map((m, i) => (
+            <div key={i} ref={(el) => (metricsRef.current[i] = el)} className='auth-metric-item' style={m.style}>
+              <span>{m.label}</span>
+              <strong>{m.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className='auth-content-overlay'>
+          <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
+          <p className='auth-tagline'>
+            {typedTagline}
+            <span className='auth-caret' />
+          </p>
+          <h1 className='auth-hero-headline'>{t('一个密钥，调用全球模型')}</h1>
+          <p className='auth-hero-sub'>{t('聚合 40+ 上游供应商，统一接口、统一计费、智能路由。')}</p>
+          <nav className='auth-button-matrix'>
+            <button
+              className='auth-neo-btn auth-btn-outline'
+              onClick={() => { setShowForm(true); setFormMode('email'); }}
+            >
+              {t('开始使用')}
+            </button>
+            <a
+              href='/docs'
+              className='auth-neo-btn auth-btn-ghost'
+            >
+              {t('查看文档')}
+            </a>
+          </nav>
+        </div>
+
+        {/* Scroll hint: gently pulsing arrow guiding to the sections below */}
+        <button
+          type='button'
+          className='auth-scroll-hint'
+          onClick={() => {
+            const root = rootRef.current;
+            const target = root?.querySelector('.landing-section');
+            if (root && target) {
+              root.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+            }
+          }}
+        >
+          <span>{t('为什么选择我们')}</span>
+          <ChevronDown size={16} strokeWidth={2} />
+        </button>
+      </section>
+
+      {/* ================= FEATURES ================= */}
+      <section className='landing-section'>
+        <div className='landing-sec-head landing-reveal'>
+          <h2>{t('为生产环境而生')}</h2>
+          <p>{t('不只是一个中转站——从可用性到计费，每一层都为稳定性设计。')}</p>
+        </div>
+        <div className='landing-feat-grid'>
+          {LANDING_FEATURES.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <div key={f.key} className='landing-feat landing-reveal' style={{ transitionDelay: `${i * 70}ms` }}>
+                <div className='landing-feat-icon'><Icon size={17} strokeWidth={1.8} /></div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
+                <div className='landing-feat-drawer'>{f.metric}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ================= QUICKSTART / CODE ================= */}
+      <section className='landing-section landing-code-section'>
+        <div className='landing-code-wrap'>
+          <div className='landing-code-copy landing-reveal'>
+            <h2>{t('一行接入，全球模型')}</h2>
+            <ul>
+              <li>{t('兼容 OpenAI / Claude / Gemini 官方 SDK，零改动接入')}</li>
+              <li>{t('一个密钥调用 200+ 模型，统一计费、统一日志')}</li>
+              <li>{t('智能负载均衡，上游故障自动切换')}</li>
+            </ul>
+            <a href='/docs' className='landing-doc-link'>{t('查看 API 文档')} →</a>
+          </div>
+          <div className='landing-terminal landing-reveal' style={{ transitionDelay: '120ms' }} ref={terminalRef}>
+            <div className='landing-terminal-bar'>
+              <i className='dot-r' /><i className='dot-y' /><i className='dot-g' />
+              <span>bash — curl</span>
+            </div>
+            <pre>
+              {/* Invisible full-text sizer reserves the final height — no layout shift while typing */}
+              <span aria-hidden='true' className='tk-sizer'>
+                {CODE_SEGMENTS.map((s) => s.text).join('')}
+              </span>
+              <span className='tk-typed'>
+                {(() => {
+                  let remaining = typedCount;
+                  return CODE_SEGMENTS.map((seg, i) => {
+                    const slice = seg.text.slice(0, Math.max(0, Math.min(remaining, seg.text.length)));
+                    remaining -= seg.text.length;
+                    return slice ? <span key={i} className={seg.cls}>{slice}</span> : null;
+                  });
+                })()}
+                <span className='auth-caret' />
+              </span>
+            </pre>
+          </div>
+        </div>
+      </section>
 
       {/* Login Dialog */}
       <AnimatePresence>
@@ -368,7 +568,7 @@ const LoginForm = () => {
             >
               <div className='text-center mb-6'>
                 <h2 className='text-[18px] font-bold text-[#1A1A1A]'>{t('登录')}</h2>
-                <p className='text-[12px] text-[#BBB] mt-1'>Welcome!</p>
+                <p className='text-[12px] text-[#BBB] mt-1'>{t('欢迎')}</p>
               </div>
 
               {formMode === 'oauth' ? (
@@ -425,7 +625,6 @@ const LoginForm = () => {
         <Form><Form.Input field='wechat_verification_code' placeholder={t('验证码')} label={t('验证码')} value={inputs.wechat_verification_code} onChange={(v) => handleChange('wechat_verification_code', v)} /></Form>
       </Modal>
 
-
       {turnstileEnabled && (
         <div className='fixed bottom-4 left-1/2 -translate-x-1/2 z-[300]'>
           <Turnstile sitekey={turnstileSiteKey} onVerify={(token) => setTurnstileToken(token)} />
@@ -433,8 +632,8 @@ const LoginForm = () => {
       )}
 
       {/* new-api credit */}
-      <div className='absolute bottom-6 left-6 z-[60] max-w-md text-[11px] text-[#b0b0b0] leading-relaxed'>
-        本项目 基于{' '}
+      <div className='landing-credit landing-reveal text-[11px] text-[#b0b0b0] leading-relaxed'>
+        {t('本项目基于')}{' '}
         <a
           href='https://github.com/QuantumNous/new-api'
           target='_blank'
@@ -443,7 +642,7 @@ const LoginForm = () => {
         >
           New-API
         </a>
-        {' '}二次开发，仅供个人学习使用。
+        {' '}{t('二次开发，仅供个人学习使用。')}
       </div>
     </div>
   );

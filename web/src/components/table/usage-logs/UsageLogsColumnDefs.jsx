@@ -93,33 +93,19 @@ function buildChannelAffinityTooltip(affinity, t) {
   );
 }
 
-const LOG_TYPE_STYLES = {
-  1: { background: '#ecfeff', color: '#0891b2', border: '1px solid #a5f3fc' },   // 充值 - cyan
-  2: { background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' },   // 消费 - green
-  3: { background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa' },   // 管理 - orange
-  4: { background: '#faf5ff', color: '#9333ea', border: '1px solid #e9d5ff' },   // 系统 - purple
-  5: { background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3' },   // 错误 - red
-  6: { background: '#f0fdfa', color: '#0d9488', border: '1px solid #99f6e4' },   // 退款 - teal
+// Unified semantic dot-pills (status-pill utility classes from index.css)
+const LOG_TYPE_PILL_CLASS = {
+  1: 'status-pill-info',     // 充值
+  2: 'status-pill-ok',       // 消费
+  3: 'status-pill-warn',     // 管理
+  4: 'status-pill-neutral',  // 系统
+  5: 'status-pill-err',      // 错误
+  6: 'status-pill-info',     // 退款
 };
 
-const LOG_TYPE_DEFAULT = { background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' };
-
 const LogTypeBadge = ({ type, children }) => {
-  const style = LOG_TYPE_STYLES[type] || LOG_TYPE_DEFAULT;
-  return (
-    <span style={{
-      ...style,
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '2px 10px',
-      borderRadius: '9999px',
-      fontSize: '12px',
-      fontWeight: 500,
-      whiteSpace: 'nowrap',
-    }}>
-      {children}
-    </span>
-  );
+  const cls = LOG_TYPE_PILL_CLASS[type] || 'status-pill-neutral';
+  return <span className={`status-pill ${cls}`}>{children}</span>;
 };
 
 // Render functions
@@ -425,6 +411,16 @@ export const getLogsColumns = ({
       key: COLUMN_KEYS.TIME,
       title: t('时间'),
       dataIndex: 'timestamp2string',
+      render: (text) => {
+        if (!text) return '—';
+        const [date, time] = String(text).split(' ');
+        return (
+          <div className='log-time'>
+            <span className='log-time-date'>{date}</span>
+            <span className='log-time-clock'>{time || '—'}</span>
+          </div>
+        );
+      },
     },
     {
       key: COLUMN_KEYS.CHANNEL,

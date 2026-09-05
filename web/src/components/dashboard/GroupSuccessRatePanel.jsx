@@ -113,6 +113,9 @@ const GroupSuccessRatePanel = () => {
   };
 
   if (!visible) return null;
+  // No data → hide the whole panel instead of rendering an empty box
+  // (avoids a duplicated "暂无数据" next to the chart's own empty state)
+  if (!loading && data.length === 0) return null;
 
   return (
     <div className='mt-8'>
@@ -144,11 +147,7 @@ const GroupSuccessRatePanel = () => {
           <div className='inline-block w-4 h-4 border-2 border-[#E0E0E0] border-t-[#999] rounded-full animate-spin mb-2' />
           <div>{t('加载中')}...</div>
         </div>
-      ) : data.length === 0 ? (
-        <div className='bg-white rounded-2xl border border-[#F0F0F0] p-10 text-center'>
-          <div className='text-[13px] text-[#C8C8C8]'>{t('暂无数据')}</div>
-        </div>
-      ) : (
+      ) : data.length === 0 ? null : (
         <div className='space-y-2.5'>
           {groupedByGroup.map((g) => {
             const groupKey = g.group;

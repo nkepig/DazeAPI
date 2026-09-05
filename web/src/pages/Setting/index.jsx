@@ -1,10 +1,26 @@
 /*
 Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 import {
   Settings,
   Calculator,
@@ -57,7 +73,7 @@ const Setting = () => {
   const ActiveComponent = current.Component;
 
   return (
-    <div className='px-6 lg:px-10 py-8'>
+    <div className='px-6 lg:px-10 py-8 page-fade'>
       <h1 className='text-[22px] font-semibold text-[#1A1A1A] mb-6'>{t(current.label)}</h1>
 
       <div className='flex flex-col md:flex-row gap-8 items-start'>
@@ -70,10 +86,10 @@ const Setting = () => {
                   key={key}
                   type='button'
                   onClick={() => switchSection(key)}
-                  className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg cursor-pointer border-0 text-left transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg cursor-pointer border-0 text-left transition-all duration-150 whitespace-nowrap ${
                     active
-                      ? 'bg-[#F5F5F5] text-[#1A1A1A] font-medium'
-                      : 'bg-transparent text-[#999] hover:bg-[#FAFAFA] hover:text-[#1A1A1A]'
+                      ? 'bg-[#1A1A1A] text-white font-semibold'
+                      : 'bg-transparent text-[#999] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]'
                   }`}
                 >
                   <Icon size={15} strokeWidth={1.5} />
@@ -85,7 +101,15 @@ const Setting = () => {
         </nav>
 
         <div className='flex-1 min-w-0 w-full'>
-          <ActiveComponent />
+          <motion.div
+            key={activeSection}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className='daze-card'
+          >
+            <ActiveComponent />
+          </motion.div>
         </div>
       </div>
     </div>

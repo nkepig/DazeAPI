@@ -58,16 +58,6 @@ const PALETTE = {
   },
 };
 
-const BASE_LAYOUT = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  padding: '2px 10px',
-  borderRadius: '9999px',
-  fontSize: '12px',
-  fontWeight: 500,
-  whiteSpace: 'nowrap',
-};
-
 /**
  * @param {number|string} variant
  *   数字：1 启用/成功，2 禁用/失败，3 警告类，0 未知/中性
@@ -115,18 +105,26 @@ function resolvePaletteKey(variant) {
 }
 
 /**
- * 渠道状态、令牌状态、测试结果等统一胶囊标签（与 ChannelsColumnDefs 渠道状态视觉一致）
+ * 渠道状态、令牌状态、测试结果等统一胶囊标签
+ * 视觉：OpenRouter 式圆点胶囊（status-pill 工具类，见 index.css）
  */
+const PALETTE_TO_PILL_CLASS = {
+  success: 'status-pill-ok',
+  danger: 'status-pill-err',
+  warning: 'status-pill-warn',
+  neutral: 'status-pill-neutral',
+  info: 'status-pill-info',
+  lime: 'status-pill-ok',
+  purple: 'status-pill-info',
+};
+
 export function StatusPill({ variant = 'neutral', children, className, style }) {
-  const palette = resolveStatusPillPalette(variant);
+  const key = resolvePaletteKey(variant);
+  const pillClass = PALETTE_TO_PILL_CLASS[key] || 'status-pill-neutral';
   return (
     <span
-      className={className}
-      style={{
-        ...palette,
-        ...BASE_LAYOUT,
-        ...style,
-      }}
+      className={`status-pill ${pillClass}${className ? ` ${className}` : ''}`}
+      style={style}
     >
       {children}
     </span>

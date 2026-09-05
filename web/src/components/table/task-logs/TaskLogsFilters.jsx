@@ -17,11 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Form } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
-import { DATE_RANGE_PRESETS } from '../../../constants/console.constants';
+import DateRangeFilter from '../../common/DateRangeFilter';
 
 const TaskLogsFilters = ({
   formInitValues,
@@ -33,6 +33,9 @@ const TaskLogsFilters = ({
   isAdminUser,
   t,
 }) => {
+  // Bumping this key remounts DateRangeFilter so its local state
+  // stays in sync when the form is reset.
+  const [resetKey, setResetKey] = useState(0);
   return (
     <Form
       initValues={formInitValues}
@@ -47,20 +50,14 @@ const TaskLogsFilters = ({
       <div className='flex flex-col gap-2'>
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
           {/* 时间选择器 */}
-          <div className='col-span-1 lg:col-span-2'>
-            <Form.DatePicker
+          <div className='col-span-1 lg:col-span-2 flex items-center'>
+            <DateRangeFilter
+              key={resetKey}
+              formApi={formApi}
               field='dateRange'
-              className='w-full'
-              type='dateTimeRange'
-              placeholder={[t('开始时间'), t('结束时间')]}
-              showClear
-              pure
-              size='small'
-              presets={DATE_RANGE_PRESETS.map((preset) => ({
-                text: t(preset.text),
-                start: preset.start(),
-                end: preset.end(),
-              }))}
+              value={formInitValues.dateRange}
+              onChange={() => refresh()}
+              t={t}
             />
           </div>
 
@@ -104,6 +101,7 @@ const TaskLogsFilters = ({
               onClick={() => {
                 if (formApi) {
                   formApi.reset();
+                  setResetKey((k) => k + 1);
                   // 重置后立即查询，使用setTimeout确保表单重置完成
                   setTimeout(() => {
                     refresh();
