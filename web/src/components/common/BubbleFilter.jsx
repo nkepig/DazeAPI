@@ -22,7 +22,7 @@ import { createPortal } from 'react-dom';
 import { Tooltip } from '@douyinfe/semi-ui';
 import { IconChevronDown } from '@douyinfe/semi-icons';
 
-const STYLE_ID = 'dazeapi-bubble-filter-style';
+const STYLE_ID = 'dazeapi-bubble-filter-style-v3';
 const CLOSE_ANIMATION_DURATION = 480;
 // After a bubble is opened by click, if no interaction touches it for this long,
 // it auto-collapses. Multiple bubbles can stay open at once; each has its own
@@ -63,7 +63,7 @@ const ensureBubbleFilterStyles = () => {
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
-      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease, background 0.35s ease;
+      transition: transform 0.28s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.28s ease, border-color 0.28s ease, background 0.28s ease;
     }
 
     .bubble-filter360-root.small .bubble-filter360-trigger {
@@ -73,9 +73,15 @@ const ensureBubbleFilterStyles = () => {
     }
 
     .bubble-filter360-trigger:hover {
-      border-color: var(--semi-color-primary);
-      box-shadow: 0 4px 16px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
-      transform: translateY(-1px);
+      border-color: rgba(0, 0, 0, 0.18);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+    }
+
+    .bubble-filter360-trigger:active,
+    .bubble-filter360-trigger.is-pressed {
+      transform: scale(0.98);
+      background: #f0f0f2;
+      transition-duration: 0.08s;
     }
 
     .bubble-filter360-trigger.active {

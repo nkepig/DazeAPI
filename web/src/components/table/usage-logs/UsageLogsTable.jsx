@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Descriptions } from '@douyinfe/semi-ui';
 import CardTable from '../../common/ui/CardTable';
 import { getLogsColumns } from './UsageLogsColumnDefs';
 
@@ -92,7 +91,7 @@ const LogsTable = (logsData) => {
       rowKey='key'
       loading={loading}
       scroll={compactMode ? undefined : { x: 'max-content' }}
-      className='rounded-xl overflow-hidden'
+      className='rounded-xl overflow-hidden usage-logs-table'
       size='small'
       expandRowByClick={canExpand}
       expandedRowRender={
@@ -101,8 +100,13 @@ const LogsTable = (logsData) => {
               const data = expandData[record.key];
               if (!data?.length) return null;
               return (
-                <div className='px-2 py-1'>
-                  <Descriptions align='left' data={data} />
+                <div className='log-expand'>
+                  {data.map((item, i) => (
+                    <div className='log-expand-row' key={`${item.key}-${i}`}>
+                      <span className='log-expand-key'>{item.key}</span>
+                      <span className='log-expand-val'>{item.value}</span>
+                    </div>
+                  ))}
                 </div>
               );
             }

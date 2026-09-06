@@ -179,25 +179,48 @@ export function showError(error) {
   if (error?.message) {
     if (error.name === 'AxiosError') {
       const status = error.response?.status;
+      const body = error.response?.data;
+      const isApiPayload = body && typeof body === 'object' && ('success' in body || 'message' in body);
+      const looksOffline =
+        !error.response ||
+        error.code === 'ERR_NETWORK' ||
+        error.code === 'ECONNABORTED' ||
+        (status === 500 && !isApiPayload);
       switch (status) {
         case 401:
           localStorage.removeItem('user');
           window.location.href = '/login?expired=true';
           break;
         case 429:
-          Toast.error({ content: '错误：请求次数过多，请稍后再试！', duration: 1.5 });
+          Toast.error({ content: '错误：请求次数过多，请稍后再试！', duration: 1.5, id: 'api-429' });
           break;
         case 500:
-          Toast.error('错误：服务器内部错误，请联系管理员！');
+          if (looksOffline) {
+            Toast.error({
+              content: '错误：无法连接到服务器，请确认后端已启动',
+              duration: 3,
+              id: 'api-offline',
+            });
+          } else {
+            Toast.error({
+              content: '错误：服务器内部错误，请联系管理员！',
+              duration: 3,
+              id: 'api-500',
+            });
+          }
           break;
         case 405:
           Toast.info('本站仅作演示之用，无服务端！');
           break;
         default:
-          if (!error.response) {
-            Toast.error('错误：网络异常或服务器无响应，请稍后重试！');
+          if (!error.response || looksOffline) {
+            Toast.error({
+              content: '错误：无法连接到服务器，请确认后端已启动',
+              duration: 3,
+              id: 'api-offline',
+            });
           } else {
-            Toast.error('错误：' + error.message);
+            Toast.error({ content: '错误：' + error.message, id: `api-${status || 'x'}` });
           }
       }
       return;

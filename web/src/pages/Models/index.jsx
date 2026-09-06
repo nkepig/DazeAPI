@@ -455,7 +455,7 @@ const Models = () => {
         <input
           type='text' value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder={t('搜索模型名称...')}
-          className='w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-[#EBEBEB] rounded-lg focus:outline-none focus:border-[#1A1A1A] transition-colors'
+          className='daze-search w-full pl-9 pr-4 py-2.5 text-sm focus:outline-none'
         />
       </div>
 
