@@ -144,7 +144,7 @@ if (success) {
       <NavBar />
       <main className='pt-[var(--nav-height)]'>
         <div className='max-w-[1400px] mx-auto'>
-          {/* 勿用 key=pathname + AnimatePresence mode=wait 包裹 App：会整树卸载路由并易出现切换白屏 */}
+          {/* 勿在此用 key=pathname 再包一层 AnimatePresence：页面过渡已在 App 内处理 */}
           <ErrorBoundary>
             <App />
           </ErrorBoundary>

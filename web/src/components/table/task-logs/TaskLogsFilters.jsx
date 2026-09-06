@@ -47,21 +47,17 @@ const TaskLogsFilters = ({
       trigger='change'
       stopValidateWithError={false}
     >
-      <div className='flex flex-col gap-2'>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
-          {/* 时间选择器 */}
-          <div className='col-span-1 lg:col-span-2 flex items-center'>
-            <DateRangeFilter
-              key={resetKey}
-              formApi={formApi}
-              field='dateRange'
-              value={formInitValues.dateRange}
-              onChange={() => refresh()}
-              t={t}
-            />
-          </div>
+      <div className='flex flex-col gap-3'>
+        <DateRangeFilter
+          key={resetKey}
+          formApi={formApi}
+          field='dateRange'
+          value={formInitValues.dateRange}
+          onChange={() => refresh()}
+          t={t}
+        />
 
-          {/* 任务 ID */}
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
           <Form.Input
             field='task_id'
             prefix={<IconSearch />}

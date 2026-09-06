@@ -31,17 +31,29 @@ function PageAwait() {
   return <div className='page-await-screen' aria-busy='true' aria-live='polite' />;
 }
 
+// iOS navigation: slight push, then settle.
+const PAGE_EASE = [0.32, 0.72, 0, 1];
+
 function AppRoutes() {
   const location = useLocation();
   return (
-    <AnimatePresence mode='wait' initial={false}>
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -12 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      >
+    <div className='relative overflow-x-hidden'>
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={location.pathname}
+          className='w-full'
+          initial={{ opacity: 0, x: 22 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{
+            opacity: 0,
+            x: -14,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+          }}
+          transition={{ duration: 0.34, ease: PAGE_EASE }}
+        >
         <Routes location={location}>
           <Route path='/' element={<Navigate to='/console/dashboard' replace />} />
           <Route path='/setup' element={<Setup />} />
@@ -81,8 +93,9 @@ function AppRoutes() {
           <Route path='/privacy-policy' element={<PrivacyPolicy />} />
           <Route path='*' element={<NotFound />} />
         </Routes>
-      </motion.div>
-    </AnimatePresence>
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
 

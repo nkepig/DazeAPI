@@ -31,6 +31,8 @@ const navItems = [
   { key: 'logs', path: '/console/log', icon: FileText, label: '使用日志' },
 ];
 
+const navIndicatorTransition = { type: 'spring', stiffness: 280, damping: 32, mass: 0.8 };
+
 const languages = [
   { code: 'zh-CN', label: '简体中文' },
   { code: 'zh-TW', label: '繁體中文' },
@@ -145,7 +147,7 @@ const NavBar = () => {
   const logo = getLogo() || '/favicon.png';
 
   return (
-    <nav className='fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)] bg-white/92 backdrop-blur-[8px]'>
+    <nav className='daze-nav fixed top-0 left-0 right-0 z-50 h-[var(--nav-height)]'>
       <div className='h-full px-6 lg:px-10 flex items-center justify-between'>
         {/* Logo */}
         <Link to='/' className='flex items-center gap-2.5 no-underline shrink-0'>
@@ -171,7 +173,7 @@ const NavBar = () => {
           >
             {t('首页')}
             {location.pathname === '/login' && (
-              <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+              <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={navIndicatorTransition} />
             )}
           </Link>
           {navItems.map((item) => {
@@ -202,7 +204,7 @@ const NavBar = () => {
                   <motion.div
                     layoutId='nav-indicator'
                     className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full'
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    transition={navIndicatorTransition}
                   />
                 )}
               </Link>
@@ -224,7 +226,7 @@ const NavBar = () => {
             >
               {t('渠道管理')}
               {location.pathname.startsWith('/console/channel') && (
-                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={navIndicatorTransition} />
               )}
             </Link>
           )}
@@ -244,7 +246,7 @@ const NavBar = () => {
             >
               {t('用户管理')}
               {location.pathname.startsWith('/console/user') && (
-                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={navIndicatorTransition} />
               )}
             </Link>
           )}
@@ -264,7 +266,7 @@ const NavBar = () => {
             >
               {t('权限管理')}
               {location.pathname.startsWith('/console/permission') && (
-                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
+                <motion.div layoutId='nav-indicator' className='absolute bottom-0 left-3 right-3 h-[2px] bg-[#1A1A1A] rounded-full' transition={navIndicatorTransition} />
               )}
             </Link>
           )}
@@ -292,7 +294,7 @@ const NavBar = () => {
               {currentLang}
             </button>
             {langOpen && (
-              <div className='absolute right-0 top-10 w-40 bg-white rounded-xl border border-[#EBEBEB] shadow-lg py-1 z-50'>
+              <div className='daze-menu absolute right-0 top-10 w-40 py-1 z-50'>
                 {languages.map((lang) => (
                   <button
                     key={lang.code}
@@ -314,7 +316,7 @@ const NavBar = () => {
               <div className='relative' ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className='hidden md:flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-[#1A1A1A] bg-transparent border border-[#EBEBEB] rounded-lg cursor-pointer hover:bg-[#F5F5F5] transition-colors'
+                  className='hidden md:flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-[#1A1A1A] bg-transparent border border-black/[0.08] rounded-[10px] cursor-pointer hover:bg-[#F5F5F5] transition-colors'
                 >
                   <Avatar size='extra-extra-small' color={stringToColor(userState.user?.username || '')}>
                     {(userState.user?.display_name || userState.user?.username || '').slice(0, 1).toUpperCase()}
@@ -336,7 +338,7 @@ const NavBar = () => {
                   </Avatar>
                 </button>
                 {dropdownOpen && (
-                  <div className='absolute right-0 top-12 w-48 bg-white rounded-xl border border-[#EBEBEB] shadow-lg py-1.5 z-50'>
+                  <div className='daze-menu absolute right-0 top-12 w-48 py-1.5 z-50'>
                     <div className='px-4 py-2 border-b border-[#F0F0F0]'>
                       <p className='text-sm font-medium text-[#1A1A1A] truncate'>
                         {userState.user?.display_name || userState.user?.username}
@@ -414,7 +416,7 @@ const NavBar = () => {
                     navigate('/login?open=1');
                   }
                 }}
-                className='px-5 py-2 text-sm font-medium text-[#1A1A1A] bg-white border border-[#EBEBEB] rounded-lg no-underline hover:bg-[#F5F5F5] transition-colors cursor-pointer'
+                className='px-5 py-2 text-sm font-medium text-[#1A1A1A] bg-white border border-black/[0.08] rounded-[10px] no-underline hover:bg-[#F5F5F5] transition-colors cursor-pointer'
               >
                 {t('登录')}
               </button>
@@ -428,7 +430,7 @@ const NavBar = () => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className='md:hidden absolute top-[var(--nav-height)] left-0 right-0 bg-white border-b border-[#EBEBEB] shadow-lg py-2 px-4'
+          className='md:hidden absolute top-[var(--nav-height)] left-0 right-0 daze-menu rounded-none border-x-0 py-2 px-4'
         >
           <Link
             to='/login'

@@ -586,15 +586,15 @@ const LoginForm = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
           >
-            <div className='absolute inset-0 bg-white/60 backdrop-blur-sm' onClick={() => setShowForm(false)} />
+            <div className='absolute inset-0 bg-white/55 backdrop-blur-[20px] backdrop-saturate-150' onClick={() => setShowForm(false)} />
             <motion.div
               className='auth-dialog-card'
-              initial={{ opacity: 0, y: 30, scale: 0.96 }}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.96 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: 10, scale: 0.985 }}
+              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
             >
               <div className='text-center mb-6'>
                 <h2 className='text-[18px] font-bold text-[#1A1A1A]'>{t('登录')}</h2>

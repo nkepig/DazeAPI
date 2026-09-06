@@ -70,7 +70,7 @@ function ChartTooltip({ active, payload, label, metric: metricType, t }) {
   const val = payload[0].value;
   const display = metricType === 'quota' ? renderQuota(val, 2) : `${val?.toLocaleString()} ${t('次')}`;
   return (
-    <div className='bg-white border border-[#EBEBEB] rounded-lg shadow-sm px-3 py-2'>
+    <div className='bg-white/90 border border-black/[0.08] rounded-[12px] shadow-[0_8px_40px_rgba(0,0,0,0.1)] px-3 py-2'>
       <p className='text-[11px] text-[#999] mb-0.5'>{label}</p>
       <p className='text-sm font-semibold text-[#1A1A1A]'>{display}</p>
     </div>
@@ -442,7 +442,7 @@ const Dashboard = () => {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.32, delay: 0.08, ease: [0.32, 0.72, 0, 1] }}
           className='dash-guide'
         >
           <span className='dash-guide-text'>{guide.text}</span>
@@ -497,45 +497,28 @@ const Dashboard = () => {
         <div className='flex items-center justify-between mb-4 flex-wrap gap-3'>
           <h2 className='daze-micro-label'>{t('调用趋势')}</h2>
           <div className='flex items-center gap-3'>
-            {/* Metric toggle: 次数 / 花费 */}
-            <div className='flex rounded-lg overflow-hidden border border-[#ebebeb]'>
+            <div className='daze-segment'>
               {[
                 { key: 'count', label: t('次数') },
                 { key: 'quota', label: t('花费') },
               ].map((m) => (
                 <button
                   key={m.key}
+                  type='button'
+                  className={metric === m.key ? 'active' : ''}
                   onClick={() => setMetric(m.key)}
-                  style={{
-                    padding: '4px 14px',
-                    fontSize: '12px',
-                    fontWeight: metric === m.key ? 600 : 400,
-                    background: metric === m.key ? '#1A1A1A' : '#fff',
-                    color: metric === m.key ? '#fff' : '#999',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
                 >
                   {m.label}
                 </button>
               ))}
             </div>
-            {/* Day range */}
-            <div className='flex gap-1'>
+            <div className='daze-segment'>
               {[1, 3, 7].map((d) => (
                 <button
                   key={d}
+                  type='button'
+                  className={chartRange === d ? 'active' : ''}
                   onClick={() => setChartRange(d)}
-                  className='cursor-pointer transition-colors border-0 outline-none'
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: chartRange === d ? 600 : 400,
-                    background: chartRange === d ? '#f5f5f5' : 'transparent',
-                    color: chartRange === d ? '#1A1A1A' : '#ccc',
-                  }}
                 >
                   {d}{t('日')}
                 </button>

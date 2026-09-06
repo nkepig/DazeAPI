@@ -91,8 +91,9 @@ export const useLogsData = () => {
   const [expandData, setExpandData] = useState({});
   const [showStat, setShowStat] = useState(false);
   const [loading, setLoading] = useState(true);
-  const loadingRef = useRef(false);
+  const loadGenRef = useRef(0);
   const [loadingStat, setLoadingStat] = useState(false);
+  const statGenRef = useRef(0);
   const [activePage, setActivePage] = useState(1);
   const [logCount, setLogCount] = useState(0);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
@@ -350,17 +351,26 @@ export const useLogsData = () => {
   };
 
   const handleEyeClick = async (customGroupFilter = null) => {
-    if (loadingStat) {
-      return;
-    }
+    const gen = ++statGenRef.current;
     setLoadingStat(true);
-    if (isAdminUser) {
-      await getLogStat(customGroupFilter);
-    } else {
-      await getLogSelfStat(customGroupFilter);
+    try {
+      if (isAdminUser) {
+        await getLogStat(customGroupFilter);
+      } else {
+        await getLogSelfStat(customGroupFilter);
+      }
+      if (gen !== statGenRef.current) return;
+      setShowStat(true);
+    } catch (error) {
+      if (gen !== statGenRef.current) return;
+      if (error?.response?.status !== 429) {
+        showError(error?.message || t('统计加载失败'));
+      }
+    } finally {
+      if (gen === statGenRef.current) {
+        setLoadingStat(false);
+      }
     }
-    setShowStat(true);
-    setLoadingStat(false);
   };
 
   // User info function
@@ -567,11 +577,7 @@ export const useLogsData = () => {
         if (other?.reason) {
           errorItems.push({
             key: t('原因'),
-            value: (
-              <div style={{ maxWidth: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.6 }}>
-                {other.reason}
-              </div>
-            ),
+            value: other.reason,
           });
         }
         if (other?.reject_reason) {
@@ -591,10 +597,7 @@ export const useLogsData = () => {
 
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null, customGroupFilter = null) => {
-    if (loadingRef.current) {
-      return;
-    }
-    loadingRef.current = true;
+    const gen = ++loadGenRef.current;
     setLoading(true);
 
     let url = '';
@@ -628,6 +631,7 @@ export const useLogsData = () => {
     url = encodeURI(url);
     try {
       const res = await API.get(url);
+      if (gen !== loadGenRef.current) return;
       const { success, message, data } = res.data;
       if (success) {
         const newPageData = data.items;
@@ -639,15 +643,15 @@ export const useLogsData = () => {
         showError(message);
       }
     } catch (error) {
-      const status = error?.response?.status;
-      if (status === 429) {
-        showError(t('日志请求过于频繁，请稍后再试'));
-      } else {
+      if (gen !== loadGenRef.current) return;
+      // 429 is already toasted by the axios interceptor (id: api-429).
+      if (error?.response?.status !== 429) {
         showError(error?.message || t('日志加载失败'));
       }
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+      }
     }
   };
 

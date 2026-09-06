@@ -86,10 +86,10 @@ const Setting = () => {
                   key={key}
                   type='button'
                   onClick={() => switchSection(key)}
-                  className={`flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg cursor-pointer border-0 text-left transition-all duration-150 whitespace-nowrap ${
+                  className={`flex items-center gap-2 px-3 py-2 text-[13px] rounded-[10px] cursor-pointer border-0 text-left transition-all duration-200 whitespace-nowrap ${
                     active
                       ? 'bg-[#1A1A1A] text-white font-semibold'
-                      : 'bg-transparent text-[#999] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]'
+                      : 'bg-transparent text-[#86868b] hover:bg-[#F5F5F7] hover:text-[#1A1A1A]'
                   }`}
                 >
                   <Icon size={15} strokeWidth={1.5} />
@@ -105,7 +105,7 @@ const Setting = () => {
             key={activeSection}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
             className='daze-card'
           >
             <ActiveComponent />
