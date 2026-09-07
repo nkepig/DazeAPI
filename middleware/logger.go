@@ -18,11 +18,15 @@ func RouteTag(tag string) gin.HandlerFunc {
 
 func SetUpLogger(server *gin.Engine) {
 	server.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		var requestID string
+		var requestID, tag string
 		if param.Keys != nil {
 			requestID, _ = param.Keys[common.RequestIdKey].(string)
+			tag, _ = param.Keys[RouteTagKey].(string)
 		}
-		tag, _ := param.Keys[RouteTagKey].(string)
+		// relay 请求的成功/失败已写入使用日志表，不再打 GIN 访问行
+		if tag == "relay" {
+			return ""
+		}
 		if tag == "" {
 			tag = "web"
 		}

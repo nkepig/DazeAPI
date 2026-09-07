@@ -66,16 +66,16 @@ const colors = [
 
 // Render functions
 const renderTimestamp = (timestampInSeconds) => {
-  const date = new Date(timestampInSeconds * 1000); // 从秒转换为毫秒
-
-  const year = date.getFullYear(); // 获取年份
-  const month = ('0' + (date.getMonth() + 1)).slice(-2); // 获取月份，从0开始需要+1，并保证两位数
-  const day = ('0' + date.getDate()).slice(-2); // 获取日期，并保证两位数
-  const hours = ('0' + date.getHours()).slice(-2); // 获取小时，并保证两位数
-  const minutes = ('0' + date.getMinutes()).slice(-2); // 获取分钟，并保证两位数
-  const seconds = ('0' + date.getSeconds()).slice(-2); // 获取秒钟，并保证两位数
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`; // 格式化输出
+  const date = new Date(timestampInSeconds * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const clock = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return (
+    <div className='log-time'>
+      <span className='log-time-date'>{day}</span>
+      <span className='log-time-clock'>{clock}</span>
+    </div>
+  );
 };
 
 function renderDuration(submit_time, finishTime) {
@@ -213,17 +213,13 @@ export const getTaskLogsColumns = ({
       key: COLUMN_KEYS.SUBMIT_TIME,
       title: t('提交时间'),
       dataIndex: 'submit_time',
-      render: (text, record, index) => {
-        return <div>{text ? renderTimestamp(text) : '-'}</div>;
-      },
+      render: (text) => (text ? renderTimestamp(text) : '—'),
     },
     {
       key: COLUMN_KEYS.FINISH_TIME,
       title: t('结束时间'),
       dataIndex: 'finish_time',
-      render: (text, record, index) => {
-        return <div>{text ? renderTimestamp(text) : '-'}</div>;
-      },
+      render: (text) => (text ? renderTimestamp(text) : '—'),
     },
     {
       key: COLUMN_KEYS.DURATION,

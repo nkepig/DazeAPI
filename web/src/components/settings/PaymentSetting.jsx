@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Spin } from '@douyinfe/semi-ui';
+import { Spin } from '@douyinfe/semi-ui';
 import SettingsPaymentGatewayAlipay from '../../pages/Setting/Payment/SettingsPaymentGatewayAlipay';
 import SettingsPaymentGatewayEpay from '../../pages/Setting/Payment/SettingsPaymentGatewayEpay';
 import { API, showError } from '../../helpers';
@@ -65,10 +65,8 @@ const PaymentSetting = () => {
 
   return (
     <Spin spinning={loading} size='large'>
-      <Card style={{ marginTop: '10px' }}>
-        <SettingsPaymentGatewayAlipay options={inputs} refresh={onRefresh} />
-        <SettingsPaymentGatewayEpay options={inputs} refresh={onRefresh} />
-      </Card>
+      <SettingsPaymentGatewayAlipay options={inputs} refresh={onRefresh} />
+      <SettingsPaymentGatewayEpay options={inputs} refresh={onRefresh} />
     </Spin>
   );
 };

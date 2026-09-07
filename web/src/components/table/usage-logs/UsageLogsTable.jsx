@@ -18,12 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Empty, Descriptions } from '@douyinfe/semi-ui';
 import CardTable from '../../common/ui/CardTable';
-import {
-  IllustrationNoResult,
-  IllustrationNoResultDark,
-} from '@douyinfe/semi-illustrations';
 import { getLogsColumns } from './UsageLogsColumnDefs';
 
 const LogsTable = (logsData) => {
@@ -42,9 +37,9 @@ const LogsTable = (logsData) => {
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
     openRetryAttemptsDrawer,
-    hasExpandableRows,
     isAdminUser,
     billingDisplayMode,
+    hasExpandableRows,
     t,
     COLUMN_KEYS,
   } = logsData;
@@ -87,39 +82,40 @@ const LogsTable = (logsData) => {
       : visibleColumnsList;
   }, [compactMode, visibleColumnsList]);
 
-  const expandRowRender = (record, index) => {
-    return (
-      <div style={{ width: '100%' }}>
-        <Descriptions data={expandData[record.key]} />
-      </div>
-    );
-  };
+  const canExpand = typeof hasExpandableRows === 'function' && hasExpandableRows();
 
   return (
     <CardTable
       columns={tableColumns}
-      {...(hasExpandableRows() && {
-        expandedRowRender: expandRowRender,
-        expandRowByClick: true,
-        rowExpandable: (record) =>
-          expandData[record.key] && expandData[record.key].length > 0,
-      })}
       dataSource={logs}
       rowKey='key'
       loading={loading}
       scroll={compactMode ? undefined : { x: 'max-content' }}
-      className='rounded-xl overflow-hidden'
+      className='rounded-xl overflow-hidden usage-logs-table'
       size='small'
-      empty={
-        <Empty
-          image={<IllustrationNoResult style={{ width: 150, height: 150 }} />}
-          darkModeImage={
-            <IllustrationNoResultDark style={{ width: 150, height: 150 }} />
-          }
-          description={t('搜索无结果')}
-          style={{ padding: 30 }}
-        />
+      expandRowByClick={canExpand}
+      expandedRowRender={
+        canExpand
+          ? (record) => {
+              const data = expandData[record.key];
+              if (!data?.length) return null;
+              return (
+                <div className='log-expand'>
+                  {data.map((item, i) => (
+                    <div className='log-expand-row' key={`${item.key}-${i}`}>
+                      <span className='log-expand-key'>{item.key}</span>
+                      <span className='log-expand-val'>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+          : undefined
       }
+      rowExpandable={(record) =>
+        Boolean(expandData[record.key] && expandData[record.key].length > 0)
+      }
+      empty={<></>}
       pagination={{
         currentPage: activePage,
         pageSize: pageSize,

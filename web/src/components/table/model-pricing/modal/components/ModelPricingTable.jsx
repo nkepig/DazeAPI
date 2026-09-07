@@ -17,10 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Avatar, Typography, Table, Tag } from '@douyinfe/semi-ui';
 import { IconCoinMoneyStroked } from '@douyinfe/semi-icons';
 import { calculateModelPrice, getModelPriceItems } from '../../../../../helpers';
+import TieredPriceDisplay, {
+  applyTierToRecord,
+  isTieredPricing,
+  sortTiers,
+} from '../../common/TieredPriceDisplay';
 
 const { Text } = Typography;
 
@@ -40,6 +45,14 @@ const ModelPricingTable = ({
     ? modelData.enable_groups
     : [];
   const autoChain = autoGroups.filter((g) => modelEnableGroups.includes(g));
+  const [tierIndex, setTierIndex] = useState(0);
+  const tiers = isTieredPricing(modelData) ? sortTiers(modelData.tiers) : [];
+  const activeTier =
+    tiers.length > 0 ? tiers[Math.min(tierIndex, tiers.length - 1)] : null;
+  const pricedModel = activeTier
+    ? applyTierToRecord(modelData, activeTier)
+    : modelData;
+
   const renderGroupPriceTable = () => {
     // 仅展示模型可用的分组：模型 enable_groups 与用户可用分组的交集
 
@@ -50,9 +63,9 @@ const ModelPricingTable = ({
 
     // 准备表格数据
     const tableData = availableGroups.map((group) => {
-      const priceData = modelData
+      const priceData = pricedModel
         ? calculateModelPrice({
-            record: modelData,
+            record: pricedModel,
             selectedGroup: group,
             groupRatio,
             tokenUnit,
@@ -70,8 +83,9 @@ const ModelPricingTable = ({
         key: group,
         group: group,
         ratio: groupRatioValue,
-        billingType:
-          modelData?.pricing_type === 0
+        billingType: isTieredPricing(modelData)
+          ? t('动态阶梯')
+          : modelData?.pricing_type === 0
             ? t('按量计费')
             : modelData?.pricing_type === 1
               ? t('按次计费')
@@ -115,6 +129,7 @@ const ModelPricingTable = ({
         let color = 'white';
         if (text === t('按量计费')) color = 'violet';
         else if (text === t('按次计费')) color = 'teal';
+        else if (text === t('动态阶梯')) color = 'orange';
         return (
           <Tag color={color} size='small' shape='circle'>
             {text || '-'}
@@ -180,6 +195,25 @@ const ModelPricingTable = ({
           ))}
         </div>
       )}
+      {isTieredPricing(modelData) ? (
+        <div className='mb-4'>
+          <div className='text-xs text-gray-500 mb-2'>
+            {t('触碰档位切换查看对应价格')}
+          </div>
+          <TieredPriceDisplay
+            record={modelData}
+            selectedGroup='all'
+            groupRatio={groupRatio}
+            tokenUnit={tokenUnit}
+            displayPrice={displayPrice}
+            currency={currency}
+            siteDisplayType={siteDisplayType}
+            t={t}
+            tierIndex={tierIndex}
+            onTierIndexChange={setTierIndex}
+          />
+        </div>
+      ) : null}
       {renderGroupPriceTable()}
     </Card>
   );

@@ -875,8 +875,7 @@ func TestApplyParamOverrideCopy(t *testing.T) {
 }
 
 func TestApplyParamOverrideCopyMissingSource(t *testing.T) {
-	// copy missing source example:
-	// {"operations":[{"mode":"copy","from":"model","to":"original_model"}]}
+	// missing source is a no-op
 	input := []byte(`{"temperature":0.7}`)
 	override := map[string]interface{}{
 		"operations": []interface{}{
@@ -888,10 +887,11 @@ func TestApplyParamOverrideCopyMissingSource(t *testing.T) {
 		},
 	}
 
-	_, err := ApplyParamOverride(input, override, nil)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
+	out, err := ApplyParamOverride(input, override, nil)
+	if err != nil {
+		t.Fatalf("ApplyParamOverride returned error: %v", err)
 	}
+	assertJSONEqual(t, `{"temperature":0.7}`, string(out))
 }
 
 func TestApplyParamOverrideCopyRequiresFromTo(t *testing.T) {

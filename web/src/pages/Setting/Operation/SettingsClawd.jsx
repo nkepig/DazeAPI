@@ -89,7 +89,7 @@ export default function SettingsClawd() {
   return (
     <Spin spinning={loading}>
       <div style={{ marginBottom: 15 }}>
-        <SemiTitle heading={6} style={{ marginBottom: 12 }}>
+        <SemiTitle heading={6} style={{ marginBottom: 12, fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>
           {t('Clawd 智能体配置')}
         </SemiTitle>
         <Row gutter={16} style={{ marginBottom: 12 }}>

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -90,9 +90,11 @@ export const useLogsData = () => {
   const [logs, setLogs] = useState([]);
   const [expandData, setExpandData] = useState({});
   const [showStat, setShowStat] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const loadGenRef = useRef(0);
   const [loadingStat, setLoadingStat] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const statGenRef = useRef(0);
   const [activePage, setActivePage] = useState(1);
   const [logCount, setLogCount] = useState(0);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
@@ -350,17 +352,26 @@ export const useLogsData = () => {
   };
 
   const handleEyeClick = async (customGroupFilter = null) => {
-    if (loadingStat) {
-      return;
-    }
+    const gen = ++statGenRef.current;
     setLoadingStat(true);
-    if (isAdminUser) {
-      await getLogStat(customGroupFilter);
-    } else {
-      await getLogSelfStat(customGroupFilter);
+    try {
+      if (isAdminUser) {
+        await getLogStat(customGroupFilter);
+      } else {
+        await getLogSelfStat(customGroupFilter);
+      }
+      if (gen !== statGenRef.current) return;
+      setShowStat(true);
+    } catch (error) {
+      if (gen !== statGenRef.current) return;
+      if (error?.response?.status !== 429) {
+        showError(error?.message || t('统计加载失败'));
+      }
+    } finally {
+      if (gen === statGenRef.current) {
+        setLoadingStat(false);
+      }
     }
-    setShowStat(true);
-    setLoadingStat(false);
   };
 
   const exportCsv = async () => {
@@ -616,11 +627,7 @@ export const useLogsData = () => {
         if (other?.reason) {
           errorItems.push({
             key: t('原因'),
-            value: (
-              <div style={{ maxWidth: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.6 }}>
-                {other.reason}
-              </div>
-            ),
+            value: other.reason,
           });
         }
         if (other?.reject_reason) {
@@ -640,9 +647,7 @@ export const useLogsData = () => {
 
   // Load logs function
   const loadLogs = async (startIdx, pageSize, customLogType = null, customGroupFilter = null) => {
-    if (loading) {
-      return;
-    }
+    const gen = ++loadGenRef.current;
     setLoading(true);
 
     let url = '';
@@ -676,6 +681,7 @@ export const useLogsData = () => {
     url = encodeURI(url);
     try {
       const res = await API.get(url);
+      if (gen !== loadGenRef.current) return;
       const { success, message, data } = res.data;
       if (success) {
         const newPageData = data.items;
@@ -687,14 +693,15 @@ export const useLogsData = () => {
         showError(message);
       }
     } catch (error) {
-      const status = error?.response?.status;
-      if (status === 429) {
-        showError(t('日志请求过于频繁，请稍后再试'));
-      } else {
+      if (gen !== loadGenRef.current) return;
+      // 429 is already toasted by the axios interceptor (id: api-429).
+      if (error?.response?.status !== 429) {
         showError(error?.message || t('日志加载失败'));
       }
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -736,23 +743,18 @@ export const useLogsData = () => {
     }
   };
 
-  // Initialize data
+  // Initialize data once the filter form is ready so today's date range is applied.
   useEffect(() => {
     const localPageSize =
       parseInt(localStorage.getItem('page-size')) || ITEMS_PER_PAGE;
     setPageSize(localPageSize);
-    loadLogs(activePage, localPageSize)
+    if (!formApi) return;
+    handleEyeClick();
+    loadLogs(1, localPageSize)
       .then()
       .catch((reason) => {
         showError(reason);
       });
-  }, []);
-
-  // Initialize statistics when formApi is available
-  useEffect(() => {
-    if (formApi) {
-      handleEyeClick();
-    }
   }, [formApi]);
 
   // Check if any record has expandable content

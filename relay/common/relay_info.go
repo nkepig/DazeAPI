@@ -86,8 +86,8 @@ type RelayInfo struct {
 	TokenKey          string
 	TokenGroup        string
 	UserId            int
-	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
-	UserGroup         string // 用户所在分组
+	UsingGroup        string             // 使用的分组，当auto跨分组重试时，会变动
+	UserGroup         string             // 用户所在分组
 	UserGroupRatio    map[string]float64 // 用户可用分组倍率
 	TokenUnlimited    bool
 	StartTime         time.Time
@@ -301,24 +301,18 @@ func (info *RelayInfo) ToString() string {
 
 // 定义支持流式选项的通道类型
 var streamSupportedChannels = map[int]bool{
-	constant.ChannelTypeOpenAI:      true,
-	constant.ChannelTypeAnthropic:   true,
-	constant.ChannelTypeAws:         true,
-	constant.ChannelTypeGemini:      true,
-	constant.ChannelCloudflare:      true,
-	constant.ChannelTypeAzure:       true,
-	constant.ChannelTypeVolcEngine:  true,
-	constant.ChannelTypeOllama:      true,
-	constant.ChannelTypeXai:         true,
-	constant.ChannelTypeDeepSeek:    true,
-	constant.ChannelTypeBaiduV2:     true,
-	constant.ChannelTypeZhipu_v4:    true,
-	constant.ChannelTypeAli:         true,
-	constant.ChannelTypeSubmodel:    true,
-	constant.ChannelTypeCodex:       true,
-	constant.ChannelTypeMoonshot:    true,
-	constant.ChannelTypeMiniMax:     true,
-	constant.ChannelTypeSiliconFlow: true,
+	constant.ChannelTypeOpenAI:    true,
+	constant.ChannelTypeAnthropic: true,
+	constant.ChannelTypeAws:       true,
+	constant.ChannelTypeGemini:    true,
+	constant.ChannelCloudflare:    true,
+	constant.ChannelTypeAzure:     true,
+	constant.ChannelTypeXai:       true,
+	constant.ChannelTypeDeepSeek:  true,
+	constant.ChannelTypeBaiduV2:   true,
+	constant.ChannelTypeZhipu_v4:  true,
+	constant.ChannelTypeSubmodel:  true,
+	constant.ChannelTypeCodex:     true,
 }
 
 func GenRelayInfoWs(c *gin.Context, ws *websocket.Conn) *RelayInfo {
@@ -445,13 +439,13 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	info := &RelayInfo{
 		Request: request,
 
-		RequestId:  reqId,
-		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
-		UsingGroup:      common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
-		UserGroup:       common.GetContextKeyString(c, constant.ContextKeyUserGroup),
-		UserGroupRatio:  common.GetContextKeyMapStringFloat64(c, string(constant.ContextKeyUserGroupRatio)),
-		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
-		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
+		RequestId:      reqId,
+		UserId:         common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		UsingGroup:     common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+		UserGroup:      common.GetContextKeyString(c, constant.ContextKeyUserGroup),
+		UserGroupRatio: common.GetContextKeyMapStringFloat64(c, string(constant.ContextKeyUserGroupRatio)),
+		UserQuota:      common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
+		UserEmail:      common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 

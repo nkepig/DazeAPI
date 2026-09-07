@@ -28,11 +28,17 @@ func cacheDeleteToken(key string) error {
 }
 
 func cacheIncrTokenQuota(key string, increment int64) error {
-	key = common.GenerateHMAC(key)
-	err := common.RedisHIncrBy(fmt.Sprintf("token:%s", key), constant.TokenFiledRemainQuota, increment)
+	hmacKey := common.GenerateHMAC(key)
+	redisKey := fmt.Sprintf("token:%s", hmacKey)
+	ok, err := common.RedisHIncrByIfComplete(redisKey, constant.TokenFiledRemainQuota, increment)
 	if err != nil {
 		return err
 	}
+	if ok {
+		return nil
+	}
+	// Missing/incomplete hash: do not HINCRBY from zero (that would lock a bogus
+	// RemainQuota until TTL). Skip and let the next DB read rebuild the cache.
 	return nil
 }
 

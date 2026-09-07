@@ -85,7 +85,6 @@ func cohereStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	responseId := helper.GetResponseID(c)
 	createdTime := common.GetTimestamp()
 	usage := &dto.Usage{}
-	responseText := ""
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
@@ -152,7 +151,6 @@ func cohereStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 						Index: 0,
 					},
 				}
-				responseText += cohereResp.Text
 			}
 			jsonStr, err := json.Marshal(openaiResp)
 			if err != nil {
@@ -166,9 +164,6 @@ func cohereStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			return false
 		}
 	})
-	if usage.PromptTokens == 0 {
-		usage = service.ResponseText2Usage(c, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens())
-	}
 	return usage, nil
 }
 
@@ -226,15 +221,9 @@ func cohereRerankHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
 	usage := dto.Usage{}
-	if cohereResp.Meta.BilledUnits.InputTokens == 0 {
-		usage.PromptTokens = info.GetEstimatePromptTokens()
-		usage.CompletionTokens = 0
-		usage.TotalTokens = info.GetEstimatePromptTokens()
-	} else {
-		usage.PromptTokens = cohereResp.Meta.BilledUnits.InputTokens
-		usage.CompletionTokens = cohereResp.Meta.BilledUnits.OutputTokens
-		usage.TotalTokens = cohereResp.Meta.BilledUnits.InputTokens + cohereResp.Meta.BilledUnits.OutputTokens
-	}
+	usage.PromptTokens = cohereResp.Meta.BilledUnits.InputTokens
+	usage.CompletionTokens = cohereResp.Meta.BilledUnits.OutputTokens
+	usage.TotalTokens = cohereResp.Meta.BilledUnits.InputTokens + cohereResp.Meta.BilledUnits.OutputTokens
 
 	var rerankResp dto.RerankResponse
 	rerankResp.Results = cohereResp.Results

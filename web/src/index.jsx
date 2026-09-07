@@ -22,6 +22,9 @@ import fr from '@douyinfe/semi-ui/lib/es/locale/source/fr';
 import ru_RU from '@douyinfe/semi-ui/lib/es/locale/source/ru_RU';
 import vi_VN from '@douyinfe/semi-ui/lib/es/locale/source/vi_VN';
 import { normalizeLanguage } from './i18n/language';
+import { installPressFeedback } from './helpers/pressFeedback';
+
+installPressFeedback();
 
 const semiLocaleByI18n = {
   'zh-CN': zh_CN,

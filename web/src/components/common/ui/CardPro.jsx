@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
-import { Card, Button } from '@douyinfe/semi-ui';
 import PropTypes from 'prop-types';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { IconChevronDown, IconChevronUp } from '@douyinfe/semi-icons';
@@ -33,11 +32,8 @@ const CardPro = ({
   actionsArea,
   searchArea,
   paginationArea,
-  shadows = '',
-  bordered = true,
   style,
   t = (key) => key,
-  ...props
 }) => {
   const isMobile = useIsMobile();
   const [showMobileActions, setShowMobileActions] = useState(false);
@@ -100,17 +96,21 @@ const CardPro = ({
   const footerContent = renderFooter();
 
   return (
-    <Card
-      className={`table-scroll-card ${className}`}
-      title={headerContent}
-      footer={footerContent}
-      shadows={shadows}
-      bordered={bordered}
-      style={style}
-      {...props}
-    >
-      {children}
-    </Card>
+    <div className={`table-scroll-card ${className}`} style={style}>
+      {headerContent ? (
+        <div className='daze-reveal mb-4' style={{ '--daze-delay': '45ms' }}>
+          {headerContent}
+        </div>
+      ) : null}
+      <div className='daze-reveal' style={{ '--daze-delay': '90ms' }}>
+        {children}
+      </div>
+      {footerContent ? (
+        <div className='daze-reveal' style={{ '--daze-delay': '135ms' }}>
+          {footerContent}
+        </div>
+      ) : null}
+    </div>
   );
 };
 

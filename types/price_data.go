@@ -38,6 +38,10 @@ type PriceData struct {
 	// FixedPriceUnit: "" / "call" = per request; "second" = per second (video duration).
 	FixedPriceUnit string
 
+	// Tiered (length-based) billing — MVP
+	UseTieredPricing bool
+	MatchedTier      string
+
 	// Group discount multiplier (1.0 = full price, 0.8 = 20% off)
 	GroupDiscountInfo GroupDiscountInfo
 	ProviderRatioInfo ProviderRatioInfo

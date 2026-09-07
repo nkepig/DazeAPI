@@ -57,30 +57,34 @@ import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 import { AnimatePresence, motion } from 'framer-motion';
-
-const METRICS = [
-  { label: '运行时间', value: '99.97%', style: { top: '8%', left: '6%' } },
-  { label: '响应时间', value: '8ms', style: { top: '14%', right: '8%' } },
-  { label: '吞吐量', value: '12K/RPS', style: { bottom: '18%', left: '7%' } },
-  { label: '准确率', value: '99.1%', style: { bottom: '10%', right: '6%' } },
-  { label: '缓存命中率', value: '94.2%', style: { top: '40%', left: '4%' } },
-  { label: '质量评分', value: '98.6%', style: { top: '36%', right: '4%' } },
-  { label: '构建状态', value: '稳定', style: { top: '4%', left: '44%' } },
-  { label: '优化状态', value: '已启用', style: { bottom: '5%', left: '50%' } },
-  { label: '效果率', value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
-  { label: '健康检查', value: '通过', style: { top: '24%', right: '20%', opacity: 0.5 } },
-  { label: '性能状态', value: '最佳', style: { bottom: '35%', left: '18%', opacity: 0.5 } },
-  { label: '维护状态', value: '已计划', style: { top: '22%', left: '22%', opacity: 0.5 } },
-];
+import { ShieldCheck, Zap, Headphones, Receipt, ChevronDown } from 'lucide-react';
 
 const LoginForm = () => {
   let navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const metrics = useMemo(() => [
+    { label: t('运行时间'), value: '99.97%', style: { top: '8%', left: '6%' } },
+    { label: t('响应时间'), value: '8ms', style: { top: '14%', right: '8%' } },
+    { label: t('吞吐量'), value: '12K/RPS', style: { bottom: '18%', left: '7%' } },
+    { label: t('准确率'), value: '99.1%', style: { bottom: '10%', right: '6%' } },
+    { label: t('缓存命中'), value: '94.2%', style: { top: '40%', left: '4%' } },
+    { label: t('质量分数'), value: '98.6%', style: { top: '36%', right: '4%' } },
+    { label: t('构建状态'), value: t('稳定'), style: { top: '4%', left: '44%' } },
+    { label: t('优化状态'), value: t('已启用'), style: { bottom: '14%', left: '50%' } },
+    { label: t('有效率'), value: '97.3%', style: { bottom: '28%', right: '20%', opacity: 0.5 } },
+    { label: t('健康检查'), value: t('通过'), style: { top: '24%', right: '20%', opacity: 0.5 } },
+    { label: t('性能状态'), value: t('最优'), style: { bottom: '35%', left: '18%', opacity: 0.5 } },
+    { label: t('维护状态'), value: t('计划中'), style: { top: '22%', left: '22%', opacity: 0.5 } },
+  ], [t, i18n.language]);
+  const showFormRef = useRef(false);
   const canvasRef = useRef(null);
+  const rootRef = useRef(null);
   const metricsRef = useRef([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const logoRef = useRef(null);
+  const taglineTextRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
+  showFormRef.current = showForm;
   const [formMode, setFormMode] = useState('email');
   const systemName = getSystemName();
 
@@ -127,54 +131,93 @@ const LoginForm = () => {
 
   const hasOAuthLoginOptions = false;
 
-  // Canvas data stream
+  // Canvas data stream — rAF at ~20fps, paused when hidden / login overlay open
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let w, h, drops = [];
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
+    let w = 0;
+    let h = 0;
+    let gap = 22;
+    let cols = [];
+    let raf = 0;
+    let last = 0;
     const chars = 'DAZEAI_v2.0_API_DATA_SYNC_1010101';
+    const spawn = () => ({
+      y: Math.random() * -30,
+      speed: 0.35 + Math.random() * 0.8,
+      bolt: Math.random() < 0.14,
+    });
     const resize = () => {
-      w = canvas.width = window.innerWidth;
-      h = canvas.height = window.innerHeight;
-      drops = Array(Math.floor(w / 20)).fill(1);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      gap = w > 1400 ? 28 : 22;
+      cols = Array.from({ length: Math.floor(w / gap) }, () => {
+        const c = spawn();
+        c.y = Math.random() * (h / 20);
+        return c;
+      });
     };
-    const draw = () => {
-      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    const draw = (now) => {
+      raf = requestAnimationFrame(draw);
+      if (document.hidden || showFormRef.current) return;
+      if (now - last < 50) return;
+      last = now;
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
       ctx.fillRect(0, 0, w, h);
       ctx.font = '12px monospace';
-      ctx.fillStyle = '#000';
-      drops.forEach((y, i) => {
-        const ch = chars[Math.floor(Math.random() * chars.length)];
-        ctx.fillText(ch, i * 20, y * 20);
-        if (y * 20 > h && Math.random() > 0.975) drops[i] = 0;
-        drops[i]++;
+      cols.forEach((c, i) => {
+        const ch = chars[(Math.random() * chars.length) | 0];
+        const x = i * gap;
+        const y = c.y * 20;
+        ctx.fillStyle = c.bolt ? '#111' : 'rgba(0,0,0,0.42)';
+        ctx.fillText(ch, x, y);
+        c.y += c.bolt ? c.speed * 2.4 : c.speed;
+        if (y > h && Math.random() > 0.96) cols[i] = spawn();
       });
     };
     resize();
-    const timer = setInterval(draw, 50);
+    raf = requestAnimationFrame(draw);
     window.addEventListener('resize', resize);
-    return () => { clearInterval(timer); window.removeEventListener('resize', resize); };
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+    };
   }, []);
 
-  // Mouse tracking for logo parallax + metric push
+  // Logo parallax + metric push — only while the pointer is moving
   useEffect(() => {
+    let raf = 0;
+    let running = false;
+    let lastMove = 0;
     const onMove = (e) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
+      lastMove = performance.now();
       if (logoRef.current) {
         const mx = (e.clientX - window.innerWidth / 2) / 25;
         const my = (e.clientY - window.innerHeight / 2) / 25;
         logoRef.current.style.transform = `perspective(1000px) rotateX(${-my}deg) rotateY(${mx}deg)`;
       }
+      if (!running) {
+        running = true;
+        raf = requestAnimationFrame(tick);
+      }
     };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, []);
-
-  // Metric push animation
-  useEffect(() => {
-    let raf;
-    const update = () => {
+    const tick = () => {
+      if (document.hidden || showFormRef.current) {
+        running = false;
+        return;
+      }
       const m = mouseRef.current;
       metricsRef.current.forEach((el) => {
         if (!el) return;
@@ -187,15 +230,99 @@ const LoginForm = () => {
           const push = (180 - dist) * 0.4;
           el.style.transform = `translate(${-Math.cos(angle) * push}px, ${-Math.sin(angle) * push}px) scale(1.08)`;
           el.style.zIndex = '100';
+          el.style.opacity = '1';
         } else {
           el.style.transform = '';
           el.style.zIndex = '50';
+          el.style.opacity = String(Math.max(0.22, Math.min(0.85, 1 - (dist - 180) / 600)));
         }
       });
-      raf = requestAnimationFrame(update);
+      if (performance.now() - lastMove > 360) {
+        running = false;
+        return;
+      }
+      raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(raf);
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Typewriter tagline (DOM write, no React re-render per character)
+  const TAGLINE = t('多模型 API 聚合平台');
+  useEffect(() => {
+    const el = taglineTextRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = TAGLINE;
+      return undefined;
+    }
+    el.textContent = '';
+    let i = 0;
+    const timer = setInterval(() => {
+      i += 1;
+      el.textContent = TAGLINE.slice(0, i);
+      if (i >= TAGLINE.length) clearInterval(timer);
+    }, 45);
+    return () => clearInterval(timer);
+  }, [TAGLINE]);
+
+  // Terminal typing with syntax highlighting: starts when scrolled into view
+  const terminalRef = useRef(null);
+  const [typedCount, setTypedCount] = useState(0);
+  const CODE_SEGMENTS = useMemo(() => [
+    { text: '$ ', cls: 'tk-prompt' },
+    { text: 'curl ', cls: 'tk-cmd' },
+    { text: `${window.location.origin}/v1/chat/completions`, cls: 'tk-str' },
+    { text: ' \\\n    -H ', cls: 'tk-flag' },
+    { text: '"Authorization: Bearer sk-your-key"', cls: 'tk-str' },
+    { text: ' \\\n    -d ', cls: 'tk-flag' },
+    { text: '\'{"model":"gpt-5","messages":[{"role":"user","content":"Hello!"}]}\'', cls: 'tk-str' },
+    { text: '\n\n→ ', cls: 'tk-prompt' },
+    { text: '200 OK', cls: 'tk-ok' },
+    { text: ' · 8ms\n', cls: 'tk-dim' },
+    { text: '{"choices":[{"message":{"role":"assistant","content":"Hello!"}}],\n "usage":{"prompt_tokens":8,"completion_tokens":9,"total_tokens":17}}', cls: 'tk-dim' },
+  ], []);
+  const codeTotalLen = useMemo(() => CODE_SEGMENTS.reduce((n, s) => n + s.text.length, 0), [CODE_SEGMENTS]);
+  useEffect(() => {
+    const el = terminalRef.current;
+    if (!el) return;
+    let timer = null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting || timer) return;
+        let i = 0;
+        timer = setInterval(() => {
+          i += 4;
+          setTypedCount(i);
+          if (i >= codeTotalLen) clearInterval(timer);
+        }, 28);
+        observer.disconnect();
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => { observer.disconnect(); if (timer) clearInterval(timer); };
+  }, [codeTotalLen]);
+
+  // Scroll reveal: sections fade/slide in when entering the viewport and
+  // gently fade back out when leaving it (若隐若现, works in both directions)
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const els = root.querySelectorAll('.landing-reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          entry.target.classList.toggle('in-view', entry.isIntersecting);
+        });
+      },
+      { root, threshold: 0.15 },
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -242,7 +369,7 @@ const LoginForm = () => {
 
   async function handleSubmit() {
     if ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms) { showInfo(t('请先阅读并同意用户协议和隐私政策')); return; }
-    if (turnstileEnabled && !turnstileToken) { showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！'); return; }
+    if (turnstileEnabled && !turnstileToken) { showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！')); return; }
     setSubmitted(true); setLoginLoading(true);
     try {
       if (username && password) {
@@ -250,25 +377,25 @@ const LoginForm = () => {
         const { success, message, data } = res.data;
         if (success) {
           userDispatch({ type: 'login', payload: data }); setUserData(data); updateAPI();
-          showSuccess('登录成功！');
-          if (username === 'root' && password === '123456') Modal.error({ title: '您正在使用默认密码！', content: '请立刻修改默认密码！', centered: true });
+          showSuccess(t('登录成功！'));
+          if (username === 'root' && password === '123456') Modal.error({ title: t('您正在使用默认密码！'), content: t('请立刻修改默认密码！'), centered: true });
           navigate('/console/dashboard');
         } else showError(message);
-      } else showError('请输入用户名和密码！');
-    } catch { showError('登录失败，请重试'); }
+      } else showError(t('请输入用户名和密码！'));
+    } catch { showError(t('登录失败，请重试')); }
     finally { setLoginLoading(false); }
   }
 
   const onWeChatLoginClicked = requireTerms(() => { setWechatLoading(true); setShowWeChatLoginModal(true); setWechatLoading(false); });
   const onSubmitWeChatVerificationCode = async () => {
-    if (turnstileEnabled && !turnstileToken) { showInfo('请稍后几秒重试'); return; }
+    if (turnstileEnabled && !turnstileToken) { showInfo(t('请稍后几秒重试')); return; }
     setWechatCodeSubmitLoading(true);
     try {
       const res = await API.get(`/api/oauth/wechat?code=${inputs.wechat_verification_code}`);
       const { success, message, data } = res.data;
-      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); setUserData(data); updateAPI(); navigate('/'); showSuccess('登录成功！'); setShowWeChatLoginModal(false); }
+      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); setUserData(data); updateAPI(); navigate('/'); showSuccess(t('登录成功！')); setShowWeChatLoginModal(false); }
       else showError(message);
-    } catch { showError('登录失败，请重试'); }
+    } catch { showError(t('登录失败，请重试')); }
     finally { setWechatCodeSubmitLoading(false); }
   };
 
@@ -279,9 +406,9 @@ const LoginForm = () => {
     try {
       const res = await API.get('/api/oauth/telegram/login', { params });
       const { success, message, data } = res.data;
-      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); showSuccess('登录成功！'); setUserData(data); updateAPI(); navigate('/'); }
+      if (success) { userDispatch({ type: 'login', payload: data }); localStorage.setItem('user', JSON.stringify(data)); showSuccess(t('登录成功！')); setUserData(data); updateAPI(); navigate('/'); }
       else showError(message);
-    } catch { showError('登录失败，请重试'); }
+    } catch { showError(t('登录失败，请重试')); }
   };
 
   const handleGitHubClick = requireTerms(() => {
@@ -323,30 +450,133 @@ const LoginForm = () => {
     </div>
   );
 
+  const LANDING_FEATURES = [
+    { key: 'ha', icon: ShieldCheck, title: t('高可用架构'), desc: t('多通道故障自动转移，请求永远落到可用上游，SLA 有保障。'), metric: t('故障转移 < 300MS · 多通道') },
+    { key: 'fast', icon: Zap, title: t('闪电响应'), desc: t('智能路由与边缘缓存双重加速，平均延迟压至个位数毫秒。'), metric: t('平均 8MS · P99 42MS') },
+    { key: 'support', icon: Headphones, title: t('全天候支持'), desc: t('7×24 小时技术响应，企业级问题不过夜。'), metric: t('全天候 · 响应 < 1H') },
+    { key: 'billing', icon: Receipt, title: t('透明计费'), desc: t('Token 级成本明细，每一次调用都可追溯、可审计。'), metric: t('100% 可追溯 · 按 Token') },
+  ];
+
   return (
-    <div className='auth-terminal-root'>
+    <div ref={rootRef} className='auth-terminal-root'>
       <canvas ref={canvasRef} className='auth-data-canvas' />
 
-      <div className='auth-metrics-cloud'>
-        {METRICS.map((m, i) => (
-          <div key={i} ref={(el) => (metricsRef.current[i] = el)} className='auth-metric-item' style={m.style}>
-            <span>{t(m.label)}</span>
-            <strong>{typeof m.value === 'string' && /[\u4e00-\u9fff]/.test(m.value) ? t(m.value) : m.value}</strong>
-          </div>
-        ))}
-      </div>
+      {/* ================= HERO ================= */}
+      <section className='auth-hero'>
+        {/* HUD corner brackets */}
+        <div className='auth-hud-corner auth-hud-tl' />
+        <div className='auth-hud-corner auth-hud-tr' />
+        <div className='auth-hud-corner auth-hud-bl' />
+        <div className='auth-hud-corner auth-hud-br' />
 
-      {/* Landing hero */}
-      <div className='auth-content-overlay'>
-        <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
-        <p className='auth-tagline'>{t('多模型 API 聚合平台')}</p>
-        <nav className='auth-button-matrix'>
-          <button className='auth-neo-btn auth-btn-outline' onClick={() => { setShowForm(true); setFormMode('email'); }}>
-            {t('开始使用')}
-          </button>
-          <a href='/docs' className='auth-neo-btn auth-btn-ghost'>{t('查看文档')}</a>
-        </nav>
-      </div>
+        <div className='auth-metrics-cloud'>
+          {metrics.map((m, i) => (
+            <div key={i} ref={(el) => (metricsRef.current[i] = el)} className='auth-metric-item' style={m.style}>
+              <span>{m.label}</span>
+              <strong>{m.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className='auth-content-overlay'>
+          <div ref={logoRef} className='auth-glitch-logo' data-text={systemName}>{systemName}</div>
+          <p className='auth-tagline'>
+            <span ref={taglineTextRef} />
+            <span className='auth-caret' />
+          </p>
+          <h1 className='auth-hero-headline'>{t('一个密钥，调用全球模型')}</h1>
+          <p className='auth-hero-sub'>{t('聚合 40+ 上游供应商，统一接口、统一计费、智能路由。')}</p>
+          <nav className='auth-button-matrix'>
+            <button
+              className='auth-neo-btn auth-btn-outline'
+              onClick={() => { setShowForm(true); setFormMode('email'); }}
+            >
+              {t('开始使用')}
+            </button>
+            <a
+              href='/docs'
+              className='auth-neo-btn auth-btn-ghost'
+            >
+              {t('查看文档')}
+            </a>
+          </nav>
+        </div>
+
+        {/* Scroll hint: gently pulsing arrow guiding to the sections below */}
+        <button
+          type='button'
+          className='auth-scroll-hint'
+          onClick={() => {
+            const root = rootRef.current;
+            const target = root?.querySelector('.landing-section');
+            if (root && target) {
+              root.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+            }
+          }}
+        >
+          <span>{t('为什么选择我们')}</span>
+          <ChevronDown size={16} strokeWidth={2} />
+        </button>
+      </section>
+
+      {/* ================= FEATURES ================= */}
+      <section className='landing-section'>
+        <div className='landing-sec-head landing-reveal'>
+          <h2>{t('为生产环境而生')}</h2>
+          <p>{t('不只是一个中转站——从可用性到计费，每一层都为稳定性设计。')}</p>
+        </div>
+        <div className='landing-feat-grid'>
+          {LANDING_FEATURES.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <div key={f.key} className='landing-feat landing-reveal' style={{ transitionDelay: `${i * 70}ms` }}>
+                <div className='landing-feat-icon'><Icon size={17} strokeWidth={1.8} /></div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
+                <div className='landing-feat-drawer'>{f.metric}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ================= QUICKSTART / CODE ================= */}
+      <section className='landing-section landing-code-section'>
+        <div className='landing-code-wrap'>
+          <div className='landing-code-copy landing-reveal'>
+            <h2>{t('一行接入，全球模型')}</h2>
+            <ul>
+              <li>{t('兼容 OpenAI / Claude / Gemini 官方 SDK，零改动接入')}</li>
+              <li>{t('一个密钥调用 200+ 模型，统一计费、统一日志')}</li>
+              <li>{t('智能负载均衡，上游故障自动切换')}</li>
+            </ul>
+            <a href='/docs' className='landing-doc-link'>{t('查看 API 文档')} →</a>
+          </div>
+          <div className='landing-terminal landing-reveal' style={{ transitionDelay: '120ms' }} ref={terminalRef}>
+            <div className='landing-terminal-bar'>
+              <i className='dot-r' /><i className='dot-y' /><i className='dot-g' />
+              <span>bash — curl</span>
+            </div>
+            <pre>
+              {/* Invisible full-text sizer reserves the final height — no layout shift while typing */}
+              <span aria-hidden='true' className='tk-sizer'>
+                {CODE_SEGMENTS.map((s) => s.text).join('')}
+              </span>
+              <span className='tk-typed'>
+                {(() => {
+                  let remaining = typedCount;
+                  return CODE_SEGMENTS.map((seg, i) => {
+                    const slice = seg.text.slice(0, Math.max(0, Math.min(remaining, seg.text.length)));
+                    remaining -= seg.text.length;
+                    return slice ? <span key={i} className={seg.cls}>{slice}</span> : null;
+                  });
+                })()}
+                <span className='auth-caret' />
+              </span>
+            </pre>
+          </div>
+        </div>
+      </section>
 
       {/* Login Dialog */}
       <AnimatePresence>
@@ -356,19 +586,19 @@ const LoginForm = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
           >
-            <div className='absolute inset-0 bg-white/60 backdrop-blur-sm' onClick={() => setShowForm(false)} />
+            <div className='absolute inset-0 bg-white/55 backdrop-blur-[20px] backdrop-saturate-150' onClick={() => setShowForm(false)} />
             <motion.div
               className='auth-dialog-card'
-              initial={{ opacity: 0, y: 30, scale: 0.96 }}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.96 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: 10, scale: 0.985 }}
+              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
             >
               <div className='text-center mb-6'>
                 <h2 className='text-[18px] font-bold text-[#1A1A1A]'>{t('登录')}</h2>
-                <p className='text-[12px] text-[#BBB] mt-1'>{t('欢迎使用')}</p>
+                <p className='text-[12px] text-[#BBB] mt-1'>{t('欢迎')}</p>
               </div>
 
               {formMode === 'oauth' ? (
@@ -425,7 +655,6 @@ const LoginForm = () => {
         <Form><Form.Input field='wechat_verification_code' placeholder={t('验证码')} label={t('验证码')} value={inputs.wechat_verification_code} onChange={(v) => handleChange('wechat_verification_code', v)} /></Form>
       </Modal>
 
-
       {turnstileEnabled && (
         <div className='fixed bottom-4 left-1/2 -translate-x-1/2 z-[300]'>
           <Turnstile sitekey={turnstileSiteKey} onVerify={(token) => setTurnstileToken(token)} />
@@ -433,7 +662,7 @@ const LoginForm = () => {
       )}
 
       {/* new-api credit */}
-      <div className='absolute bottom-6 left-6 z-[60] max-w-md text-[11px] text-[#b0b0b0] leading-relaxed'>
+      <div className='landing-credit landing-reveal text-[11px] text-[#b0b0b0] leading-relaxed'>
         {t('本项目基于')}{' '}
         <a
           href='https://github.com/QuantumNous/new-api'

@@ -33,6 +33,7 @@ const ChannelsFilters = ({
   loading,
   searching,
   setShowColumnSelector,
+  onOpenClawd,
   t,
 }) => {
   return (
@@ -47,6 +48,11 @@ const ChannelsFilters = ({
       >
         {t('添加渠道')}
       </Button>
+      {typeof onOpenClawd === 'function' && (
+        <Button size='small' className='shrink-0' onClick={onOpenClawd}>
+          {t('渠道守护')}
+        </Button>
+      )}
 
       <Form
         initValues={formInitValues}
@@ -82,7 +88,7 @@ const ChannelsFilters = ({
         <Button
           size='small'
           htmlType='submit'
-          loading={loading || searching}
+          disabled={loading || searching}
         >
           {t('查询')}
         </Button>

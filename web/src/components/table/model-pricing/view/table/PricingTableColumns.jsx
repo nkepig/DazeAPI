@@ -32,9 +32,19 @@ import {
   renderDescription,
 } from '../../../../common/ui/RenderUtils';
 import { useIsMobile } from '../../../../../hooks/common/useIsMobile';
+import TieredPriceDisplay, {
+  isTieredPricing,
+} from '../../common/TieredPriceDisplay';
 
-function renderQuotaType(type, t) {
-  switch (type) {
+function renderQuotaType(record, t) {
+  if (isTieredPricing(record)) {
+    return (
+      <Tag color='orange' shape='circle'>
+        {t('动态阶梯')}
+      </Tag>
+    );
+  }
+  switch (record?.pricing_type) {
     case 1:
       return (
         <Tag color='teal' shape='circle'>
@@ -48,7 +58,11 @@ function renderQuotaType(type, t) {
         </Tag>
       );
     default:
-      return t('未知');
+      return (
+        <Tag color='white' shape='circle'>
+          {t('未知')}
+        </Tag>
+      );
   }
 }
 
@@ -159,8 +173,8 @@ export const getPricingTableColumns = ({
   const quotaColumn = {
     title: t('计费类型'),
     dataIndex: 'pricing_type',
-    render: (text, record, index) => {
-      return renderQuotaType(parseInt(text), t);
+    render: (text, record) => {
+      return renderQuotaType(record, t);
     },
     sorter: (a, b) => a.pricing_type - b.pricing_type,
   };
@@ -195,7 +209,24 @@ export const getPricingTableColumns = ({
     title: t('模型价格'),
     dataIndex: 'prompt_price',
     ...(isMobile ? {} : { fixed: 'right' }),
-    render: (text, record, index) => {
+    render: (text, record) => {
+      if (isTieredPricing(record)) {
+        return (
+          <TieredPriceDisplay
+            record={record}
+            selectedGroup={selectedGroup}
+            groupRatio={groupRatio}
+            tokenUnit={tokenUnit}
+            displayPrice={displayPrice}
+            currency={currency}
+            siteDisplayType={siteDisplayType}
+            t={t}
+            showItems
+            compact
+          />
+        );
+      }
+
       const priceData = getPriceData(record);
       const priceItems = getModelPriceItems(priceData, t, siteDisplayType);
 

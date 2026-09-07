@@ -32,6 +32,10 @@ type ModelPricing struct {
 	// "" / "call" = per request (default, backward compatible);
 	// "second" = per second (multiplied by video duration, skips adaptor ratios).
 	FixedPriceUnit string `json:"fixed_price_unit,omitempty"`
+	// BillingMode: "" / omitted = flat per-token or per-call;
+	// "tiered" = length-based packages in Tiers.
+	BillingMode string        `json:"billing_mode,omitempty"`
+	Tiers       []PricingTier `json:"tiers,omitempty"`
 }
 
 // Fixed-price unit constants.
@@ -103,6 +107,22 @@ func ModelPricing2JSONString() string {
 	return modelPricingMap.MarshalJSONString()
 }
 
+// mergeDefaultAudioPrices keeps built-in audio prices when a saved ModelPrice
+// only set text rates (admin editor previously had no audio fields).
+func mergeDefaultAudioPrices(name string, value ModelPricing) ModelPricing {
+	def, ok := defaultModelPricing[name]
+	if !ok {
+		return value
+	}
+	if value.AudioInputPrice == 0 && def.AudioInputPrice != 0 {
+		value.AudioInputPrice = def.AudioInputPrice
+	}
+	if value.AudioOutputPrice == 0 && def.AudioOutputPrice != 0 {
+		value.AudioOutputPrice = def.AudioOutputPrice
+	}
+	return value
+}
+
 func UpdateExposedModelPricingByJSONString(jsonStr string) error {
 	incoming := make(map[string]ModelPricing)
 	if err := common.UnmarshalJsonStr(jsonStr, &incoming); err != nil {
@@ -119,7 +139,7 @@ func UpdateExposedModelPricingByJSONString(jsonStr string) error {
 		if strings.TrimSpace(formattedName) == "" {
 			continue
 		}
-		next[formattedName] = value
+		next[formattedName] = mergeDefaultAudioPrices(formattedName, value)
 	}
 
 	modelPricingMap.Clear()

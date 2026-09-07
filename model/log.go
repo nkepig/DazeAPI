@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -19,8 +18,8 @@ import (
 )
 
 const (
-	asyncLogChanSize    = 5000
-	asyncLogBatchSize   = 100
+	asyncLogChanSize      = 5000
+	asyncLogBatchSize     = 100
 	asyncLogFlushInterval = 2 * time.Second
 )
 
@@ -195,7 +194,6 @@ func mergeRequestHeaders(other map[string]interface{}, headers map[string]string
 
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
-	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
 	ip, userAgent, headers := resolveLogRequestMeta(c)
@@ -243,7 +241,6 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	if !common.LogConsumeEnabled {
 		return
 	}
-	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
 	ip, userAgent, headers := resolveLogRequestMeta(c)
@@ -546,13 +543,13 @@ func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64,
 }
 
 type ChannelSuccessRate struct {
-	ModelName    string  `json:"model_name"`
-	ChannelId    int     `json:"channel_id"`
-	ChannelName  string  `json:"channel_name"`
-	ChannelStatus int   `json:"channel_status"`
-	TotalCount   int64   `json:"total_count"`
-	SuccessCount int64   `json:"success_count"`
-	SuccessRate  float64 `json:"success_rate"`
+	ModelName     string  `json:"model_name"`
+	ChannelId     int     `json:"channel_id"`
+	ChannelName   string  `json:"channel_name"`
+	ChannelStatus int     `json:"channel_status"`
+	TotalCount    int64   `json:"total_count"`
+	SuccessCount  int64   `json:"success_count"`
+	SuccessRate   float64 `json:"success_rate"`
 }
 
 func GetChannelSuccessRate(startTimestamp, endTimestamp int64) ([]ChannelSuccessRate, error) {

@@ -53,30 +53,30 @@ const ChannelsActions = ({
 
   const statusOptions = useMemo(
     () => [
-      { value: 'all', label: '全部', color: '#94a3b8' },
-      { value: 'enabled', label: '已启用', color: '#22c55e' },
-      { value: 'disabled', label: '已禁用', color: '#ef4444' },
+      { value: 'all', label: t('全部'), color: '#94a3b8' },
+      { value: 'enabled', label: t('已启用'), color: '#22c55e' },
+      { value: 'disabled', label: t('已禁用'), color: '#ef4444' },
     ],
-    [],
+    [t],
   );
 
   const groupFilterOptions = useMemo(
     () => [
-      { value: 'all', label: '全部', count: Object.values(groupCounts).reduce((a, b) => a + b, 0) },
+      { value: 'all', label: t('全部'), count: Object.values(groupCounts).reduce((a, b) => a + b, 0) },
       ...groupOptions.map((group) => ({
         value: group,
         label: group,
         count: groupCounts[group] || 0,
       })),
     ],
-    [groupOptions, groupCounts],
+    [groupOptions, groupCounts, t],
   );
 
   return (
     <div className='flex items-center gap-3 flex-wrap'>
       <BubbleFilter
         size='small'
-        label='状态'
+        label={t('状态')}
         options={statusOptions}
         value={statusFilter}
         onChange={(nextValue) => {
@@ -90,7 +90,7 @@ const ChannelsActions = ({
       {groupOptions.length > 0 ? (
         <BubbleFilter
           size='small'
-          label='分组'
+          label={t('分组')}
           options={groupFilterOptions}
           value={groupFilter}
           onChange={(nextValue) => {

@@ -138,7 +138,6 @@ export default function GeneralSettings(props) {
                 label={t('站点地址')}
                 initValue={''}
                 placeholder={'https://yourdomain.com'}
-                extraText={t('站点完整地址，用于图片代理等功能的URL生成，请确保正确配置')}
                 onChange={handleFieldChange('ServerAddress')}
                 showClear
               />

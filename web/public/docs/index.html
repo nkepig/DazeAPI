@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <title>UQAPI · API Reference</title>
+    <title>API Reference</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.png" />
     <style>
       body { margin: 0; }
     </style>
   </head>
   <body>
-    
+
     <div id="app">
     </div>
 
@@ -20,52 +21,169 @@
       const injectedSiteUrl = (typeof window !== 'undefined' && typeof window.SITE_URL === 'string') ? window.SITE_URL.trim() : '';
       const baseUrl = (injectedSiteUrl || window.location.origin).replace(/\/+$/, '');
 
+      // 与主站品牌对齐：拉取系统名 / Logo，同步文档标题与 favicon
+      const brandState = { systemName: '', logo: '' };
+      const applyBranding = () => {
+        if (brandState.systemName) {
+          document.title = brandState.systemName + ' · API Reference';
+        }
+        if (brandState.logo) {
+          let link = document.querySelector("link[rel='icon']");
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+          }
+          link.href = brandState.logo;
+        }
+      };
+
       // 1. Define API Specification Data (OpenAPI Spec)
-      const apiSpec = {
-        "openapi": "1.0.0",
+      const buildApiSpec = () => ({
+        "openapi": "3.1.0",
         "info": {
-          "title": "UQ API Documentation",
+          "title": (brandState.systemName ? brandState.systemName + ' ' : '') + "API Documentation",
           "version": "1.0.0",
-          "description": "Unified API service integrating Gemini, OpenAI, Claude, and Sora. Supports multiple native model formats in a single gateway.",
+          "description": `Unified API gateway aggregating OpenAI, Claude, Gemini, Sora and 40+ upstream providers behind one consistent surface.\n\n## Authentication\n\nAll endpoints require a Bearer token in the \`Authorization\` header:\n\n\`\`\`\nAuthorization: Bearer sk-xxxxxxxx\n\`\`\`\n\nAPI keys (令牌) are created in the console under **令牌 / Tokens**.\n\n## Base URL\n\n\`\`\`\n${baseUrl}\n\`\`\`\n\n## Error Format\n\nErrors follow the official OpenAI error body shape:\n\n\`\`\`json\n{\n  "error": {\n    "message": "Invalid API key provided",\n    "type": "invalid_request_error",\n    "param": null,\n    "code": "invalid_api_key"\n  }\n}\n\`\`\`\n\n| Status | Meaning | Retry advice |\n| --- | --- | --- |\n| 400 | Invalid request parameters | Fix the request body |\n| 401 | Missing or invalid API key | Check the token |\n| 402 | Insufficient quota / balance | Top up the account |\n| 429 | Rate limit or upstream overloaded | Retry with exponential backoff |\n| 500 | Gateway or upstream error | Safe to retry idempotent requests |\n| 503 | No available upstream channel | Retry later or contact the admin |`,
           "contact": {
             "name": "API Support",
             "url": baseUrl
           },
           "license": {
-            "name": "UQ API",
+            "name": "API",
             "url": baseUrl
           }
         },
-        "servers":[
-          { 
-            "url": baseUrl, 
-            "description": "UQ API Gateway"
+        "servers": [
+          {
+            "url": baseUrl,
+            "description": "API Gateway"
           }
         ],
-        "tags":[
+        "tags": [
           {
             "name": "OpenAI",
-            "description": "OpenAI compatible APIs for Chat, Image Generation, Image Edits, Embeddings, and Models.\n\n🔗 **[Official OpenAI Documentation](https://platform.openai.com/docs/api-reference)**"
+            "description": "OpenAI-compatible APIs: Responses, Chat Completions, Images, Audio, Embeddings, Moderations, Videos (Sora), Rerank and Models.\n\n🔗 **[Official OpenAI Documentation](https://platform.openai.com/docs/api-reference)**\n\n### Official SDK Quickstart\n\nPython:\n\n\`\`\`python\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url=\"" + baseUrl + "/v1\",\n    api_key=\"sk-xxxxxxxx\",\n)\n\nresp = client.responses.create(\n    model=\"gpt-5\",\n    input=\"Hello!\",\n)\nprint(resp.output_text)\n\`\`\`\n\nNode.js:\n\n\`\`\`javascript\nimport OpenAI from \"openai\";\n\nconst client = new OpenAI({\n  baseURL: \"" + baseUrl + "/v1\",\n  apiKey: \"sk-xxxxxxxx\",\n});\n\nconst resp = await client.responses.create({\n  model: \"gpt-5\",\n  input: \"Hello!\",\n});\nconsole.log(resp.output_text);\n\`\`\`"
           },
           {
             "name": "Gemini",
-            "description": "Google Gemini native APIs for multimodal content generation.\n\n🔗 **[Official Google Gemini Documentation](https://ai.google.dev/api)**"
+            "description": "Google Gemini native APIs for multimodal content generation, streaming and token counting.\n\n🔗 **[Official Google Gemini Documentation](https://ai.google.dev/api)**\n\n### Official SDK Quickstart\n\n\`\`\`python\nfrom google import genai\n\nclient = genai.Client(\n    api_key=\"sk-xxxxxxxx\",\n    http_options={\"base_url\": \"" + baseUrl + "\"},\n)\n\nresp = client.models.generate_content(\n    model=\"gemini-3-flash-preview\",\n    contents=\"Hello!\",\n)\nprint(resp.text)\n\`\`\`"
           },
           {
             "name": "Anthropic (Claude)",
-            "description": "Anthropic Claude native APIs. Requires `anthropic-version` header.\n\n🔗 **[Official Anthropic Documentation](https://docs.anthropic.com/en/api/messages)**"
+            "description": "Anthropic Claude native APIs. Requires the \`anthropic-version\` header (e.g. \`2023-06-01\`).\n\nSending \`GET /v1/models\` with the \`anthropic-version\` header returns the model list in the official Anthropic format (\`data\` / \`has_more\` / \`first_id\` / \`last_id\`).\n\n🔗 **[Official Anthropic Documentation](https://docs.anthropic.com/en/api/messages)**\n\n### Official SDK Quickstart\n\n\`\`\`python\nimport anthropic\n\nclient = anthropic.Anthropic(\n    base_url=\"" + baseUrl + "\",\n    api_key=\"sk-xxxxxxxx\",\n)\n\nmsg = client.messages.create(\n    model=\"claude-sonnet-4-5\",\n    max_tokens=1024,\n    messages=[{\"role\": \"user\", \"content\": \"Hello!\"}],\n)\nprint(msg.content)\n\`\`\`"
           }
         ],
         "components": {
           "securitySchemes": {
             "BearerAuth": {
-              "type": "apiKey",
+              "type": "http",
+              "scheme": "bearer",
+              "bearerFormat": "API Key",
+              "description": "API key created in the console under Tokens. Send as `Authorization: Bearer sk-...`."
+            }
+          },
+          "parameters": {
+            "AnthropicVersion": {
+              "name": "anthropic-version",
               "in": "header",
-              "name": "Authorization"
+              "required": true,
+              "schema": { "type": "string", "default": "2023-06-01", "example": "2023-06-01" },
+              "description": "Required for native Anthropic endpoints (e.g. `2023-06-01`)."
+            }
+          },
+          "schemas": {
+            "APIError": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "type": { "type": "string", "example": "invalid_request_error" },
+                    "param": { "type": ["string", "null"] },
+                    "code": { "type": ["string", "null"] }
+                  }
+                }
+              }
+            },
+            "ChatMessage": {
+              "type": "object",
+              "required": ["role", "content"],
+              "properties": {
+                "role": { "type": "string", "enum": ["system", "user", "assistant", "tool"] },
+                "content": { "description": "Plain text, or a multimodal content array." }
+              }
+            },
+            "ChatCompletionRequest": {
+              "type": "object",
+              "required": ["model", "messages"],
+              "properties": {
+                "model": { "type": "string", "example": "gpt-5" },
+                "messages": { "type": "array", "items": { "$ref": "#/components/schemas/ChatMessage" } },
+                "stream": { "type": "boolean", "default": false },
+                "temperature": { "type": "number" },
+                "max_tokens": { "type": "integer" },
+                "top_p": { "type": "number" }
+              }
+            },
+            "ResponseRequest": {
+              "type": "object",
+              "required": ["model"],
+              "properties": {
+                "model": { "type": "string", "example": "gpt-5" },
+                "input": { "description": "Text string, or an array of input items." },
+                "stream": { "type": "boolean", "default": false },
+                "instructions": { "type": "string" }
+              }
+            },
+            "ClaudeMessageRequest": {
+              "type": "object",
+              "required": ["model", "max_tokens", "messages"],
+              "properties": {
+                "model": { "type": "string", "example": "claude-sonnet-4-5" },
+                "max_tokens": { "type": "integer", "example": 1024 },
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["role", "content"],
+                    "properties": {
+                      "role": { "type": "string", "enum": ["user", "assistant"] },
+                      "content": { "description": "String or content-block array." }
+                    }
+                  }
+                },
+                "stream": { "type": "boolean", "default": false },
+                "system": { "type": "string" }
+              }
+            },
+            "GeminiContentRequest": {
+              "type": "object",
+              "required": ["contents"],
+              "properties": {
+                "contents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "role": { "type": "string", "example": "user" },
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": { "text": { "type": "string" } }
+                        }
+                      }
+                    }
+                  }
+                },
+                "generationConfig": { "type": "object" }
+              }
             }
           }
         },
-        "security":[
+        "security": [
           {
             "BearerAuth": []
           }
@@ -87,9 +205,9 @@
                       },
                       "example": {
                         "object": "list",
-                        "data":[
+                        "data": [
                           {
-                            "id": "gpt-4o-mini",
+                            "id": "gpt-5",
                             "object": "model",
                             "created": 1677610602,
                             "owned_by": "openai"
@@ -102,22 +220,112 @@
               }
             }
           },
-          "/v1/chat/completions": {
+          "/v1/models/{model}": {
+            "get": {
+              "operationId": "retrieveModel",
+              "tags": ["OpenAI"],
+              "summary": "Retrieve Model",
+              "description": "Get a single model by ID in the OpenAI format. With `anthropic-version` + `x-api-key` this returns the Anthropic model object instead.",
+              "parameters": [
+                {
+                  "name": "model",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "example": "gpt-5" },
+                  "description": "Model ID as returned by GET /v1/models."
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Model object.",
+                  "content": {
+                    "application/json": {
+                      "schema": { "type": "object" },
+                      "example": {
+                        "id": "gpt-5",
+                        "object": "model",
+                        "created": 1677610602,
+                        "owned_by": "openai"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/responses": {
             "post": {
-              "operationId": "createChatCompletion",
-              "tags":["OpenAI"],
-              "summary": "Chat Completions",
-              "description": "Create chat completions using OpenAI models or any compatible model.",
+              "operationId": "createResponse",
+              "tags": ["OpenAI"],
+              "summary": "Responses API",
+              "description": "OpenAI's next-generation response format. Supports reasoning, tool calling and structured output.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/responses' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"model\": \"gpt-5\",\n    \"input\": \"Hello!\",\n    \"stream\": false\n  }'\n\`\`\`\n\nSet `\"stream\": true` to receive Server-Sent Events (`response.created`, `response.output_text.delta`, `response.completed`, ...).",
               "requestBody": {
                 "required": true,
                 "content": {
                   "application/json": {
-                    "schema": {
-                      "type": "object"
-                    },
+                    "schema": { "$ref": "#/components/schemas/ResponseRequest" },
                     "example": {
-                      "model": "gpt-4o-mini",
-                      "messages":[
+                      "model": "gpt-5",
+                      "input": "Hello!",
+                      "stream": false
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned a response object.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "resp_123",
+                        "object": "response",
+                        "created_at": 1741476542,
+                        "status": "completed",
+                        "model": "gpt-5",
+                        "output": [
+                          {
+                            "type": "message",
+                            "id": "msg_123",
+                            "status": "completed",
+                            "role": "assistant",
+                            "content": [
+                              {
+                                "type": "output_text",
+                                "text": "Hi!"
+                              }
+                            ]
+                          }
+                        ],
+                        "usage": {
+                          "input_tokens": 8,
+                          "output_tokens": 12,
+                          "total_tokens": 20
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/chat/completions": {
+            "post": {
+              "operationId": "createChatCompletion",
+              "tags": ["OpenAI"],
+              "summary": "Chat Completions",
+              "description": "Create chat completions using OpenAI models or any compatible model.\n\nSet `\"stream\": true` to receive Server-Sent Events (`data: {...}` lines terminated by `data: [DONE]`).\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/chat/completions' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"model\": \"gpt-5\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"Hello!\"}],\n    \"stream\": false\n  }'\n\`\`\`",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/ChatCompletionRequest" },
+                    "example": {
+                      "model": "gpt-5",
+                      "messages": [
                         { "role": "user", "content": "Hi" }
                       ],
                       "stream": false
@@ -137,7 +345,7 @@
                         "id": "chatcmpl-123",
                         "object": "chat.completion",
                         "created": 1677652288,
-                        "choices":[
+                        "choices": [
                           {
                             "index": 0,
                             "message": {
@@ -146,7 +354,57 @@
                             },
                             "finish_reason": "stop"
                           }
-                        ]
+                        ],
+                        "usage": {
+                          "prompt_tokens": 8,
+                          "completion_tokens": 12,
+                          "total_tokens": 20
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/completions": {
+            "post": {
+              "operationId": "createCompletion",
+              "tags": ["OpenAI"],
+              "summary": "Completions (legacy)",
+              "description": "Legacy text completions endpoint. Prefer `/v1/chat/completions` or `/v1/responses` for new integrations.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["model", "prompt"],
+                      "properties": {
+                        "model": { "type": "string", "example": "gpt-5" },
+                        "prompt": { "type": "string" },
+                        "max_tokens": { "type": "integer" },
+                        "stream": { "type": "boolean" }
+                      }
+                    },
+                    "example": {
+                      "model": "gpt-5",
+                      "prompt": "Say hello",
+                      "max_tokens": 64
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Completion result.",
+                  "content": {
+                    "application/json": {
+                      "schema": { "type": "object" },
+                      "example": {
+                        "id": "cmpl-123",
+                        "object": "text_completion",
+                        "choices": [{ "text": "Hello!", "index": 0, "finish_reason": "stop" }]
                       }
                     }
                   }
@@ -157,7 +415,7 @@
           "/v1/images/generations": {
             "post": {
               "operationId": "createImage",
-              "tags":["OpenAI"],
+              "tags": ["OpenAI"],
               "summary": "Create Image",
               "description": "Generate an image from a short prompt.",
               "requestBody": {
@@ -165,7 +423,14 @@
                 "content": {
                   "application/json": {
                     "schema": {
-                      "type": "object"
+                      "type": "object",
+                      "required": ["prompt"],
+                      "properties": {
+                        "prompt": { "type": "string", "example": "A cat" },
+                        "model": { "type": "string", "example": "gpt-image-2" },
+                        "n": { "type": "integer", "default": 1 },
+                        "size": { "type": "string", "example": "1024x1024" }
+                      }
                     },
                     "example": {
                       "prompt": "A cat",
@@ -186,7 +451,7 @@
                       },
                       "example": {
                         "created": 1589478378,
-                        "data":[
+                        "data": [
                           {
                             "url": baseUrl + "/images/sample.png"
                           }
@@ -252,7 +517,7 @@
                       },
                       "example": {
                         "created": 1713833628,
-                        "data":[
+                        "data": [
                           {
                             "url": baseUrl + "/images/edited.png"
                           }
@@ -275,7 +540,12 @@
                 "content": {
                   "application/json": {
                     "schema": {
-                      "type": "object"
+                      "type": "object",
+                      "required": ["model", "input"],
+                      "properties": {
+                        "model": { "type": "string", "example": "text-embedding-3-small" },
+                        "input": { "description": "String or array of strings to embed." }
+                      }
                     },
                     "example": {
                       "model": "text-embedding-3-small",
@@ -294,11 +564,11 @@
                       },
                       "example": {
                         "object": "list",
-                        "data":[
+                        "data": [
                           {
                             "object": "embedding",
                             "index": 0,
-                            "embedding":[0.002, -0.009, 0.018]
+                            "embedding": [0.002, -0.009, 0.018]
                           }
                         ],
                         "model": "text-embedding-3-small"
@@ -309,10 +579,387 @@
               }
             }
           },
+          "/v1/audio/speech": {
+            "post": {
+              "operationId": "createSpeech",
+              "tags": ["OpenAI"],
+              "summary": "Text to Speech",
+              "description": "Generate audio from text (TTS). The response body is the binary audio file.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/audio/speech' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"model\": \"tts-1\",\n    \"input\": \"Hello, this is a test.\",\n    \"voice\": \"alloy\",\n    \"response_format\": \"mp3\"\n  }' \\\n  --output speech.mp3\n\`\`\`",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "tts-1",
+                      "input": "Hello, this is a test.",
+                      "voice": "alloy",
+                      "response_format": "mp3"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Binary audio stream (Content-Type: audio/mpeg).",
+                  "content": {
+                    "application/octet-stream": {
+                      "schema": {
+                        "type": "string",
+                        "format": "binary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/audio/transcriptions": {
+            "post": {
+              "operationId": "createTranscription",
+              "tags": ["OpenAI"],
+              "summary": "Audio Transcription",
+              "description": "Transcribe audio into text (Whisper). Multipart upload.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/audio/transcriptions' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -F 'model=whisper-1' \\\n  -F 'file=@/path/to/audio.mp3'\n\`\`\`",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string",
+                          "description": "The transcription model, e.g. whisper-1"
+                        },
+                        "file": {
+                          "type": "string",
+                          "format": "binary",
+                          "description": "The audio file to transcribe."
+                        }
+                      },
+                      "required": ["model", "file"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned the transcription.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "text": "Hello, this is a test."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/audio/translations": {
+            "post": {
+              "operationId": "createTranslation",
+              "tags": ["OpenAI"],
+              "summary": "Audio Translation",
+              "description": "Translate audio into English text (Whisper). Multipart upload.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "model": { "type": "string", "description": "The translation model, e.g. whisper-1" },
+                        "file": { "type": "string", "format": "binary" }
+                      },
+                      "required": ["model", "file"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Translated text.",
+                  "content": {
+                    "application/json": {
+                      "schema": { "type": "object" },
+                      "example": { "text": "Hello, this is a test." }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/moderations": {
+            "post": {
+              "operationId": "createModeration",
+              "tags": ["OpenAI"],
+              "summary": "Moderations",
+              "description": "Classify whether text or images violate content policies.",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "omni-moderation-latest",
+                      "input": "Sample text to classify"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned moderation results.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "modr-123",
+                        "model": "omni-moderation-latest",
+                        "results": [
+                          {
+                            "flagged": false,
+                            "categories": {
+                              "harassment": false,
+                              "hate": false,
+                              "violence": false
+                            },
+                            "category_scores": {
+                              "harassment": 0.001,
+                              "hate": 0.0004,
+                              "violence": 0.002
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/rerank": {
+            "post": {
+              "operationId": "createRerank",
+              "tags": ["OpenAI"],
+              "summary": "Rerank",
+              "description": "Rerank documents by relevance to a query. Compatible with the official Jina AI / Cohere rerank formats.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/rerank' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"model\": \"jina-reranker-v2-base-multilingual\",\n    \"query\": \"What is the capital of France?\",\n    \"documents\": [\"Paris is the capital of France.\", \"Berlin is in Germany.\"],\n    \"top_n\": 2\n  }'\n\`\`\`",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "jina-reranker-v2-base-multilingual",
+                      "query": "What is the capital of France?",
+                      "documents": [
+                        "Paris is the capital of France.",
+                        "Berlin is in Germany."
+                      ],
+                      "top_n": 2
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Successfully returned reranked results.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "model": "jina-reranker-v2-base-multilingual",
+                        "results": [
+                          {
+                            "index": 0,
+                            "relevance_score": 0.98,
+                            "document": {
+                              "text": "Paris is the capital of France."
+                            }
+                          }
+                        ],
+                        "usage": {
+                          "total_tokens": 24
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/videos": {
+            "post": {
+              "operationId": "createVideo",
+              "tags": ["OpenAI"],
+              "summary": "Create Video (Sora)",
+              "description": "Create a video generation job (task-style, asynchronous). Poll `GET /v1/videos/{video_id}` for the result.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/videos' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"model\": \"sora-2\",\n    \"prompt\": \"A cat playing piano\",\n    \"size\": \"1280x720\",\n    \"seconds\": \"8\"\n  }'\n\`\`\`",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "sora-2",
+                      "prompt": "A cat playing piano",
+                      "size": "1280x720",
+                      "seconds": "8"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Video job created.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "video_123",
+                        "object": "video",
+                        "model": "sora-2",
+                        "status": "queued",
+                        "progress": 0,
+                        "created_at": 1713833628
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/videos/{video_id}": {
+            "get": {
+              "operationId": "getVideo",
+              "tags": ["OpenAI"],
+              "summary": "Get Video Status",
+              "description": "Poll the status of a video generation job. When `status` becomes `completed`, download the content via `GET /v1/videos/{video_id}/content`.",
+              "parameters": [
+                {
+                  "name": "video_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string" },
+                  "description": "The video job ID returned by POST /v1/videos."
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Current video job status.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "id": "video_123",
+                        "object": "video",
+                        "model": "sora-2",
+                        "status": "completed",
+                        "progress": 100,
+                        "created_at": 1713833628
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/videos/{video_id}/content": {
+            "get": {
+              "operationId": "downloadVideoContent",
+              "tags": ["OpenAI"],
+              "summary": "Download Video Content",
+              "description": "Download the generated video bytes once `GET /v1/videos/{video_id}` reports `status: completed`.",
+              "parameters": [
+                {
+                  "name": "video_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Binary video stream.",
+                  "content": {
+                    "application/octet-stream": {
+                      "schema": { "type": "string", "format": "binary" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1/videos/{video_id}/remix": {
+            "post": {
+              "operationId": "remixVideo",
+              "tags": ["OpenAI"],
+              "summary": "Remix Video",
+              "description": "Create a new video job by remixing an existing completed video.",
+              "parameters": [
+                {
+                  "name": "video_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string" }
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["prompt"],
+                      "properties": {
+                        "prompt": { "type": "string" }
+                      }
+                    },
+                    "example": { "prompt": "Make the cat wear a hat" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Remix job created.",
+                  "content": {
+                    "application/json": {
+                      "schema": { "type": "object" },
+                      "example": {
+                        "id": "video_456",
+                        "object": "video",
+                        "model": "sora-2",
+                        "status": "queued"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "/v1beta/models": {
             "get": {
               "operationId": "listModelsGemini",
-              "tags":["Gemini"],
+              "tags": ["Gemini"],
               "summary": "List Models",
               "description": "Retrieve the list of available models using the native Gemini API format.",
               "responses": {
@@ -324,10 +971,10 @@
                         "type": "object"
                       },
                       "example": {
-                        "models":[
+                        "models": [
                           {
-                            "name": "models/gemini-2.5-flash",
-                            "displayName": "Gemini 2.5 Flash",
+                            "name": "models/gemini-3-flash-preview",
+                            "displayName": "Gemini 3 Flash",
                             "description": "Fast and versatile multimodal model"
                           }
                         ]
@@ -343,13 +990,13 @@
               "operationId": "generateContentGemini",
               "tags": ["Gemini"],
               "summary": "Generate Content",
-              "description": "Generate text or multimodal content using Google Gemini's native API format.",
-              "parameters":[
+              "description": "Generate text or multimodal content using Google Gemini's native API format.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1beta/models/gemini-3-flash-preview:generateContent' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"contents\": [{\n      \"role\": \"user\",\n      \"parts\": [{ \"text\": \"Hello!\" }]\n    }]\n  }'\n\`\`\`",
+              "parameters": [
                 {
                   "name": "model",
                   "in": "path",
                   "required": true,
-                  "schema": { "type": "string", "example": "gemini-2.5-flash" },
+                  "schema": { "type": "string", "example": "gemini-3-flash-preview" },
                   "description": "The name of the Gemini model to use."
                 }
               ],
@@ -357,13 +1004,12 @@
                 "required": true,
                 "content": {
                   "application/json": {
-                    "schema": {
-                      "type": "object"
-                    },
+                    "schema": { "$ref": "#/components/schemas/GeminiContentRequest" },
                     "example": {
                       "contents": [
                         {
-                          "parts":[
+                          "role": "user",
+                          "parts": [
                             { "text": "Hi" }
                           ]
                         }
@@ -381,15 +1027,126 @@
                         "type": "object"
                       },
                       "example": {
-                        "candidates":[
+                        "candidates": [
                           {
                             "content": {
-                              "parts":[
+                              "role": "model",
+                              "parts": [
                                 { "text": "Hi!" }
                               ]
-                            }
+                            },
+                            "finishReason": "STOP"
                           }
-                        ]
+                        ],
+                        "usageMetadata": {
+                          "promptTokenCount": 4,
+                          "candidatesTokenCount": 8,
+                          "totalTokenCount": 12
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1beta/models/{model}:streamGenerateContent": {
+            "post": {
+              "operationId": "streamGenerateContentGemini",
+              "tags": ["Gemini"],
+              "summary": "Stream Generate Content",
+              "description": "Streaming variant of `generateContent`. Append `?alt=sse` to receive Server-Sent Events, one JSON chunk per line.\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"contents\": [{\n      \"role\": \"user\",\n      \"parts\": [{ \"text\": \"Hello!\" }]\n    }]\n  }'\n\`\`\`",
+              "parameters": [
+                {
+                  "name": "model",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "example": "gemini-3-flash-preview" },
+                  "description": "The name of the Gemini model to use."
+                },
+                {
+                  "name": "alt",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "example": "sse" },
+                  "description": "Set to `sse` for Server-Sent Events streaming."
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/GeminiContentRequest" },
+                    "example": {
+                      "contents": [
+                        {
+                          "role": "user",
+                          "parts": [
+                            { "text": "Hi" }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Stream of GenerateContentResponse chunks (SSE).",
+                  "content": {
+                    "text/event-stream": {
+                      "schema": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/v1beta/models/{model}:countTokens": {
+            "post": {
+              "operationId": "countTokensGemini",
+              "tags": ["Gemini"],
+              "summary": "Count Tokens",
+              "description": "Count the number of tokens for a given request without running generation.",
+              "parameters": [
+                {
+                  "name": "model",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "example": "gemini-3-flash-preview" },
+                  "description": "The name of the Gemini model to use."
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/GeminiContentRequest" },
+                    "example": {
+                      "contents": [
+                        {
+                          "role": "user",
+                          "parts": [
+                            { "text": "Hi" }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Token count for the request.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "totalTokens": 4
                       }
                     }
                   }
@@ -402,18 +1159,19 @@
               "operationId": "createMessage",
               "tags": ["Anthropic (Claude)"],
               "summary": "Create Message",
-              "description": "Create a message using the Anthropic Claude native API format.",
+              "description": "Create a message using the Anthropic Claude native API format. Requires the `anthropic-version: 2023-06-01` header.\n\nSet `\"stream\": true` to receive Server-Sent Events (`message_start`, `content_block_delta`, `message_stop`, ...).\n\nExample:\n\n\`\`\`bash\ncurl -X POST '" + baseUrl + "/v1/messages' \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'anthropic-version: 2023-06-01' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"model\": \"claude-sonnet-4-5\",\n    \"max_tokens\": 1024,\n    \"messages\": [{\"role\": \"user\", \"content\": \"Hello!\"}]\n  }'\n\`\`\`",
+              "parameters": [
+                { "$ref": "#/components/parameters/AnthropicVersion" }
+              ],
               "requestBody": {
                 "required": true,
                 "content": {
                   "application/json": {
-                    "schema": {
-                      "type": "object"
-                    },
+                    "schema": { "$ref": "#/components/schemas/ClaudeMessageRequest" },
                     "example": {
-                      "model": "claude-3-5-sonnet-20241022",
+                      "model": "claude-sonnet-4-5",
                       "max_tokens": 1024,
-                      "messages":[
+                      "messages": [
                         {
                           "role": "user",
                           "content": "Hi"
@@ -435,58 +1193,134 @@
                         "id": "msg_123",
                         "type": "message",
                         "role": "assistant",
-                        "content":[
+                        "model": "claude-sonnet-4-5",
+                        "content": [
                           {
                             "type": "text",
                             "text": "Hi!"
                           }
-                        ]
+                        ],
+                        "stop_reason": "end_turn",
+                        "usage": {
+                          "input_tokens": 8,
+                          "output_tokens": 12
+                        }
                       }
                     }
                   }
                 }
               }
             }
-          }
+          },
+          "/v1/messages/count_tokens": {
+            "post": {
+              "operationId": "countMessageTokens",
+              "tags": ["Anthropic (Claude)"],
+              "summary": "Count Message Tokens",
+              "description": "Count the number of tokens in a message request without creating a message (official Anthropic format).",
+              "parameters": [
+                { "$ref": "#/components/parameters/AnthropicVersion" }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object"
+                    },
+                    "example": {
+                      "model": "claude-sonnet-4-5",
+                      "messages": [
+                        {
+                          "role": "user",
+                          "content": "Hi"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Token count for the message.",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object"
+                      },
+                      "example": {
+                        "input_tokens": 8
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
         }
+      });
+
+      // 2. Initialize Scalar API Reference (after branding is resolved)
+      const initDocs = () => {
+        applyBranding();
+        Scalar.createApiReference('#app', {
+          spec: {
+            content: buildApiSpec(),
+          },
+          theme: 'alternate',
+          layout: 'modern',
+          hideClientButton: true,
+          defaultOpenAllTags: true,
+          showSidebar: true,
+          operationTitleSource: 'summary',
+          persistAuth: false,
+          searchHotKey: 'k',
+          hideModels: true,
+          documentDownloadType: 'both',
+          hideTestRequestButton: false,
+          hideSearch: false,
+          hideDarkModeToggle: false,
+          withDefaultFonts: true,
+          orderSchemaPropertiesBy: 'alpha',
+          orderRequiredPropertiesFirst: true,
+
+          // Brand accent, aligned with the console primary color
+          customCss: `
+            :root {
+              --scalar-color-accent: #6366f1;
+            }
+            .dark-mode {
+              --scalar-color-accent: #818cf8;
+            }
+          `,
+
+          // Disable Agent AI features
+          agent: {
+            disabled: true,
+          },
+
+          // Advanced developer options
+          showToolbar: 'localhost',
+          telemetry: false,
+          isEditable: false,
+          isLoading: false,
+          showOperationId: false,
+          expandAllModelSections: false,
+          expandAllResponses: true,
+        });
       };
 
-      // 2. Initialize Scalar API Reference
-      Scalar.createApiReference('#app', {
-        spec: {
-          content: apiSpec,
-        },
-        theme: 'alternate',             
-        layout: 'modern',               
-        hideClientButton: true,         
-        defaultOpenAllTags: true,       
-        showSidebar: true,              
-        operationTitleSource: 'summary',
-        persistAuth: false,             
-        searchHotKey: 'k',              
-        hideModels: true,               
-        documentDownloadType: 'both',   
-        hideTestRequestButton: false,   
-        hideSearch: false,              
-        hideDarkModeToggle: false,      
-        withDefaultFonts: true,         
-        orderSchemaPropertiesBy: 'alpha', 
-        orderRequiredPropertiesFirst: true, 
-        
-        // Disable Agent AI features
-        agent: {
-          disabled: true,               
-        },
-        
-        // Advanced developer options
-        showToolbar: 'localhost',
-        telemetry: false,               
-        isEditable: false,
-        isLoading: false,
-        showOperationId: false,
-        expandAllModelSections: false,
-        expandAllResponses: true,
-      })
+      // Resolve system name / logo from the status endpoint, then render.
+      fetch(baseUrl + '/api/status')
+        .then((res) => res.json())
+        .then((body) => {
+          if (body && body.success && body.data) {
+            brandState.systemName = body.data.system_name || '';
+            brandState.logo = body.data.logo || '';
+          }
+        })
+        .catch(() => {})
+        .finally(initDocs);
     </script>
   </body>
 </html>

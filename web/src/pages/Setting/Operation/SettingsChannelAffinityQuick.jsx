@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Banner,
   Button,
   Empty,
   Form,
@@ -242,31 +241,14 @@ export default function SettingsChannelAffinityQuick(props) {
     },
   ];
 
-  const banner = (
-    <Banner
-      fullMode={false}
-      type={skipRetryCount > 0 ? 'warning' : 'info'}
-      description={
-        <div>
-          <Text>
-            {t(
-              '渠道亲和性会让同一会话/客户端粘到上次成功的渠道。某些规则（如 Codex CLI、Claude CLI 透传）默认开启了"失败后不重试"，会忽略"监控设置 → 自动重试状态码"和"失败重试次数"。',
-            )}
-          </Text>
-          <br />
-          <Text strong>
-            {t('当前状态：')}
-          </Text>
-          <Text type={skipRetryCount > 0 ? 'danger' : 'success'}>
-            {skipRetryCount > 0
-              ? t('{{count}} 条规则启用"失败后不重试"，重试状态码对它们无效', {
-                  count: skipRetryCount,
-                })
-              : t('所有规则都允许按全局重试状态码重试')}
-          </Text>
-        </div>
-      }
-    />
+  const hint = (
+    <p className='compact-hint' style={{ marginTop: 0 }}>
+      {skipRetryCount > 0
+        ? t('{{count}} 条规则失败后不重试，会忽略全局重试状态码', {
+            count: skipRetryCount,
+          })
+        : t('同一会话会粘到上次成功的渠道')}
+    </p>
   );
 
   return (
@@ -276,8 +258,8 @@ export default function SettingsChannelAffinityQuick(props) {
         getFormApi={(formAPI) => (refForm.current = formAPI)}
         style={{ marginBottom: 15 }}
       >
-        <Form.Section text={t('渠道亲和性（快速重试控制）')}>
-          {banner}
+        <Form.Section text={t('渠道亲和性')}>
+          {hint}
           <Row style={{ marginTop: 12, marginBottom: 12 }}>
             <Form.Switch
               field={KEY_ENABLED}
@@ -288,17 +270,12 @@ export default function SettingsChannelAffinityQuick(props) {
                 setInputs({ ...inputs, [KEY_ENABLED]: value })
               }
             />
-            <Text type='tertiary' size='small' style={{ marginLeft: 12 }}>
-              {t('关闭后所有规则都不生效，所有请求按全局设置选路与重试。')}
-            </Text>
           </Row>
 
           {rules.length === 0 ? (
             <Empty
+              image={null}
               title={t('暂无亲和规则')}
-              description={t(
-                '若需要让 Codex CLI / Claude CLI 透传特定 Header 并粘同一渠道，请前往「模型设置」页的「渠道亲和性」高级配置添加规则。',
-              )}
             />
           ) : (
             <>
@@ -317,11 +294,6 @@ export default function SettingsChannelAffinityQuick(props) {
                       : ''}
                   </Button>
                 </Popconfirm>
-                <Text type='tertiary' size='small' style={{ marginLeft: 12 }}>
-                  {t(
-                    '只列出与重试相关的字段；如需编辑模型/路径正则、Key 来源、参数覆盖模板等高级字段，请前往「模型设置」页。',
-                  )}
-                </Text>
               </Row>
               <Table
                 columns={columns}

@@ -15,6 +15,7 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { normalizeLanguage } from '../../i18n/language';
 import ClawdMascot from '../common/ClawdMascot';
+import ErrorBoundary from '../common/ErrorBoundary';
 
 
 const FULLSCREEN_ROUTES = ['/register', '/reset'];
@@ -33,8 +34,12 @@ const PageLayout = () => {
     }
   };
 
-  const refreshUser = useCallback(async () => {
+  const lastUserRefreshRef = React.useRef(0);
+  const refreshUser = useCallback(async (force = false) => {
     if (!localStorage.getItem('user')) return;
+    const now = Date.now();
+    if (!force && now - lastUserRefreshRef.current < 30000) return;
+    lastUserRefreshRef.current = now;
     try {
       const res = await API.get('/api/user/self');
       const { success, data } = res.data;
@@ -68,7 +73,7 @@ if (success) {
     const systemName = getSystemName();
     if (systemName) document.title = systemName;
     loadStatus().catch(console.error);
-    refreshUser();
+    refreshUser(true);
   }, []);
 
   useEffect(() => {
@@ -117,7 +122,9 @@ if (success) {
   if (isFullscreen) {
     return (
       <div className='bg-white'>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
         <ToastContainer
           position='top-right'
           autoClose={3000}
@@ -125,7 +132,9 @@ if (success) {
           newestOnTop
           closeOnClick
         />
-        <ClawdMascot />
+        <ErrorBoundary>
+          <ClawdMascot />
+        </ErrorBoundary>
       </div>
     );
   }
@@ -135,8 +144,10 @@ if (success) {
       <NavBar />
       <main className='pt-[var(--nav-height)]'>
         <div className='max-w-[1400px] mx-auto'>
-          {/* 勿用 key=pathname + AnimatePresence mode=wait 包裹 App：会整树卸载路由并易出现切换白屏 */}
-          <App />
+          {/* 勿在此用 key=pathname 再包一层 AnimatePresence：页面过渡已在 App 内处理 */}
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </div>
       </main>
       <ToastContainer
@@ -146,7 +157,9 @@ if (success) {
         newestOnTop
         closeOnClick
       />
-      <ClawdMascot />
+      <ErrorBoundary>
+        <ClawdMascot />
+      </ErrorBoundary>
     </div>
   );
 };

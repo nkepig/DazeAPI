@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Spin } from '@douyinfe/semi-ui';
+import { Spin } from '@douyinfe/semi-ui';
 import SettingsPerformance from '../../pages/Setting/Performance/SettingsPerformance';
 import { API, showError, toBoolean } from '../../helpers';
 
@@ -68,10 +68,9 @@ const PerformanceSetting = () => {
   return (
     <>
       <Spin spinning={loading} size='large'>
-        {/* 性能设置 */}
-        <Card style={{ marginTop: '10px' }}>
+        <div className='settings-stack compact-form'>
           <SettingsPerformance options={inputs} refresh={onRefresh} />
-        </Card>
+        </div>
       </Spin>
     </>
   );

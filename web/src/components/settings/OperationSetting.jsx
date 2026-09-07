@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Spin } from '@douyinfe/semi-ui';
+import { Spin } from '@douyinfe/semi-ui';
 import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
@@ -111,25 +111,15 @@ const OperationSetting = () => {
 
   return (
     <Spin spinning={loading} size='large'>
-      <Card style={{ marginTop: '10px' }}>
+      <div className='settings-stack compact-form'>
         <SettingsGeneral options={inputs} refresh={onRefresh} />
-      </Card>
-      <Card style={{ marginTop: '10px' }}>
         <SettingsLog options={inputs} refresh={onRefresh} />
-      </Card>
-      <Card style={{ marginTop: '10px' }}>
         <SettingsMonitoring options={inputs} refresh={onRefresh} />
-      </Card>
-      <Card style={{ marginTop: '10px' }}>
         <SettingsChannelAffinityQuick options={inputs} refresh={onRefresh} />
-      </Card>
-      <Card style={{ marginTop: '10px' }}>
         <SettingsCreditLimit options={inputs} refresh={onRefresh} />
-      </Card>
-      <Card style={{ marginTop: '10px' }}>
         <SettingsClawd />
-      </Card>
-      <PaymentSetting />
+        <PaymentSetting />
+      </div>
     </Spin>
   );
 };

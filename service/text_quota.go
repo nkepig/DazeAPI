@@ -100,13 +100,11 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	}
 	summary.IsClaudeUsageSemantic = summary.UsageSemantic == "anthropic"
 
+	billedByUpstream := ValidUsage(usage)
 	if usage == nil {
-		usage = &dto.Usage{
-			PromptTokens:     relayInfo.GetEstimatePromptTokens(),
-			CompletionTokens: 0,
-			TotalTokens:      relayInfo.GetEstimatePromptTokens(),
-		}
+		usage = &dto.Usage{}
 	}
+	usage.NormalizeInputTokenDetails()
 
 	summary.PromptTokens = usage.PromptTokens
 	summary.CompletionTokens = usage.CompletionTokens
@@ -117,6 +115,36 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	summary.CacheCreationTokens1h = usage.ClaudeCacheCreation1hTokens
 	summary.ImageTokens = usage.PromptTokensDetails.ImageTokens
 	summary.AudioTokens = usage.PromptTokensDetails.AudioTokens
+
+	// 阶梯计费：按实际输入上下文长度重新选档，覆盖预估时的输入/输出单价
+	if priceData.UseTieredPricing {
+		if modelPricing, ok := pricing.GetModelPricing(relayInfo.OriginModelName); ok && modelPricing.IsTiered() {
+			inputLen := pricing.InputContextLength(
+				summary.PromptTokens,
+				summary.CacheTokens,
+				summary.CacheCreationTokens,
+				summary.IsClaudeUsageSemantic,
+			)
+			if tier, ok := modelPricing.SelectTier(inputLen); ok {
+				summary.PromptPrice = tier.PromptPrice
+				summary.CompletionPrice = tier.CompletionPrice
+				summary.CacheReadPrice = tier.CacheReadPrice
+				summary.CacheWritePrice = tier.CacheWritePrice
+				// 5m/1h 缓存创建仍按档位缓存创建价派生（与非阶梯路径一致）
+				summary.CacheWrite5mPrice = tier.CacheWritePrice
+				summary.CacheWrite1hPrice = tier.CacheWritePrice * (6.0 / 3.75)
+				matched := tier.Label()
+				relayInfo.PriceData.MatchedTier = matched
+				relayInfo.PriceData.PromptPrice = tier.PromptPrice
+				relayInfo.PriceData.CompletionPrice = tier.CompletionPrice
+				relayInfo.PriceData.CacheReadPrice = tier.CacheReadPrice
+				relayInfo.PriceData.CacheWritePrice = tier.CacheWritePrice
+				relayInfo.PriceData.CacheWrite5mPrice = summary.CacheWrite5mPrice
+				relayInfo.PriceData.CacheWrite1hPrice = summary.CacheWrite1hPrice
+			}
+		}
+	}
+
 	legacyClaudeDerived := isLegacyClaudeDerivedOpenAIUsage(relayInfo, usage)
 	isOpenRouterClaudeBilling := relayInfo.ChannelMeta != nil &&
 		relayInfo.ChannelType == constant.ChannelTypeOpenRouter &&
@@ -270,7 +298,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		summary.QuotaMicrodollars = totalCost.Round(0).IntPart()
 	}
 
-	if summary.TotalTokens == 0 {
+	if !billedByUpstream || summary.TotalTokens == 0 {
 		summary.QuotaMicrodollars = 0
 	}
 
@@ -289,9 +317,7 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
 	originUsage := usage
-	if usage == nil {
-		extraContent = append(extraContent, "上游无计费信息")
-	}
+	missingUpstreamUsage := !ValidUsage(originUsage)
 	if originUsage != nil {
 		ObserveChannelAffinityUsageCacheByRelayFormat(ctx, usage, relayInfo.GetFinalRequestRelayFormat())
 	}
@@ -323,10 +349,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, fmt.Sprintf("Image Generation Call 花费 %s", pricing.FormatDollars(cost.IntPart())))
 	}
 
-	if summary.TotalTokens == 0 {
+	if missingUpstreamUsage {
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
-		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.FinalPreConsumedQuota))
-	} else {
+		logger.LogError(ctx, fmt.Sprintf("upstream usage missing, skip downstream billing, userId %d, channelId %d, tokenId %d, model %s, estimated prompt tokens %d, pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.GetEstimatePromptTokens(), relayInfo.FinalPreConsumedQuota))
+	} else if summary.QuotaMicrodollars != 0 {
 		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, int(summary.QuotaMicrodollars))
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, int(summary.QuotaMicrodollars))
 	}

@@ -18,11 +18,17 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import UsersTable from '../../components/table/users';
 
 const User = () => {
+  const { t } = useTranslation();
   return (
-    <div className='px-2'>
+    <div className='px-6 lg:px-10 py-8'>
+      <div className='daze-reveal mb-6'>
+        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t('用户管理')}</h1>
+        <p className='text-[13px] text-[#999] mt-1'>{t('管理用户账号、余额与权限')}</p>
+      </div>
       <UsersTable />
     </div>
   );

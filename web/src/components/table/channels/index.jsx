@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
-import { Space, Button } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import BubbleFilter from '../../common/BubbleFilter';
 import ChannelsTable from './ChannelsTable';
@@ -99,20 +98,6 @@ const ChannelsPage = () => {
         onCancel={channelsData.closeUpstreamUpdateModal}
       />
 
-      <div className='flex items-center justify-between mb-4'>
-        <Space align='center'>
-          <h2 className='text-lg font-semibold'>{channelsData.t('渠道管理')}</h2>
-        </Space>
-        <Button
-          size='small'
-          theme='light'
-          style={{ color: '#DE886D', borderColor: '#DE886D' }}
-          onClick={() => setClawdSettingsOpen(true)}
-        >
-          {channelsData.t('渠道守护')}
-        </Button>
-      </div>
-
       <CardPro
         type='type3'
         tabsArea={null}
@@ -122,7 +107,7 @@ const ChannelsPage = () => {
               {!channelsData.enableTagMode ? (
                 <BubbleFilter
                   size='small'
-                  label='类别'
+                  label={channelsData.t('类别')}
                   options={channelTypeOptions}
                   value={channelsData.activeTypeKey}
                   onChange={(nextValue) => {
@@ -141,7 +126,10 @@ const ChannelsPage = () => {
               <ChannelsActions {...channelsData} />
             </div>
             <div className='flex items-center gap-2 w-full flex-wrap'>
-              <ChannelsFilters {...channelsData} />
+              <ChannelsFilters
+                {...channelsData}
+                onOpenClawd={() => setClawdSettingsOpen(true)}
+              />
             </div>
           </div>
         }

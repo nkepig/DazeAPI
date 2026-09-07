@@ -423,7 +423,11 @@ const ClawdChatPanel = ({ visible, onClose, onNewResponse }) => {
     setToolCallInfo('');
     setToolCallStatus('');
 
-try {
+    let toolCallsAcc = [];
+    let fullText = '';
+    let reasoningAcc = '';
+
+    try {
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -457,9 +461,6 @@ try {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
-      let reasoningAcc = '';
-      let toolCallsAcc = [];
 
       while (true) {
         const { done, value } = await reader.read();

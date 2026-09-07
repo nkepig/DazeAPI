@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 
 export const CHANNEL_OPTIONS = [
   { value: 1, color: 'green', label: 'OpenAI' },
-  { value: 4, color: 'grey', label: 'Ollama' },
   {
     value: 14,
     color: 'indigo',
@@ -38,11 +37,6 @@ export const CHANNEL_OPTIONS = [
   },
   { value: 43, color: 'blue', label: 'DeepSeek' },
   {
-    value: 17,
-    color: 'orange',
-    label: '阿里通义千问',
-  },
-  {
     value: 16,
     color: 'violet',
     label: '智谱 ChatGLM（已经弃用，请使用智谱 GLM-4V）',
@@ -51,11 +45,6 @@ export const CHANNEL_OPTIONS = [
     value: 26,
     color: 'purple',
     label: '智谱 GLM-4V',
-  },
-  {
-    value: 27,
-    color: 'blue',
-    label: 'Perplexity',
   },
   {
     value: 24,
@@ -67,53 +56,11 @@ export const CHANNEL_OPTIONS = [
     color: 'orange',
     label: 'Google PaLM2',
   },
-  { value: 25, color: 'green', label: 'Moonshot' },
   { value: 20, color: 'green', label: 'OpenRouter' },
-  { value: 23, color: 'teal', label: '腾讯混元' },
-  { value: 31, color: 'green', label: '零一万物' },
-  { value: 35, color: 'green', label: 'MiniMax' },
-  { value: 40, color: 'purple', label: 'SiliconCloud' },
-  { value: 42, color: 'blue', label: 'Mistral AI' },
-  { value: 8, color: 'pink', label: '自定义渠道' },
-  {
-    value: 44,
-    color: 'purple',
-    label: '嵌入模型：MokaAI M3E',
-  },
-  {
-    value: 45,
-    color: 'blue',
-    label: '字节火山方舟、豆包通用',
-  },
   {
     value: 48,
     color: 'blue',
     label: 'xAI',
-  },
-  {
-    value: 49,
-    color: 'blue',
-    label: 'Coze',
-  },
-  {
-    value: 50,
-    color: 'green',
-    label: '可灵',
-  },
-  {
-    value: 51,
-    color: 'blue',
-    label: '即梦',
-  },
-  {
-    value: 54,
-    color: 'blue',
-    label: '豆包视频',
-  },
-  {
-    value: 55,
-    color: 'green',
-    label: 'Sora',
   },
   {
     value: 57,
@@ -124,7 +71,7 @@ export const CHANNEL_OPTIONS = [
 
 // Channel types that support upstream model list fetching in UI.
 export const MODEL_FETCHABLE_CHANNEL_TYPES = new Set([
-  1, 4, 14, 17, 26, 27, 24, 25, 20, 23, 31, 40, 42, 48, 43,
+  1, 14, 26, 24, 20, 48, 43,
 ]);
 
 export const MODEL_TABLE_PAGE_SIZE = 10;

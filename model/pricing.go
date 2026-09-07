@@ -30,6 +30,8 @@ type Pricing struct {
 	AudioOutputPrice       float64                 `json:"audio_output_price,omitempty"`
 	PerCallPrice           float64                 `json:"per_call_price,omitempty"`
 	FixedPriceUnit         string                  `json:"fixed_price_unit,omitempty"`
+	BillingMode            string                  `json:"billing_mode,omitempty"` // "tiered" = length-based packages
+	Tiers                  []pricing.PricingTier  `json:"tiers,omitempty"`
 	IsDefaultPrice         bool                    `json:"is_default_price,omitempty"`
 	OwnerBy                string                  `json:"owner_by"`
 	EnableGroup            []string                `json:"enable_groups"`
@@ -286,10 +288,29 @@ func updatePricing() {
 		// 从新的 pricing 包获取定价
 		modelPricing, found := pricing.GetModelPricing(model)
 		if found {
-		if modelPricing.UsePerCallPricing {
-			p.PerCallPrice = modelPricing.PerCallPrice
-			p.PricingType = 1
-			p.FixedPriceUnit = modelPricing.FixedPriceUnit
+			if modelPricing.UsePerCallPricing {
+				p.PerCallPrice = modelPricing.PerCallPrice
+				p.PricingType = 1
+				p.FixedPriceUnit = modelPricing.FixedPriceUnit
+			} else if modelPricing.IsTiered() {
+				p.PricingType = 0
+				p.BillingMode = pricing.BillingModeTiered
+				p.Tiers = modelPricing.Tiers
+				// 列表默认展示第一档（按 max_len 升序后的短档）价格
+				if tier, ok := modelPricing.SelectTier(0); ok {
+					p.PromptPrice = tier.PromptPrice
+					p.CompletionPrice = tier.CompletionPrice
+					p.CacheReadPrice = tier.CacheReadPrice
+					p.CacheWritePrice = tier.CacheWritePrice
+				} else {
+					p.PromptPrice = modelPricing.PromptPrice
+					p.CompletionPrice = modelPricing.CompletionPrice
+					p.CacheReadPrice = modelPricing.CacheReadPrice
+					p.CacheWritePrice = modelPricing.CacheWritePrice
+				}
+				p.ImagePrice = modelPricing.ImagePrice
+				p.AudioInputPrice = modelPricing.AudioInputPrice
+				p.AudioOutputPrice = modelPricing.AudioOutputPrice
 			} else {
 				p.PromptPrice = modelPricing.PromptPrice
 				p.CompletionPrice = modelPricing.CompletionPrice

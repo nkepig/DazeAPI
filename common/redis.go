@@ -260,6 +260,37 @@ func RedisHIncrBy(key, field string, delta int64) error {
 	return RDB.HIncrBy(ctx, key, field, delta).Err()
 }
 
+// RedisHIncrByIfComplete increments a hash field only when the hash is fully
+// populated (Id present and non-zero). Returns false if the key is missing or
+// incomplete so the caller can rebuild from DB instead of HINCRBY-from-zero,
+// which would persist a bogus quota until the key TTL (SYNC_FREQUENCY).
+func RedisHIncrByIfComplete(key, field string, delta int64) (bool, error) {
+	if DebugEnabled {
+		SysLog(fmt.Sprintf("Redis HINCRBYIFCOMPLETE: key=%s, field=%s, delta=%d", key, field, delta))
+	}
+	if RDB == nil {
+		return false, fmt.Errorf("redis is not enabled")
+	}
+	ctx := context.Background()
+	luaScript := `
+local id = redis.call('HGET', KEYS[1], 'Id')
+if not id or id == '' or id == '0' then
+	return 0
+end
+redis.call('HINCRBY', KEYS[1], ARGV[1], ARGV[2])
+local ttl = redis.call('TTL', KEYS[1])
+if ttl > 0 then
+	redis.call('EXPIRE', KEYS[1], ttl)
+end
+return 1
+`
+	res, err := RDB.Eval(ctx, luaScript, []string{key}, field, delta).Int()
+	if err != nil {
+		return false, err
+	}
+	return res == 1, nil
+}
+
 func RedisHSetField(key, field string, value interface{}) error {
 	if DebugEnabled {
 		SysLog(fmt.Sprintf("Redis HSET field: key=%s, field=%s, value=%v", key, field, value))
@@ -339,13 +370,19 @@ func RedisHSetObjPreservingFields(key string, obj interface{}, expiration time.D
 	luaScript := `
 local saved = {}
 local preserve_count = 0
--- Save current values of preserve fields
-for i = 1, #KEYS - 1 do
-	local field = KEYS[i + 1]
-	local val = redis.call('HGET', KEYS[1], field)
-	if val then
-		saved[field] = val
-		preserve_count = preserve_count + 1
+-- Only preserve fields on a complete hash (Id present). A partial hash
+-- created by HINCRBY on an expired key starts Quota from 0 and must not
+-- be locked in by a later HMSET of the other user fields.
+local id = redis.call('HGET', KEYS[1], 'Id')
+local hash_complete = id and id ~= '' and id ~= '0'
+if hash_complete then
+	for i = 1, #KEYS - 1 do
+		local field = KEYS[i + 1]
+		local val = redis.call('HGET', KEYS[1], field)
+		if val then
+			saved[field] = val
+			preserve_count = preserve_count + 1
+		end
 	end
 end
 

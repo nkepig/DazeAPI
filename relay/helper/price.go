@@ -53,18 +53,35 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 	var preConsumedQuota int
 	var freeModel bool
+	matchedTier := ""
+	useTiered := false
 
 	if !modelPricing.UsePerCallPricing {
 		promptTokenCount := common.Max(promptTokens, common.PreConsumedQuota)
 		completionTokenCount := common.Max(meta.MaxTokens, 0)
+		promptPrice := modelPricing.PromptPrice
+		completionPrice := modelPricing.CompletionPrice
+		if modelPricing.IsTiered() {
+			useTiered = true
+			if tier, ok := modelPricing.SelectTier(promptTokenCount); ok {
+				promptPrice = tier.PromptPrice
+				completionPrice = tier.CompletionPrice
+				modelPricing.CacheReadPrice = tier.CacheReadPrice
+				modelPricing.CacheWritePrice = tier.CacheWritePrice
+				matchedTier = tier.Label()
+			}
+		}
 		estimatedCostMicrodollars := pricing.ToMicrodollars(
-			float64(promptTokenCount)/1_000_000.0*modelPricing.PromptPrice +
-				float64(completionTokenCount)/1_000_000.0*modelPricing.CompletionPrice,
+			float64(promptTokenCount)/1_000_000.0*promptPrice +
+				float64(completionTokenCount)/1_000_000.0*completionPrice,
 		)
 		preConsumedQuota = int(float64(estimatedCostMicrodollars) * groupDiscountInfo.GroupDiscount)
 		if meta.ImagePriceRatio != 0 && modelPricing.ImagePrice == 0 {
-			modelPricing.ImagePrice = modelPricing.PromptPrice * meta.ImagePriceRatio
+			modelPricing.ImagePrice = promptPrice * meta.ImagePriceRatio
 		}
+		// Keep PriceData prompt/completion aligned with the estimated tier.
+		modelPricing.PromptPrice = promptPrice
+		modelPricing.CompletionPrice = completionPrice
 	} else {
 		if meta.ImagePriceRatio != 0 {
 			modelPricing.PerCallPrice = modelPricing.PerCallPrice * meta.ImagePriceRatio
@@ -78,6 +95,11 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 			freeModel = true
 		} else if modelPricing.UsePerCallPricing {
 			if modelPricing.PerCallPrice == 0 {
+				preConsumedQuota = 0
+				freeModel = true
+			}
+		} else if useTiered {
+			if !modelPricing.HasTierPrices() {
 				preConsumedQuota = 0
 				freeModel = true
 			}
@@ -106,6 +128,8 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		PerCallPrice:      modelPricing.PerCallPrice,
 		UsePerCallPricing: modelPricing.UsePerCallPricing,
 		FixedPriceUnit:    modelPricing.FixedPriceUnit,
+		UseTieredPricing:  useTiered,
+		MatchedTier:       matchedTier,
 		GroupDiscountInfo: groupDiscountInfo,
 		QuotaToPreConsume: preConsumedQuota,
 	}

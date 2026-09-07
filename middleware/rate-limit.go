@@ -4,11 +4,44 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/gin-gonic/gin"
 )
+
+// skipWebRateLimit reports whether a frontend path is a hashed/static asset.
+// Vite code-split chunks under /assets/ must not count against GlobalWebRateLimit:
+// a single console page load preloads dozens of JS/CSS files and otherwise 429s.
+func skipWebRateLimit(path string) bool {
+	if strings.HasPrefix(path, "/assets/") {
+		return true
+	}
+	lower := strings.ToLower(path)
+	switch {
+	case strings.HasSuffix(lower, ".js"),
+		strings.HasSuffix(lower, ".mjs"),
+		strings.HasSuffix(lower, ".css"),
+		strings.HasSuffix(lower, ".map"),
+		strings.HasSuffix(lower, ".png"),
+		strings.HasSuffix(lower, ".jpg"),
+		strings.HasSuffix(lower, ".jpeg"),
+		strings.HasSuffix(lower, ".gif"),
+		strings.HasSuffix(lower, ".svg"),
+		strings.HasSuffix(lower, ".webp"),
+		strings.HasSuffix(lower, ".ico"),
+		strings.HasSuffix(lower, ".woff"),
+		strings.HasSuffix(lower, ".woff2"),
+		strings.HasSuffix(lower, ".ttf"),
+		strings.HasSuffix(lower, ".eot"),
+		strings.HasSuffix(lower, ".otf"),
+		strings.HasSuffix(lower, ".wasm"):
+		return true
+	default:
+		return false
+	}
+}
 
 var timeFormat = "2006-01-02T15:04:05.000Z"
 
@@ -88,10 +121,17 @@ func rateLimitFactory(maxRequestNum int, duration int64, mark string) func(c *gi
 }
 
 func GlobalWebRateLimit() func(c *gin.Context) {
-	if common.GlobalWebRateLimitEnable {
-		return rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
+	if !common.GlobalWebRateLimitEnable {
+		return defNext
 	}
-	return defNext
+	limiter := rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
+	return func(c *gin.Context) {
+		if skipWebRateLimit(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+		limiter(c)
+	}
 }
 
 func GlobalAPIRateLimit() func(c *gin.Context) {

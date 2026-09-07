@@ -1,35 +1,58 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Activity, Wallet, Building2 } from 'lucide-react';
+import { Zap, Activity, Wallet, Building2, Copy, Check, X, Terminal } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { API, isAdmin, renderQuota, goToRecharge, getTodayStartTimestamp } from '../../helpers';
+import { API, isAdmin, renderQuota, goToRecharge, getTodayStartTimestamp, copy, showSuccess, setUserData } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import ChannelSuccessRatePanel from '../../components/dashboard/GroupSuccessRatePanel';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.06, duration: 0.35, ease: 'easeOut' },
-  }),
-};
-
-function CountUp({ end, duration = 1200, prefix = '', suffix = '', formatter }) {
+function CountUp({ end, duration = 480, prefix = '', suffix = '', formatter }) {
   const [val, setVal] = useState(0);
+  const fromRef = React.useRef(0);
   useEffect(() => {
-    if (end === 0) { setVal(0); return; }
+    const from = fromRef.current;
+    if (end === from) {
+      setVal(end);
+      return undefined;
+    }
     const start = performance.now();
+    let raf;
     const step = (now) => {
       const p = Math.min((now - start) / duration, 1);
-      setVal(Math.round((1 - Math.pow(1 - p, 3)) * end));
-      if (p < 1) requestAnimationFrame(step);
+      const next = Math.round(from + (1 - Math.pow(1 - p, 3)) * (end - from));
+      setVal(next);
+      if (p < 1) {
+        raf = requestAnimationFrame(step);
+      } else {
+        fromRef.current = end;
+      }
     };
-    requestAnimationFrame(step);
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
   }, [end, duration]);
   if (formatter) return <>{formatter(val)}</>;
   return <>{prefix}{val.toLocaleString()}{suffix}</>;
@@ -42,12 +65,12 @@ function getGreeting() {
   return '晚上好';
 }
 
-function ChartTooltip({ active, payload, label, metric: metricType }) {
+function ChartTooltip({ active, payload, label, metric: metricType, t }) {
   if (!active || !payload?.length) return null;
   const val = payload[0].value;
-  const display = metricType === 'quota' ? renderQuota(val, 2) : `${val?.toLocaleString()} 次`;
+  const display = metricType === 'quota' ? renderQuota(val, 2) : `${val?.toLocaleString()} ${t('次')}`;
   return (
-    <div className='bg-white border border-[#EBEBEB] rounded-lg shadow-sm px-3 py-2'>
+    <div className='bg-white/90 border border-black/[0.08] rounded-[12px] shadow-[0_8px_40px_rgba(0,0,0,0.1)] px-3 py-2'>
       <p className='text-[11px] text-[#999] mb-0.5'>{label}</p>
       <p className='text-sm font-semibold text-[#1A1A1A]'>{display}</p>
     </div>
@@ -61,36 +84,111 @@ const CHART_COLORS = [
 
 const TOP_MODEL_COUNT = 5;
 
+// Quickstart: short labels, abbreviated curl, tokenised for syntax colour
+const QS_SCENARIOS = [
+  {
+    key: 'openai',
+    label: 'OpenAI',
+    tokens: (base) => [
+      { t: 'curl ', c: 'tk-cmd' },
+      { t: `${base}/v1/chat/completions`, c: 'tk-str' },
+      { t: ' \\\n  -H ', c: 'tk-flag' },
+      { t: '"Authorization: Bearer sk-..."', c: 'tk-str' },
+      { t: ' \\\n  -d ', c: 'tk-flag' },
+      { t: '\'{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}\'', c: 'tk-str' },
+    ],
+  },
+  {
+    key: 'gemini',
+    label: 'Gemini',
+    tokens: (base) => [
+      { t: 'curl ', c: 'tk-cmd' },
+      { t: `${base}/v1beta/models/gemini-3-flash-preview:generateContent`, c: 'tk-str' },
+      { t: ' \\\n  -H ', c: 'tk-flag' },
+      { t: '"Authorization: Bearer sk-..."', c: 'tk-str' },
+      { t: ' \\\n  -d ', c: 'tk-flag' },
+      { t: '\'{"contents":[{"parts":[{"text":"Hi"}]}]}\'', c: 'tk-str' },
+    ],
+  },
+  {
+    key: 'claude',
+    label: 'Claude',
+    tokens: (base) => [
+      { t: 'curl ', c: 'tk-cmd' },
+      { t: `${base}/v1/messages`, c: 'tk-str' },
+      { t: ' \\\n  -H ', c: 'tk-flag' },
+      { t: '"Authorization: Bearer sk-..."', c: 'tk-str' },
+      { t: ' \\\n  -H ', c: 'tk-flag' },
+      { t: '"anthropic-version: 2023-06-01"', c: 'tk-str' },
+      { t: ' \\\n  -d ', c: 'tk-flag' },
+      { t: '\'{"model":"claude-sonnet-4-5","max_tokens":1024,"messages":[{"role":"user","content":"Hi"}]}\'', c: 'tk-str' },
+    ],
+  },
+  {
+    key: 'image',
+    label: '生图',
+    tokens: (base) => [
+      { t: 'curl ', c: 'tk-cmd' },
+      { t: `${base}/v1/images/generations`, c: 'tk-str' },
+      { t: ' \\\n  -H ', c: 'tk-flag' },
+      { t: '"Authorization: Bearer sk-..."', c: 'tk-str' },
+      { t: ' \\\n  -d ', c: 'tk-flag' },
+      { t: '\'{"model":"gpt-image-2","prompt":"A cat playing piano"}\'', c: 'tk-str' },
+    ],
+  },
+];
+
 const Dashboard = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const [userState] = useContext(UserContext);
+  const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
   const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, models: 0 });
+  const [runwayDays, setRunwayDays] = useState(null);
   const [rawData, setRawData] = useState([]);
   const [chartRange, setChartRange] = useState(1);
   const [metric, setMetric] = useState('quota');
   const [selectedModel, setSelectedModel] = useState('all');
   const [showAllModels, setShowAllModels] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tokenCount, setTokenCount] = useState(null);
+  const [qsScenario, setQsScenario] = useState('openai');
+  const [copied, setCopied] = useState(false);
+  const [guideDismissed, setGuideDismissed] = useState(
+    () => localStorage.getItem('daze_guide_dismissed') || '',
+  );
+
+  const qsTokens = useMemo(() => {
+    const s = QS_SCENARIOS.find((x) => x.key === qsScenario) || QS_SCENARIOS[0];
+    return s.tokens(window.location.origin);
+  }, [qsScenario]);
+  const snippet = useMemo(() => qsTokens.map((x) => x.t).join(''), [qsTokens]);
 
   const username = userState?.user?.display_name || userState?.user?.username || '';
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const now = Math.floor(Date.now() / 1000);
       const todayStart = getTodayStartTimestamp();
-      const rangeStart = chartRange === 1 ? todayStart : todayStart - chartRange * 86400;
+      const chartStart = chartRange === 1 ? todayStart : todayStart - (chartRange - 1) * 86400;
+      const sevenDayStart = todayStart - 6 * 86400;
+      const rangeStart = Math.min(chartStart, sevenDayStart);
 
       const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
       const sep = endpoint.includes('?') ? '&' : '?';
 
-      const [dataRes, pricingRes, statRes] = await Promise.all([
+      const [selfRes, dataRes, pricingRes, statRes] = await Promise.all([
+        API.get('/api/user/self'),
         API.get(`${endpoint}${sep}start_timestamp=${rangeStart}&end_timestamp=${now}`),
         API.get('/api/pricing'),
         API.get(`/api/log/self/stat?start_timestamp=${todayStart}&end_timestamp=${now}`),
       ]);
+
+      if (selfRes.data?.success && selfRes.data.data) {
+        userDispatch({ type: 'login', payload: selfRes.data.data });
+        setUserData(selfRes.data.data);
+      }
 
       if (dataRes.data.success) {
         const records = dataRes.data.data || [];
@@ -119,10 +217,17 @@ const Dashboard = () => {
           });
         }
 
+        const balance = selfRes.data?.data?.quota ?? userState?.user?.quota ?? 0;
+        const sevenDayQuota = records
+          .filter((r) => r.created_at >= sevenDayStart)
+          .reduce((sum, r) => sum + (r.quota || 0), 0);
+        const avgDaily = sevenDayQuota / 7;
+        setRunwayDays(avgDaily > 0 ? Math.floor(balance / avgDaily) : null);
+
         setStats({
           quota: todayQuota,
           requests: todayCount,
-          balance: userState?.user?.quota || 0,
+          balance,
           models: modelCount,
         });
       }
@@ -131,15 +236,15 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [chartRange, userState?.user?.quota]);
+  }, [chartRange]);
 
-  // Initial load
+  // Initial load / range change
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Auto refresh every 5 minutes
+  // Auto refresh every 5 minutes without flashing the page
   useEffect(() => {
     const intervalId = setInterval(() => {
-      loadData();
+      loadData({ silent: true });
     }, 300000);
     return () => clearInterval(intervalId);
   }, [loadData]);
@@ -148,12 +253,65 @@ const Dashboard = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        loadData();
+        loadData({ silent: true });
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadData]);
+
+  // Token count (for the smart guide card) — silent, one-shot
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get('/api/token/?p=0&size=1');
+        if (cancelled || !res?.data?.success) return;
+        const d = res.data.data;
+        const total = d?.total ?? (Array.isArray(d) ? d.length : null);
+        if (total != null) setTokenCount(total);
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCopySnippet = async () => {
+    const ok = await copy(snippet);
+    if (ok) {
+      setCopied(true);
+      showSuccess(t('已复制到剪贴板'));
+      setTimeout(() => setCopied(false), 1600);
+    }
+  };
+
+  const dismissGuide = (key) => {
+    localStorage.setItem('daze_guide_dismissed', key);
+    setGuideDismissed(key);
+  };
+
+  // Smart guide: surfaces only when the user actually needs it
+  const guide = useMemo(() => {
+    if (loading) return null;
+    if (stats.balance <= 0 && guideDismissed !== 'balance') {
+      return {
+        key: 'balance',
+        text: t('账户余额不足，充值后即可继续调用 API'),
+        action: t('去充值'),
+        onClick: () => goToRecharge(navigate, statusState?.status),
+      };
+    }
+    if (tokenCount === 0 && guideDismissed !== 'token') {
+      return {
+        key: 'token',
+        text: t('还没有 API 密钥，创建一个即可开始调用'),
+        action: t('创建密钥'),
+        onClick: () => navigate('/console/token'),
+      };
+    }
+    return null;
+  }, [loading, stats.balance, tokenCount, guideDismissed, navigate, statusState?.status, t]);
 
   const modelNames = useMemo(() => {
     const totals = {};
@@ -177,45 +335,32 @@ const Dashboard = () => {
   };
 
   const chartData = useMemo(() => {
-    const now = Math.floor(Date.now() / 1000);
     const todayStart = getTodayStartTimestamp();
+    const rangeStart = todayStart - (chartRange - 1) * 86400;
+    const hourCount = chartRange * 24;
     const filtered = selectedModel === 'all' ? rawData : rawData.filter((r) => r.model_name === selectedModel);
+    const pad2 = (n) => String(n).padStart(2, '0');
 
-    if (chartRange === 1) {
-      // Hourly buckets for today (0–23)
-      const hourMap = Array.from({ length: 24 }, (_, h) => ({
-        date: `${h}:00`,
+    const hourMap = Array.from({ length: hourCount }, (_, i) => {
+      const ts = rangeStart + i * 3600;
+      const d = new Date(ts * 1000);
+      const hm = `${pad2(d.getHours())}:00`;
+      return {
+        date: chartRange === 1 ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`,
         count: 0,
         quota: 0,
-      }));
-      filtered.forEach((r) => {
-        if (r.created_at >= todayStart) {
-          const h = new Date(r.created_at * 1000).getHours();
-          hourMap[h].count += r.count || 0;
-          hourMap[h].quota += r.quota || 0;
-        }
-      });
-      return hourMap;
-    }
+      };
+    });
 
-    // Daily buckets
-    const rangeStart = todayStart - (chartRange - 1) * 86400;
-    const dayMap = {};
-    for (let d = 0; d < chartRange; d++) {
-      const ts = rangeStart + d * 86400;
-      const date = new Date(ts * 1000);
-      const label = `${date.getMonth() + 1}/${date.getDate()}`;
-      dayMap[label] = { date: label, count: 0, quota: 0 };
-    }
     filtered.forEach((r) => {
-      const date = new Date(r.created_at * 1000);
-      const label = `${date.getMonth() + 1}/${date.getDate()}`;
-      if (dayMap[label]) {
-        dayMap[label].count += r.count || 0;
-        dayMap[label].quota += r.quota || 0;
+      if (r.created_at < rangeStart) return;
+      const idx = Math.floor((r.created_at - rangeStart) / 3600);
+      if (idx >= 0 && idx < hourMap.length) {
+        hourMap[idx].count += r.count || 0;
+        hourMap[idx].quota += r.quota || 0;
       }
     });
-    return Object.values(dayMap);
+    return hourMap;
   }, [rawData, chartRange, selectedModel]);
 
   const today = new Date().toLocaleDateString(
@@ -229,101 +374,151 @@ const Dashboard = () => {
   );
 
   const statItems = [
-    { icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v, 2) },
-    { icon: Activity, label: t('今日请求次数'), value: stats.requests },
-    { icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2) },
-    { icon: Building2, label: t('支持模型'), value: stats.models },
+    { key: 'quota', icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v, 2), isMoney: true },
+    { key: 'requests', icon: Activity, label: t('今日请求次数'), value: stats.requests },
+    { key: 'balance', icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2), isMoney: true },
+    { key: 'models', icon: Building2, label: t('支持模型'), value: stats.models, href: '/console/models' },
   ];
 
   const dataKey = metric;
 
   return (
     <div className='px-6 lg:px-10 py-8'>
-      {/* Welcome */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className='mb-8'>
-        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t(getGreeting())}，{username}</h1>
+      <div className='daze-reveal mb-8'>
+        <h1 className='text-[22px] font-semibold text-[#1A1A1A]'>{t(getGreeting())}, {username}</h1>
         <p className='text-[13px] text-[#999] mt-1'>{today}</p>
-      </motion.div>
+      </div>
 
-      {/* Stats */}
-      <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 mb-10 pb-8 border-b border-[#F0F0F0]'>
+      <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 mb-8'>
         {statItems.map((item, i) => {
           const Icon = item.icon;
-          const isBalance = item.label === t('账户余额');
+          const isBalance = item.key === 'balance';
+          const displayValue = item.isMoney
+            ? (item.formatter ? item.formatter(item.value) : item.value)
+            : (item.formatter
+              ? <CountUp end={item.value} formatter={item.formatter} />
+              : <CountUp end={item.value} />);
           return (
-            <motion.div key={i} custom={i} variants={fadeUp} initial='hidden' animate='show'>
+            <div
+              key={item.key}
+              className={`daze-reveal ${item.href ? 'cursor-pointer' : ''}`}
+              style={{ '--daze-delay': `${40 + i * 35}ms` }}
+              onClick={item.href ? () => navigate(item.href) : undefined}
+            >
               <div className='flex items-center gap-2 mb-2'>
-                <Icon size={16} strokeWidth={1.5} color='#999' />
-                <span className='text-[12px] text-[#999] font-medium'>{item.label}</span>
+                <Icon size={15} strokeWidth={1.5} color='#9AA0B0' />
+                <span className='daze-micro-label'>{item.label}</span>
               </div>
               <div className='flex items-end gap-2'>
-                <p className='text-[26px] font-semibold text-[#1A1A1A] leading-tight'>
-                  {item.formatter
-                    ? <CountUp end={item.value} formatter={item.formatter} />
-                    : <CountUp end={item.value} />
-                  }
+                <p className={`mono text-[28px] font-semibold text-[#1A1A1A] leading-tight tracking-tight ${item.href ? 'hover:underline' : ''}`}>
+                  {displayValue}
                 </p>
                 {isBalance && (
                   <button
-                    onClick={() =>
-                      goToRecharge(navigate, statusState?.status)
-                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToRecharge(navigate, statusState?.status);
+                    }}
                     className='mb-1 text-[11px] text-[#2563eb] hover:text-[#1d4ed8] font-medium cursor-pointer border-none bg-transparent p-0'
                   >
                     {t('去充值')}
                   </button>
                 )}
               </div>
-            </motion.div>
+              {isBalance && !loading && (
+                <p className='text-[11px] text-[#999] mt-1'>
+                  {runwayDays == null
+                    ? t('近 7 日无消耗')
+                    : t('按近 7 日均耗还可撑 {{days}} 天', { days: runwayDays })}
+                </p>
+              )}
+            </div>
           );
         })}
       </div>
 
+      {/* Smart guide banner */}
+      {guide && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, delay: 0.08, ease: [0.32, 0.72, 0, 1] }}
+          className='dash-guide'
+        >
+          <span className='dash-guide-text'>{guide.text}</span>
+          <button className='dash-guide-action' onClick={guide.onClick}>
+            {guide.action} →
+          </button>
+          <button
+            className='dash-guide-close'
+            onClick={() => dismissGuide(guide.key)}
+            aria-label={t('关闭')}
+          >
+            <X size={13} />
+          </button>
+        </motion.div>
+      )}
+
+      {/* API quickstart */}
+      <div className='dash-quickstart daze-reveal' style={{ '--daze-delay': '190ms' }}>
+        <div className='dash-qs-head'>
+          <div className='flex items-center gap-2 shrink-0'>
+            <Terminal size={14} strokeWidth={1.8} color='#9AA0B0' />
+            <h2 className='daze-micro-label'>{t('API 快速接入')}</h2>
+          </div>
+          <div className='dash-qs-tabs'>
+            {QS_SCENARIOS.map((s) => (
+              <button
+                key={s.key}
+                className={qsScenario === s.key ? 'active' : ''}
+                onClick={() => setQsScenario(s.key)}
+              >
+                {s.key === 'image' ? t('生图') : s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className='dash-code-wrap'>
+          <pre className='dash-code'>
+            {qsTokens.map((tok, i) => (
+              <span key={i} className={tok.c}>{tok.t}</span>
+            ))}
+          </pre>
+          <button className='dash-copy-btn' onClick={handleCopySnippet}>
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {copied ? t('已复制') : t('复制')}
+          </button>
+        </div>
+      </div>
+
       {/* Chart */}
-      <motion.div custom={4} variants={fadeUp} initial='hidden' animate='show'>
+      <div className='daze-card daze-reveal' style={{ '--daze-delay': '235ms' }}>
         {/* Controls Row */}
         <div className='flex items-center justify-between mb-4 flex-wrap gap-3'>
-          <h2 className='text-[15px] font-medium text-[#1A1A1A]'>{t('调用趋势')}</h2>
+          <h2 className='daze-micro-label'>{t('调用趋势')}</h2>
           <div className='flex items-center gap-3'>
-            {/* Metric toggle: 次数 / 花费 */}
-            <div className='flex rounded-lg overflow-hidden border border-[#ebebeb]'>
+            <div className='daze-segment'>
               {[
                 { key: 'count', label: t('次数') },
                 { key: 'quota', label: t('花费') },
               ].map((m) => (
                 <button
                   key={m.key}
+                  type='button'
+                  className={metric === m.key ? 'active' : ''}
                   onClick={() => setMetric(m.key)}
-                  style={{
-                    padding: '4px 14px',
-                    fontSize: '12px',
-                    fontWeight: metric === m.key ? 600 : 400,
-                    background: metric === m.key ? '#1A1A1A' : '#fff',
-                    color: metric === m.key ? '#fff' : '#999',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
                 >
                   {m.label}
                 </button>
               ))}
             </div>
-            {/* Day range */}
-            <div className='flex gap-1'>
+            <div className='daze-segment'>
               {[1, 3, 7].map((d) => (
                 <button
                   key={d}
+                  type='button'
+                  className={chartRange === d ? 'active' : ''}
                   onClick={() => setChartRange(d)}
-                  className='cursor-pointer transition-colors border-0 outline-none'
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: chartRange === d ? 600 : 400,
-                    background: chartRange === d ? '#f5f5f5' : 'transparent',
-                    color: chartRange === d ? '#1A1A1A' : '#ccc',
-                  }}
                 >
                   {d}{t('日')}
                 </button>
@@ -406,26 +601,26 @@ const Dashboard = () => {
         )}
 
         {/* Chart area — extra bottom padding so XAxis labels aren't clipped */}
-        <div className='h-[300px]'>
+        <div className='h-[300px] relative overflow-hidden'>
           {!loading && (
             <ResponsiveContainer width='100%' height='100%'>
-              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 60, bottom: 24 }}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 60, bottom: chartRange === 1 ? 20 : 36 }}>
                 <defs>
                   <linearGradient id='fillGrad' x1='0' y1='0' x2='0' y2='1'>
-                    <stop offset='0%' stopColor='#E0E0E0' stopOpacity={0.3} />
-                    <stop offset='100%' stopColor='#E0E0E0' stopOpacity={0} />
+                    <stop offset='0%' stopColor='#6366f1' stopOpacity={0.16} />
+                    <stop offset='100%' stopColor='#6366f1' stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis
                   dataKey='date'
-                  tick={{ fontSize: 11, fill: '#C8C8C8' }}
+                  tick={{ fontSize: 10, fill: '#C8C8C8' }}
                   axisLine={false}
                   tickLine={false}
-                  interval={chartRange === 1 ? 2 : 0}
-                  angle={chartRange === 3 ? -30 : 0}
-                  textAnchor={chartRange === 3 ? 'end' : 'middle'}
-                  dy={chartRange === 3 ? 4 : 6}
-                  tickCount={chartRange === 1 ? 12 : undefined}
+                  interval={chartRange === 1 ? 0 : chartRange === 3 ? 3 : 5}
+                  angle={chartRange === 1 ? 0 : -35}
+                  textAnchor={chartRange === 1 ? 'middle' : 'end'}
+                  dy={chartRange === 1 ? 6 : 4}
+                  minTickGap={4}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: '#C8C8C8' }}
@@ -434,34 +629,33 @@ const Dashboard = () => {
                   tickCount={8}
                   tickFormatter={metric === 'quota' ? (v) => renderQuota(v, 2) : undefined}
                   allowDecimals={true}
-                  minTickGap={10}
+                  minTickGap={8}
                 />
-                <Tooltip content={<ChartTooltip metric={metric} />} />
+                <Tooltip content={<ChartTooltip metric={metric} t={t} />} />
                 <Area
                   type='monotone'
                   dataKey={dataKey}
-                  stroke={selectedModel === 'all' ? '#1A1A1A' : CHART_COLORS[modelNames.indexOf(selectedModel) % CHART_COLORS.length]}
-                  strokeWidth={1.5}
+                  stroke={selectedModel === 'all' ? '#6366f1' : CHART_COLORS[modelNames.indexOf(selectedModel) % CHART_COLORS.length]}
+                  strokeWidth={1.8}
                   fill='url(#fillGrad)'
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
           )}
           {loading && (
-            <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
-              {t('加载中')}...
-            </div>
+            <div className='daze-awaiting h-full' aria-busy='true' />
           )}
           {!loading && !chartData.some((d) => d[dataKey] > 0) && (
-            <div className='flex items-center justify-center h-full text-[#C8C8C8] text-sm'>
-              {t('暂无数据')}
-            </div>
+            <div className='h-full' />
           )}
         </div>
-      </motion.div>
+      </div>
 
       {/* Channel Success Rate - Admin only */}
-      <ChannelSuccessRatePanel />
+      <div className='daze-reveal' style={{ '--daze-delay': '280ms' }}>
+        <ChannelSuccessRatePanel />
+      </div>
     </div>
   );
 };

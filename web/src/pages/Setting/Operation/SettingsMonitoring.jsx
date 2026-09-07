@@ -147,9 +147,6 @@ export default function SettingsMonitoring(props) {
                 <HttpStatusCodeRulesInput
                   label={t('自动禁用状态码')}
                   placeholder={t('例如：401, 403, 429, 500-599')}
-                  extraText={t(
-                    '支持填写单个状态码或范围（含首尾），使用逗号分隔',
-                  )}
                   field={'AutomaticDisableStatusCodes'}
                   onChange={(value) =>
                     setInputs({ ...inputs, AutomaticDisableStatusCodes: value })
@@ -160,9 +157,7 @@ export default function SettingsMonitoring(props) {
                 <HttpStatusCodeRulesInput
                   label={t('自动重试状态码')}
                   placeholder={t('例如：401, 403, 429, 500-599')}
-                  extraText={t(
-                    '支持填写单个状态码或范围（含首尾），使用逗号分隔；504 和 524 始终不重试，不受此处配置影响',
-                  )}
+                  extraText={t('504、524 始终不重试')}
                   field={'AutomaticRetryStatusCodes'}
                   onChange={(value) =>
                     setInputs({ ...inputs, AutomaticRetryStatusCodes: value })
@@ -173,9 +168,6 @@ export default function SettingsMonitoring(props) {
                 <Form.TextArea
                   label={t('自动禁用关键词')}
                   placeholder={t('一行一个，不区分大小写')}
-                  extraText={t(
-                    '当上游通道返回错误中包含这些关键词时（不区分大小写），自动禁用通道',
-                  )}
                   field={'AutomaticDisableKeywords'}
                   autosize={{ minRows: 6, maxRows: 12 }}
                   onChange={(value) =>

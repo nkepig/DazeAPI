@@ -122,7 +122,7 @@ var RequestInterval time.Duration
 
 var SyncFrequency int // unit is second
 
-var BatchUpdateEnabled = false
+var BatchUpdateEnabled = true
 var BatchUpdateInterval int
 
 var RelayTimeout int // unit is second

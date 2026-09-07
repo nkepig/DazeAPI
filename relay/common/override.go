@@ -734,6 +734,9 @@ func applyOperations(jsonStr string, operations []ParamOperation, conditionConte
 			}
 			opFrom := processNegativeIndex(result, op.From)
 			opTo := processNegativeIndex(result, op.To)
+			if !gjson.Get(result, opFrom).Exists() {
+				continue
+			}
 			result, err = copyValue(result, opFrom, opTo)
 			if err == nil {
 				auditRecorder.recordOperation("copy", "", opFrom, opTo, nil)
@@ -1505,7 +1508,7 @@ func moveValue(jsonStr, fromPath, toPath string) (string, error) {
 func copyValue(jsonStr, fromPath, toPath string) (string, error) {
 	sourceValue := gjson.Get(jsonStr, fromPath)
 	if !sourceValue.Exists() {
-		return jsonStr, fmt.Errorf("source path does not exist: %s", fromPath)
+		return jsonStr, nil
 	}
 	return sjson.Set(jsonStr, toPath, sourceValue.Value())
 }

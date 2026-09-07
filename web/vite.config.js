@@ -4,6 +4,30 @@ import pkg from '@douyinfe/vite-plugin-semi';
 import path from 'path';
 const { vitePluginSemi } = pkg;
 
+function serveDocsIndex() {
+  const rewrite = (req) => {
+    const url = req.url?.split('?')[0];
+    if (url === '/docs' || url === '/docs/') {
+      req.url = '/docs/index.html';
+    }
+  };
+  return {
+    name: 'serve-docs-index',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -11,6 +35,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    serveDocsIndex(),
     {
       name: 'treat-js-files-as-jsx',
       async transform(code, id) {
@@ -25,7 +50,6 @@ export default defineConfig({
     vitePluginSemi({ cssLayer: true }),
   ],
   optimizeDeps: {
-    force: true,
     esbuildOptions: {
       loader: {
         '.js': 'jsx',
@@ -46,8 +70,6 @@ export default defineConfig({
           'semi-ui': ['@douyinfe/semi-icons', '@douyinfe/semi-ui'],
           tools: ['axios', 'history'],
           markdown: ['marked', 'react-markdown', 'remark-gfm', 'remark-breaks', 'remark-math', 'rehype-katex', 'rehype-highlight', 'katex'],
-          charts: ['recharts', '@visactor/react-vchart', '@visactor/vchart', '@visactor/vchart-semi-theme'],
-          diagram: ['mermaid', 'cytoscape'],
           i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
         },
       },

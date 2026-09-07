@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Tabs, TabPane } from '@douyinfe/semi-ui';
+import { Spin, Tabs, TabPane } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import ModelSettingsVisualEditor from '../../pages/Setting/Ratio/ModelSettingsVisualEditor';
@@ -76,7 +76,7 @@ const RatioSetting = () => {
 
   return (
     <Spin spinning={loading} size='large'>
-      <Card style={{ marginTop: '10px' }}>
+      <div className='settings-stack'>
         <Tabs type='line'>
           <TabPane tab={t('可视化编辑')} itemKey='visual'>
             <ModelSettingsVisualEditor options={inputs} refresh={onRefresh} />
@@ -85,7 +85,7 @@ const RatioSetting = () => {
             <ModelSettingsFileEditor options={inputs} refresh={onRefresh} />
           </TabPane>
         </Tabs>
-      </Card>
+      </div>
     </Spin>
   );
 };
