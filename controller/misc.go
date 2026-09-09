@@ -24,7 +24,7 @@ func TestStatus(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
-			"message": "数据库连接失败",
+			"message": "Database connection failed",
 		})
 		return
 	}

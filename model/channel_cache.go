@@ -127,7 +127,7 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		if ok {
 			return channel, nil
 		}
-		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelIDs[0])
+		return nil, fmt.Errorf("Database consistency error: channel #%d does not exist, please contact the administrator", channelIDs[0])
 	}
 
 	uniquePriorities := make(map[int]bool)
@@ -149,7 +149,7 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 			})
 		} else {
 			channelSyncLock.RUnlock()
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
+			return nil, fmt.Errorf("Database consistency error: channel #%d does not exist, please contact the administrator", channelId)
 		}
 	}
 	channelSyncLock.RUnlock()
@@ -222,7 +222,7 @@ func CacheGetChannel(id int) (*Channel, error) {
 
 	c, ok := channelsIDM[id]
 	if !ok {
-		return nil, fmt.Errorf("渠道# %d，已不存在", id)
+		return nil, fmt.Errorf("Channel #%d no longer exists", id)
 	}
 	return c, nil
 }
@@ -240,7 +240,7 @@ func CacheGetChannelInfo(id int) (*ChannelInfo, error) {
 
 	c, ok := channelsIDM[id]
 	if !ok {
-		return nil, fmt.Errorf("渠道# %d，已不存在", id)
+		return nil, fmt.Errorf("Channel #%d no longer exists", id)
 	}
 	return &c.ChannelInfo, nil
 }

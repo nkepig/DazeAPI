@@ -647,8 +647,10 @@ export const calculateModelPrice = ({
     };
 
     return {
-      inputPrice: formatTokenPrice(promptPrice),
-      completionPrice: formatTokenPrice(completionPrice),
+      inputPrice: hasValue(promptPrice) ? formatTokenPrice(promptPrice) : null,
+      completionPrice: hasValue(completionPrice)
+        ? formatTokenPrice(completionPrice)
+        : null,
       cachePrice: hasValue(cacheReadPrice)
         ? formatTokenPrice(cacheReadPrice)
         : null,
@@ -692,6 +694,20 @@ export const calculateModelPrice = ({
     usedGroup,
     usedGroupRatio: effectiveDiscount,
   };
+};
+
+const isConfiguredPriceItem = (item) => {
+  if (item?.value === null || item?.value === undefined || item?.value === '') {
+    return false;
+  }
+  if (typeof item.value === 'number') {
+    return Number.isFinite(item.value) && item.value !== 0;
+  }
+  const numeric = Number(String(item.value).replace(/[^\d.-]/g, ''));
+  if (Number.isFinite(numeric) && numeric === 0) {
+    return false;
+  }
+  return true;
 };
 
 export const getModelPriceItems = (
@@ -744,10 +760,7 @@ export const getModelPriceItems = (
           value: priceData.audioOutputPriceReference,
           suffix: 'x',
         },
-      ].filter(
-        (item) =>
-          item.value !== null && item.value !== undefined && item.value !== '',
-      );
+      ].filter(isConfiguredPriceItem);
     }
 
     const unitSuffix = ` / 1${priceData.unitLabel} Tokens`;
@@ -794,7 +807,7 @@ export const getModelPriceItems = (
         value: priceData.audioOutputPrice,
         suffix: unitSuffix,
       },
-    ].filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
+    ].filter(isConfiguredPriceItem);
   }
 
   return [
@@ -804,7 +817,7 @@ export const getModelPriceItems = (
       value: priceData.price,
       suffix: ` / ${t('次')}`,
     },
-  ].filter((item) => item.value !== null && item.value !== undefined && item.value !== '');
+  ].filter(isConfiguredPriceItem);
 };
 
 // 格式化价格信息（用于卡片视图）

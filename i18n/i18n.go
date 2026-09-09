@@ -86,10 +86,19 @@ func GetLocalizer(lang string) *i18n.Localizer {
 	return loc
 }
 
-// T translates a message key using the language from gin context
+// T translates a message key using the language from gin context.
+// Use this for dashboard/admin responses. Client-facing API/relay errors
+// must always be English — call API() instead.
 func T(c *gin.Context, key string, args ...map[string]any) string {
 	lang := GetLangFromContext(c)
 	return Translate(lang, key, args...)
+}
+
+// API translates a message key in English.
+// Client-facing API/relay errors always use English, regardless of user language.
+// Official upstream error messages should be forwarded as-is and must not go through this helper.
+func API(key string, args ...map[string]any) string {
+	return Translate(LangEn, key, args...)
 }
 
 // Translate translates a message key for the specified language

@@ -355,11 +355,11 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 		// Distributor already selected the channel; load the full record (Setting, keys, etc.).
 		channelId := common.GetContextKeyInt(c, constant.ContextKeyChannelId)
 		if channelId <= 0 {
-			return nil, types.NewError(errors.New("渠道未选择"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+			return nil, types.NewError(errors.New("Channel not selected"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 		}
 		channel, err := model.CacheGetChannel(channelId)
 		if err != nil {
-			return nil, types.NewError(fmt.Errorf("获取渠道 #%d 失败: %w", channelId, err), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+			return nil, types.NewError(fmt.Errorf("Failed to get channel #%d: %w", channelId, err), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 		}
 		return channel, nil
 	}
@@ -373,10 +373,10 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	info.PriceData.ProviderRatioInfo = helper.HandleProviderRatio(info)
 
 	if err != nil {
-		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		return nil, types.NewError(fmt.Errorf("Failed to get available channel for model %s under group %s (retry): %s", info.OriginModelName, selectGroup, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if channel == nil {
-		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectGroup, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		return nil, types.NewError(fmt.Errorf("No available channel for model %s under group %s (retry)", info.OriginModelName, selectGroup), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 
 	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
@@ -633,7 +633,7 @@ func RelayTask(c *gin.Context) {
 // respondTaskError 统一输出 Task 错误响应（含 429 限流提示改写）
 func respondTaskError(c *gin.Context, taskErr *dto.TaskError) {
 	if taskErr.StatusCode == http.StatusTooManyRequests {
-		taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
+		taskErr.Message = "Current group upstream load is saturated, please try again later"
 	}
 	c.JSON(taskErr.StatusCode, taskErr)
 }

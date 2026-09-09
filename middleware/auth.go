@@ -42,7 +42,7 @@ func authHelper(c *gin.Context, minRole int) {
 		if accessToken == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "无权进行此操作，未登录且未提供 access token",
+				"message": "Unauthorized: not logged in and no access token provided",
 			})
 			c.Abort()
 			return
@@ -52,7 +52,7 @@ func authHelper(c *gin.Context, minRole int) {
 			if !validUserInfo(user.Username, user.Role) {
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
-					"message": "无权进行此操作，用户信息无效",
+					"message": "Unauthorized: invalid user information",
 				})
 				c.Abort()
 				return
@@ -66,7 +66,7 @@ func authHelper(c *gin.Context, minRole int) {
 		} else {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "无权进行此操作，access token 无效",
+				"message": "Unauthorized: invalid access token",
 			})
 			c.Abort()
 			return
@@ -77,7 +77,7 @@ func authHelper(c *gin.Context, minRole int) {
 	if apiUserIdStr == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"message": "无权进行此操作，未提供 New-Api-User",
+			"message": "Unauthorized: New-Api-User header is missing",
 		})
 		c.Abort()
 		return
@@ -86,7 +86,7 @@ func authHelper(c *gin.Context, minRole int) {
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"message": "无权进行此操作，New-Api-User 格式错误",
+			"message": "Unauthorized: invalid New-Api-User format",
 		})
 		c.Abort()
 		return
@@ -95,7 +95,7 @@ func authHelper(c *gin.Context, minRole int) {
 	if id != apiUserId {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"message": "无权进行此操作，New-Api-User 与登录用户不匹配",
+			"message": "Unauthorized: New-Api-User does not match the logged-in user",
 		})
 		c.Abort()
 		return
@@ -103,7 +103,7 @@ func authHelper(c *gin.Context, minRole int) {
 	if status.(int) == common.UserStatusDisabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "用户已被封禁",
+			"message": "User has been banned",
 		})
 		c.Abort()
 		return
@@ -111,7 +111,7 @@ func authHelper(c *gin.Context, minRole int) {
 	if role.(int) < minRole {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "无权进行此操作，权限不足",
+			"message": "Forbidden: insufficient permissions",
 		})
 		c.Abort()
 		return
@@ -119,7 +119,7 @@ func authHelper(c *gin.Context, minRole int) {
 	if !validUserInfo(username.(string), role.(int)) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "无权进行此操作，用户信息无效",
+			"message": "Unauthorized: invalid user information",
 		})
 		c.Abort()
 		return
@@ -193,7 +193,7 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		if key == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "未提供 Authorization 请求头",
+				"message": "Authorization header is missing",
 			})
 			c.Abort()
 			return
@@ -209,7 +209,7 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "无效的令牌",
+				"message": "Invalid token",
 			})
 			c.Abort()
 			return
@@ -227,7 +227,7 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		if userCache.Status != common.UserStatusEnabled {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
-				"message": "用户已被封禁",
+				"message": "User has been banned",
 			})
 			c.Abort()
 			return
@@ -315,15 +315,15 @@ func TokenAuth() func(c *gin.Context) {
 			logger.LogDebug(c, "Token has IP restrictions, checking client IP %s", clientIp)
 			ip := net.ParseIP(clientIp)
 			if ip == nil {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "无法解析客户端 IP 地址")
+				abortWithOpenAiMessage(c, http.StatusForbidden, "Unable to parse client IP address")
 				return
 			}
 			if len(blockIps) > 0 && common.IsIpInCIDRList(ip, blockIps) {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "您的 IP 已被该令牌禁止访问", types.ErrorCodeAccessDenied)
+				abortWithOpenAiMessage(c, http.StatusForbidden, "Your IP is blocked by this token", types.ErrorCodeAccessDenied)
 				return
 			}
 			if len(allowIps) > 0 && common.IsIpInCIDRList(ip, allowIps) == false {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "您的 IP 不在令牌允许访问的列表中", types.ErrorCodeAccessDenied)
+				abortWithOpenAiMessage(c, http.StatusForbidden, "Your IP is not in the token allow list", types.ErrorCodeAccessDenied)
 				return
 			}
 			logger.LogDebug(c, "Client IP %s passed the token IP restrictions check", clientIp)
@@ -336,7 +336,7 @@ func TokenAuth() func(c *gin.Context) {
 		}
 		userEnabled := userCache.Status == common.UserStatusEnabled
 		if !userEnabled {
-			abortWithOpenAiMessage(c, http.StatusForbidden, "用户已被封禁")
+			abortWithOpenAiMessage(c, http.StatusForbidden, "User has been banned")
 			return
 		}
 
@@ -349,15 +349,15 @@ func TokenAuth() func(c *gin.Context) {
 			if _, ok := accessibleGroups[tokenGroup]; !ok {
 				if len(userGroupRatio) > 0 {
 					if _, allowed := userGroupRatio[tokenGroup]; !allowed {
-						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("No permission to access group %s", tokenGroup))
 						return
 					}
 				}
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 没有可用渠道", tokenGroup))
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("Group %s has no available channels", tokenGroup))
 				return
 			}
 			if tokenGroup != "auto" && !service.HasAccessibleModelInGroupByRatio(userGroupRatio, tokenGroup) {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 没有可用模型", tokenGroup))
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("Group %s has no available models", tokenGroup))
 				return
 			}
 		}
@@ -390,8 +390,8 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 			c.Set("specific_channel_id", parts[1])
 		} else {
 			c.Header("specific_channel_version", "701e3ae1dc3f7975556d354e0675168d004891c8")
-			abortWithOpenAiMessage(c, http.StatusForbidden, "普通用户不支持指定渠道")
-			return fmt.Errorf("普通用户不支持指定渠道")
+			abortWithOpenAiMessage(c, http.StatusForbidden, "Specifying a channel is not allowed for regular users")
+			return fmt.Errorf("Specifying a channel is not allowed for regular users")
 		}
 	}
 	return nil

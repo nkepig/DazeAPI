@@ -34,22 +34,22 @@ func Distribute() func(c *gin.Context) {
 		channelId, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
 		modelRequest, shouldSelectChannel, err := getModelRequest(c)
 		if err != nil {
-			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
+			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.API(i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
 		if ok {
 			id, err := strconv.Atoi(channelId.(string))
 			if err != nil {
-				abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidChannelId))
+				abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.API(i18n.MsgDistributorInvalidChannelId))
 				return
 			}
 			channel, err = model.GetChannelById(id, true)
 			if err != nil {
-				abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidChannelId))
+				abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.API(i18n.MsgDistributorInvalidChannelId))
 				return
 			}
 			if channel.Status != common.ChannelStatusEnabled {
-				abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
+				abortWithOpenAiMessage(c, http.StatusForbidden, i18n.API(i18n.MsgDistributorChannelDisabled))
 				return
 			}
 		} else {
@@ -57,7 +57,7 @@ func Distribute() func(c *gin.Context) {
 			// check token model mapping
 			if shouldSelectChannel {
 				if modelRequest.Model == "" {
-					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
+					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.API(i18n.MsgDistributorModelNameRequired))
 					return
 				}
 				selectGroup = ""
@@ -67,12 +67,12 @@ func Distribute() func(c *gin.Context) {
 					playgroundRequest := &dto.PlayGroundRequest{}
 					err = common.UnmarshalBodyReusable(c, playgroundRequest)
 					if err != nil {
-						abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidPlayground, map[string]any{"Error": err.Error()}))
+						abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.API(i18n.MsgDistributorInvalidPlayground, map[string]any{"Error": err.Error()}))
 						return
 					}
 					if playgroundRequest.Group != "" {
 						if !service.GroupInUserUsableGroups(usingGroup, playgroundRequest.Group) && playgroundRequest.Group != usingGroup {
-							abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
+							abortWithOpenAiMessage(c, http.StatusForbidden, i18n.API(i18n.MsgDistributorGroupAccessDenied))
 							return
 						}
 						usingGroup = playgroundRequest.Group
@@ -85,7 +85,7 @@ func Distribute() func(c *gin.Context) {
 					if err == nil && preferred != nil {
 						if preferred.Status != common.ChannelStatusEnabled {
 							if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorChannelDisabled))
+								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.API(i18n.MsgDistributorChannelDisabled))
 								return
 							}
 						} else if usingGroup == "auto" {
@@ -120,7 +120,7 @@ func Distribute() func(c *gin.Context) {
 						if usingGroup == "auto" {
 							showGroup = fmt.Sprintf("auto(%s)", selectGroup)
 						}
-						message := i18n.T(c, i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": showGroup, "Model": modelRequest.Model, "Error": err.Error()})
+						message := i18n.API(i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": showGroup, "Model": modelRequest.Model, "Error": err.Error()})
 						// 如果错误，但是渠道不为空，说明是数据库一致性问题
 						//if channel != nil {
 						//	common.SysError(fmt.Sprintf("渠道不存在：%d", channel.Id))
@@ -130,7 +130,7 @@ func Distribute() func(c *gin.Context) {
 						return
 					}
 					if channel == nil {
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": usingGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
+						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.API(i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": usingGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
 						return
 					}
 				}
@@ -171,7 +171,7 @@ func getModelFromRequest(c *gin.Context) (*ModelRequest, error) {
 	var modelRequest ModelRequest
 	err := common.UnmarshalBodyReusable(c, &modelRequest)
 	if err != nil {
-		return nil, errors.New(i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
+		return nil, errors.New(i18n.API(i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 	}
 	return &modelRequest, nil
 }

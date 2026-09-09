@@ -172,61 +172,22 @@ const ModelListCard = ({
       ) : priceInfo.type === 'token' ? (
         <div className='space-y-1.5'>
           <div className='grid grid-cols-2 gap-x-4 gap-y-1'>
-            <div>
-              <span className='text-[11px] text-[#888]'>{t('输入价格')}</span>
-              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
-                {priceInfo.inputPrice}
-                <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
-              </p>
-            </div>
-            <div>
-              <span className='text-[11px] text-[#888]'>{t('输出价格')}</span>
-              <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
-                {priceInfo.outputPrice}
-                <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
-              </p>
-            </div>
-            {priceInfo.cachePrice && (
-              <div>
-                <span className='text-[11px] text-[#888]'>{t('缓存价格')}</span>
+            {priceInfo.items.map((item) => (
+              <div key={item.key}>
+                <span className='text-[11px] text-[#888]'>{item.label}</span>
                 <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
-                  {priceInfo.cachePrice}
-                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
+                  {item.value}
+                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>
+                    {item.suffix}
+                  </span>
                 </p>
               </div>
-            )}
-            {priceInfo.createCachePrice && (
-              <div>
-                <span className='text-[11px] text-[#888]'>{t('缓存创建价格')}</span>
-                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
-                  {priceInfo.createCachePrice}
-                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
-                </p>
-              </div>
-            )}
-            {priceInfo.audioInputPrice && (
-              <div>
-                <span className='text-[11px] text-[#888]'>{t('音频输入价格')}</span>
-                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
-                  {priceInfo.audioInputPrice}
-                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
-                </p>
-              </div>
-            )}
-            {priceInfo.audioOutputPrice && (
-              <div>
-                <span className='text-[11px] text-[#888]'>{t('音频输出价格')}</span>
-                <p className={`text-[13px] font-semibold font-mono ${color.accent}`}>
-                  {priceInfo.audioOutputPrice}
-                  <span className='text-[10px] text-[#999] ml-0.5 font-normal'>/ 1M</span>
-                </p>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       ) : (
         <div>
-          <span className='text-[11px] text-[#888]'>{t('每次调用')}</span>
+          <span className='text-[11px] text-[#888]'>{priceInfo.unitLabel}</span>
           <p className={`text-[14px] font-semibold font-mono ${color.accent}`}>
             {priceInfo.price}
           </p>
@@ -408,34 +369,45 @@ const Models = () => {
 
     if (pricedModel.pricing_type === 1) {
       const rawPrice = parseFloat(pricedModel.per_call_price);
+      if (!Number.isFinite(rawPrice) || rawPrice <= 0) {
+        return {
+          type: 'unconfigured',
+          groupRatio: gr,
+          hasUserMultiplier: pricedModel.user_multiplier != null,
+        };
+      }
+      const perSecond = pricedModel.fixed_price_unit === 'second';
       return {
         type: 'fixed',
         price: displayPrice(rawPrice),
+        unitLabel: perSecond ? t('按秒') : t('每次调用'),
         groupRatio: gr,
         hasUserMultiplier: pricedModel.user_multiplier != null,
       };
     }
-    const rawInputPrice = pricedModel.prompt_price;
-    const rawOutputPrice = pricedModel.completion_price;
-    const rawCachePrice =
-      pricedModel.cache_read_price != null ? pricedModel.cache_read_price : null;
-    const rawCreateCachePrice =
-      pricedModel.cache_write_price != null ? pricedModel.cache_write_price : null;
-    const rawAudioInputPrice =
-      pricedModel.audio_input_price > 0 ? pricedModel.audio_input_price : null;
-    const rawAudioOutputPrice =
-      pricedModel.audio_output_price > 0 ? pricedModel.audio_output_price : null;
+    const optionalTokenPrice = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? displayPrice(n) : null;
+    };
+    const items = [
+      { key: 'input', label: t('输入价格'), value: optionalTokenPrice(pricedModel.prompt_price), suffix: '/ 1M' },
+      { key: 'output', label: t('输出价格'), value: optionalTokenPrice(pricedModel.completion_price), suffix: '/ 1M' },
+      { key: 'cache-read', label: t('缓存读取价格'), value: optionalTokenPrice(pricedModel.cache_read_price), suffix: '/ 1M' },
+      { key: 'cache-write', label: t('缓存创建价格'), value: optionalTokenPrice(pricedModel.cache_write_price), suffix: '/ 1M' },
+      { key: 'image', label: t('图片输入价格'), value: optionalTokenPrice(pricedModel.image_price), suffix: '/ 1M' },
+      { key: 'audio-input', label: t('音频输入价格'), value: optionalTokenPrice(pricedModel.audio_input_price), suffix: '/ 1M' },
+      { key: 'audio-output', label: t('音频输出价格'), value: optionalTokenPrice(pricedModel.audio_output_price), suffix: '/ 1M' },
+    ].filter((item) => item.value != null && item.value !== '');
+    if (items.length === 0) {
+      return {
+        type: 'unconfigured',
+        groupRatio: gr,
+        hasUserMultiplier: pricedModel.user_multiplier != null,
+      };
+    }
     return {
       type: 'token',
-      inputPrice: displayPrice(rawInputPrice),
-      outputPrice: displayPrice(rawOutputPrice),
-      cachePrice: rawCachePrice != null ? displayPrice(rawCachePrice) : null,
-      createCachePrice:
-        rawCreateCachePrice != null ? displayPrice(rawCreateCachePrice) : null,
-      audioInputPrice:
-        rawAudioInputPrice != null ? displayPrice(rawAudioInputPrice) : null,
-      audioOutputPrice:
-        rawAudioOutputPrice != null ? displayPrice(rawAudioOutputPrice) : null,
+      items,
       groupRatio: gr,
       hasUserMultiplier: pricedModel.user_multiplier != null,
     };

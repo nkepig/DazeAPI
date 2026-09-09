@@ -6,6 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// abortWithOpenAiMessage writes an OpenAI-format error and aborts the request.
+// message must be English. Do not localize client-facing API errors.
+// Official upstream error text should be forwarded as-is, not rewritten here.
 func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code ...types.ErrorCode) {
 	codeStr := ""
 	if len(code) > 0 {
