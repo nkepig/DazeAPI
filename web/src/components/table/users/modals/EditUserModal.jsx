@@ -60,6 +60,7 @@ const EditUserModal = (props) => {
   const [groupOverrides, setGroupOverrides] = useState({});
   const [groupList, setGroupList] = useState([]);
   const [availableGroups, setAvailableGroups] = useState([]);
+  const [requestRecordEnabled, setRequestRecordEnabled] = useState(false);
 
   const isEdit = Boolean(userId);
 
@@ -116,6 +117,17 @@ const EditUserModal = (props) => {
       setGroupList(groupEntries);
       setGroupOverrides(overrides);
       setAdvancedOpen(groupEntries.length > 0);
+      const setting =
+        data.setting && typeof data.setting === 'object'
+          ? data.setting
+          : (() => {
+              try {
+                return data.setting ? JSON.parse(data.setting) : {};
+              } catch {
+                return {};
+              }
+            })();
+      setRequestRecordEnabled(setting.request_record_enabled === true);
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
@@ -145,6 +157,7 @@ const EditUserModal = (props) => {
           }
         });
         payload.group_ratio = JSON.stringify(fullGroupRatio);
+        payload.request_record_enabled = requestRecordEnabled;
       }
     }
     const url = userId ? `/api/user/` : `/api/user/self`;
@@ -272,6 +285,20 @@ const EditUserModal = (props) => {
 
                 {userId && isAdmin() && (
                   <>
+                    <div className='compact-switch-row'>
+                      <div>
+                        <div className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</div>
+                        <p className='compact-hint' style={{ margin: '4px 0 0' }}>
+                          {t('把完整请求/响应写入磁盘排障，会持续占用存储，默认关闭')}
+                        </p>
+                      </div>
+                      <Form.Switch
+                        noLabel
+                        checked={requestRecordEnabled}
+                        style={{ marginBottom: 0 }}
+                        onChange={(value) => setRequestRecordEnabled(value)}
+                      />
+                    </div>
                     <button
                       type='button'
                       className='compact-advanced-toggle'
@@ -291,6 +318,8 @@ const EditUserModal = (props) => {
                         <Select
                           placeholder={t('添加分组')}
                           value=''
+                          filter
+                          getPopupContainer={() => document.body}
                           onChange={(value) => {
                             if (value && !groupOverrides[value]) {
                               setGroupList((prev) => [

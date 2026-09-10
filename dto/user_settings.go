@@ -12,6 +12,7 @@ type UserSetting struct {
 	GotifyPriority                   int     `json:"gotify_priority"`
 	UpstreamModelUpdateNotifyEnabled bool    `json:"upstream_model_update_notify_enabled,omitempty"`
 	RecordIpLog                      bool    `json:"record_ip_log,omitempty"`
+	RequestRecordEnabled             bool    `json:"request_record_enabled,omitempty"`
 	SidebarModules                   string  `json:"sidebar_modules,omitempty"`
 	BillingPreference                string  `json:"billing_preference,omitempty"`
 	Language                         string  `json:"language,omitempty"`

@@ -1368,11 +1368,14 @@ a[href],
   border: none !important;
 }
 
-/* Soft ripple while waiting */
-@keyframes dazeRipple {
-  0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.14; }
-  70% { transform: translate(-50%, -50%) scale(1.35); opacity: 0.03; }
-  100% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
+/* Soft wash while waiting — keep existing rows visible */
+@keyframes dazeWaveDrift {
+  0% { transform: translate3d(-8%, 2%, 0); }
+  100% { transform: translate3d(8%, -2%, 0); }
+}
+@keyframes dazeWaveSheen {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }
 .page-await-screen,
 .daze-awaiting {
@@ -1389,19 +1392,29 @@ a[href],
   content: '';
   pointer-events: none;
   position: absolute;
-  left: 50%;
-  top: 42%;
-  width: min(420px, 70vw);
-  aspect-ratio: 1;
-  margin: 0;
-  border-radius: 50%;
-  border: 1px solid rgba(26, 26, 26, 0.1);
-  animation: dazeRipple 2.6s ease-out infinite;
   z-index: 3;
+}
+.page-await-screen::before,
+.daze-awaiting::before {
+  inset: -28% -18%;
+  background:
+    radial-gradient(ellipse 55% 40% at 18% 42%, rgba(75, 96, 124, 0.07), transparent 62%),
+    radial-gradient(ellipse 50% 36% at 82% 58%, rgba(37, 47, 61, 0.05), transparent 58%);
+  animation: dazeWaveDrift 6.4s ease-in-out infinite alternate;
 }
 .page-await-screen::after,
 .daze-awaiting::after {
-  animation-delay: 1.3s;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  background-size: 240% 100%;
+  animation: dazeWaveSheen 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 .daze-awaiting .semi-spin,
 .page-await-screen .semi-spin {
@@ -1419,7 +1432,7 @@ a[href],
   .daze-awaiting::before,
   .daze-awaiting::after {
     animation: none;
-    opacity: 0.04;
+    opacity: 0.06;
     transform: none;
   }
 }
@@ -1431,13 +1444,19 @@ a[href],
 }
 
 /* --- Select / popover dropdowns --- */
-.semi-select-option-list,
 .semi-dropdown,
 .semi-popover-content,
 .semi-datepicker {
   border-radius: 12px !important;
   box-shadow: var(--shadow-float) !important;
   overflow: hidden;
+}
+.semi-select-option-list {
+  border-radius: 12px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  max-height: min(280px, 50vh) !important;
+  overscroll-behavior: contain;
 }
 .semi-select-option-selected {
   background-color: #f5f5f7 !important;

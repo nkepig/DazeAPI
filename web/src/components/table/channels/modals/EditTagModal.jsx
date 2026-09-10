@@ -739,6 +739,7 @@ const EditTagModal = (props) => {
                     )}
                     optionList={groupOptions}
                     style={{ width: '100%' }}
+                    getPopupContainer={() => document.body}
                     onChange={(value) => handleInputChange('groups', value)}
                   />
                 </div>

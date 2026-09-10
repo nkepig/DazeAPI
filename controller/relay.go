@@ -226,11 +226,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		defer bodyStorage.Close()
 		c.Request.Body = io.NopCloser(bodyStorage)
-		channelSetting := channel.GetSetting()
 		var requestBodyBytes []byte
 		var recorder *service.RecordingResponseWriter
-		if channelSetting.RequestRecordEnabled {
-			common.SysLog(fmt.Sprintf("channel request record enabled: channel_id=%d request_id=%s", channel.Id, relayInfo.RequestId))
+		if relayInfo.UserSetting.RequestRecordEnabled {
+			common.SysLog(fmt.Sprintf("user request record enabled: user_id=%d channel_id=%d request_id=%s", relayInfo.UserId, channel.Id, relayInfo.RequestId))
 			requestBodyBytes, _ = bodyStorage.Bytes()
 			recorder = &service.RecordingResponseWriter{ResponseWriter: c.Writer}
 			c.Writer = recorder

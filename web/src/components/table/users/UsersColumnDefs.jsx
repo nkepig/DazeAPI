@@ -64,21 +64,43 @@ const renderRole = (role, t) => {
   }
 };
 
+const isUserRequestRecordEnabled = (record) => {
+  if (!record?.setting) return false;
+  try {
+    const parsed =
+      typeof record.setting === 'string'
+        ? JSON.parse(record.setting)
+        : record.setting;
+    return parsed?.request_record_enabled === true;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Render username with remark
  */
-const renderUsername = (text, record) => {
+const renderUsername = (text, record, t) => {
   const isUserDisabled = record.status === 2 && record.DeletedAt == null;
   const nameClass = isUserDisabled ? 'text-red-600 font-semibold' : '';
   const remark = record.remark;
   const isTestUser = !record.group_ratio || record.group_ratio === '{}' || record.group_ratio === '""';
+  const requestRecordEnabled = isUserRequestRecordEnabled(record);
+  const extras = (
+    <>
+      {isTestUser && (
+        <Tag color='orange' size='small' shape='circle'>test</Tag>
+      )}
+      {requestRecordEnabled && (
+        <StatusPill variant='warning'>{t('正在记录')}</StatusPill>
+      )}
+    </>
+  );
   if (!remark) {
     return (
       <Space spacing={2}>
         <span className={nameClass}>{text}</span>
-        {isTestUser && (
-          <Tag color='orange' size='small' shape='circle'>test</Tag>
-        )}
+        {extras}
       </Space>
     );
   }
@@ -88,9 +110,7 @@ const renderUsername = (text, record) => {
   return (
     <Space spacing={2}>
       <span className={nameClass}>{text}</span>
-      {isTestUser && (
-        <Tag color='orange' size='small' shape='circle'>test</Tag>
-      )}
+      {extras}
       <Tooltip content={remark} position='top' showArrow>
         <Tag color='white' shape='circle' className='!text-xs'>
           <div className='flex items-center gap-1'>
@@ -273,7 +293,7 @@ export const getUsersColumns = ({
     {
       title: t('用户名'),
       dataIndex: 'username',
-      render: (text, record) => renderUsername(text, record),
+      render: (text, record) => renderUsername(text, record, t),
     },
     {
       title: t('状态'),

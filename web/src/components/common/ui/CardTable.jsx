@@ -63,11 +63,13 @@ const CardTable = ({
       : restTableProps;
 
     const quiet = !showSkeleton && (!dataSource || dataSource.length === 0);
+    const awaitingEmpty = showSkeleton && (!dataSource || dataSource.length === 0);
 
     return (
       <div
         ref={tableWrapperRef}
         className={[showSkeleton && 'daze-awaiting', quiet && 'daze-table-quiet'].filter(Boolean).join(' ') || undefined}
+        style={awaitingEmpty ? { minHeight: 280 } : undefined}
         aria-busy={showSkeleton ? 'true' : undefined}
       >
         <Table
@@ -79,12 +81,6 @@ const CardTable = ({
           {...finalTableProps}
         />
       </div>
-    );
-  }
-
-  if (showSkeleton) {
-    return (
-      <div className='daze-awaiting' style={{ minHeight: 280 }} aria-busy='true' />
     );
   }
 
@@ -169,7 +165,11 @@ const CardTable = ({
   }
 
   return (
-    <div className='flex flex-col gap-2'>
+    <div
+      className={`flex flex-col gap-2${showSkeleton ? ' daze-awaiting' : ''}`}
+      style={showSkeleton && (!dataSource || dataSource.length === 0) ? { minHeight: 280 } : undefined}
+      aria-busy={showSkeleton ? 'true' : undefined}
+    >
       {dataSource.map((record, index) => (
         <MobileRowCard
           key={getRowKey(record, index)}

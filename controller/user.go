@@ -316,7 +316,8 @@ func GenerateAccessToken(c *gin.Context) {
 
 type UpdateUserRequest struct {
 	model.User
-	QuotaDelta *int `json:"quota_delta"`
+	QuotaDelta           *int  `json:"quota_delta"`
+	RequestRecordEnabled *bool `json:"request_record_enabled"`
 }
 
 func GetSelf(c *gin.Context) {
@@ -563,6 +564,20 @@ func UpdateUser(c *gin.Context) {
 		}
 	} else if originUser.Quota != updatedUser.Quota {
 		model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员将用户额度从 %s修改为 %s", logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
+	}
+	if req.RequestRecordEnabled != nil {
+		fresh, settingErr := model.GetUserById(updatedUser.Id, false)
+		if settingErr != nil {
+			common.ApiError(c, settingErr)
+			return
+		}
+		setting := fresh.GetSetting()
+		setting.RequestRecordEnabled = *req.RequestRecordEnabled
+		fresh.SetSetting(setting)
+		if err := fresh.Update(false); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -1074,6 +1089,7 @@ func UpdateUserSetting(c *gin.Context) {
 		QuotaWarningThreshold:            req.QuotaWarningThreshold,
 		UpstreamModelUpdateNotifyEnabled: upstreamModelUpdateNotifyEnabled,
 		RecordIpLog:                      req.RecordIpLog,
+		RequestRecordEnabled:             existingSettings.RequestRecordEnabled,
 		SidebarModules:                   existingSettings.SidebarModules,
 		BillingPreference:                existingSettings.BillingPreference,
 		Language:                         existingSettings.Language,

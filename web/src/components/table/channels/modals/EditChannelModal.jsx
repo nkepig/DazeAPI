@@ -197,7 +197,6 @@ const EditChannelModal = (props) => {
     is_enterprise_account: false,
     // 渠道 setting 字段（ChannelSettings）
     pass_through_body_enabled: false,
-    request_record_enabled: false,
     proxy: '',
     image_convert_mode: 'disabled',
     timeout: 0,
@@ -224,6 +223,7 @@ const EditChannelModal = (props) => {
     useState('');
   const formApiRef = useRef(null);
   const [channelSearchValue, setChannelSearchValue] = useState('');
+  const [groupOptions, setGroupOptions] = useState([]);
   const [isEnterpriseAccount, setIsEnterpriseAccount] = useState(false); // 是否为企业账户
   const redirectModelList = useMemo(() => {
     const mapping = inputs.model_mapping;
@@ -460,8 +460,6 @@ const EditChannelModal = (props) => {
           const parsedSetting = JSON.parse(data.setting);
           data.pass_through_body_enabled =
             parsedSetting.pass_through_body_enabled === true;
-          data.request_record_enabled =
-            parsedSetting.request_record_enabled === true;
           data.proxy = parsedSetting.proxy || '';
           data.timeout = parsedSetting.timeout || 0;
           if (parsedSetting.convert_image_base64_to_url === true) {
@@ -474,14 +472,12 @@ const EditChannelModal = (props) => {
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.pass_through_body_enabled = false;
-          data.request_record_enabled = false;
           data.proxy = '';
           data.image_convert_mode = 'disabled';
           data.timeout = 0;
         }
       } else {
         data.pass_through_body_enabled = false;
-        data.request_record_enabled = false;
         data.proxy = '';
         data.image_convert_mode = 'disabled';
         data.timeout = 0;
@@ -516,7 +512,6 @@ const EditChannelModal = (props) => {
         nonempty(data.proxy) ||
         nonempty(data.model_mapping) ||
         data.pass_through_body_enabled ||
-        data.request_record_enabled ||
         (Number(data.priority) || 0) !== 0 ||
         (Number(data.weight) || 0) !== 0 ||
         (Number(data.timeout) || 0) !== 0 ||
@@ -683,6 +678,22 @@ const EditChannelModal = (props) => {
     }
   };
 
+  const fetchGroups = async () => {
+    try {
+      const res = await API.get('/api/group/');
+      if (res?.data?.success) {
+        setGroupOptions(
+          (res.data.data || []).map((group) => ({
+            label: group,
+            value: group,
+          })),
+        );
+      }
+    } catch (error) {
+      // ignore
+    }
+  };
+
   const fetchModelGroups = async () => {
     try {
       const res = await API.get('/api/prefill_group?type=model');
@@ -790,6 +801,7 @@ const EditChannelModal = (props) => {
         setAdvancedSettingsOpen(false);
       }
       fetchModelGroups();
+      fetchGroups();
     } else {
       // 统一的模态框关闭重置逻辑
       resetModalState();
@@ -1053,8 +1065,7 @@ const EditChannelModal = (props) => {
     }
     channelSetting.pass_through_body_enabled =
       localInputs.pass_through_body_enabled === true;
-    channelSetting.request_record_enabled =
-      localInputs.request_record_enabled === true;
+    delete channelSetting.request_record_enabled;
     if (localInputs.proxy && localInputs.proxy.trim()) {
       channelSetting.proxy = localInputs.proxy.trim();
     } else {
@@ -1081,7 +1092,6 @@ const EditChannelModal = (props) => {
     // 清理不需要发送到后端的字段
     delete localInputs.is_enterprise_account;
     delete localInputs.pass_through_body_enabled;
-    delete localInputs.request_record_enabled;
     delete localInputs.proxy;
     delete localInputs.image_convert_mode;
     delete localInputs.timeout;
@@ -1396,21 +1406,6 @@ const EditChannelModal = (props) => {
                 >
                 <div className='compact-switch-row'>
                   <div>
-                    <div className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</div>
-                    <p className='compact-hint' style={{ margin: '4px 0 0' }}>
-                      {t('把完整请求/响应写入磁盘排障，会持续占用存储，默认关闭')}
-                    </p>
-                  </div>
-                  <Form.Switch
-                    field='request_record_enabled'
-                    noLabel
-                    checked={inputs.request_record_enabled === true}
-                    style={{ marginBottom: 0 }}
-                    onChange={(value) => handleInputChange('request_record_enabled', value)}
-                  />
-                </div>
-                <div className='compact-switch-row'>
-                  <div>
                     <div className='text-[13px] text-[#1A1A1A]'>{t('自动禁用')}</div>
                     <p className='compact-hint' style={{ margin: '4px 0 0' }}>
                       {t('上游连续失败时自动停用该渠道')}
@@ -1511,6 +1506,7 @@ const EditChannelModal = (props) => {
                       filter={selectFilter}
                       autoClearSearchValue={false}
                       searchPosition='dropdown'
+                      getPopupContainer={() => document.body}
                       onSearch={(value) => setChannelSearchValue(value)}
                       renderOptionItem={renderChannelOption}
                       onChange={(value) => handleInputChange('type', value)}
@@ -1712,7 +1708,7 @@ const EditChannelModal = (props) => {
                     desc={t('选择可调用的模型，并指定渠道分组')}
                   >
                   {/* Model Selection - Part of Core Config */}
-                  <Form.Select
+                    <Form.Select
                       field='models'
                       label={t('模型')}
                       placeholder={t('选择模型')}
@@ -1722,6 +1718,7 @@ const EditChannelModal = (props) => {
                       allowCreate
                       autoClearSearchValue={false}
                       searchPosition='dropdown'
+                      getPopupContainer={() => document.body}
                       optionList={modelOptions}
                       onSearch={(value) => setModelSearchValue(value)}
                       innerBottomSlot={
@@ -1811,15 +1808,23 @@ const EditChannelModal = (props) => {
                   />
 
                   {/* Group Selection - Core Config */}
-                  <Form.Input
-                    field='group'
+                  <Form.Select
+                    field='groups'
                     label={t('分组')}
-                    placeholder='openai,gemini,claude'
-                    showClear
+                    placeholder={t('选择分组')}
+                    multiple
+                    filter
+                    allowAdditions
+                    additionLabel={t(
+                      '请在系统设置页面编辑分组折扣以添加新的分组：',
+                    )}
+                    optionList={groupOptions}
+                    style={{ width: '100%' }}
+                    getPopupContainer={() => document.body}
                     onChange={(value) => {
-                      const groups = value.split(',').map((g) => g.trim()).filter((g) => g);
+                      const groups = Array.isArray(value) ? value : [];
                       handleInputChange('groups', groups);
-                      handleInputChange('group', value);
+                      handleInputChange('group', groups.join(','));
                     }}
                   />
                   </FormSection>

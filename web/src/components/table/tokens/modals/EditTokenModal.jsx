@@ -200,6 +200,7 @@ const EditTokenModal = (props) => {
                 placeholder={t('请选择分组')}
                 optionList={userGroups}
                 filter
+                getPopupContainer={() => document.body}
                 style={{ width: '100%' }}
                 rules={[{ required: true, message: t('请选择分组') }]}
               />
