@@ -1,14 +1,18 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func GetAllLogs(c *gin.Context) {
@@ -75,6 +79,50 @@ func SearchUserLogs(c *gin.Context) {
 		"success": false,
 		"message": "该接口已废弃",
 	})
+}
+
+func GetLogUsage(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Query("id"))
+	requestId := strings.TrimSpace(c.Query("request_id"))
+	if id <= 0 && requestId == "" {
+		common.ApiErrorMsg(c, "id or request_id is required")
+		return
+	}
+	usage, err := model.GetConsumeLogUsage(model.ConsumeLogUsageQuery{
+		ID:            id,
+		RequestId:     requestId,
+		UserWhitelist: adminUserWhitelistFor(c),
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.ApiErrorMsg(c, "日志不存在")
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, service.SanitizeUsageDict(usage))
+}
+
+func GetUserLogUsage(c *gin.Context) {
+	requestId := strings.TrimSpace(c.Query("request_id"))
+	if requestId == "" {
+		common.ApiErrorMsg(c, "request_id is required")
+		return
+	}
+	usage, err := model.GetConsumeLogUsage(model.ConsumeLogUsageQuery{
+		RequestId: requestId,
+		UserId:    c.GetInt("id"),
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.ApiErrorMsg(c, "日志不存在")
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, service.SanitizeUsageDict(usage))
 }
 
 func GetLogByKey(c *gin.Context) {

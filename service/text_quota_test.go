@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -31,12 +32,12 @@ func TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic(t *testing.T) {
 	}
 
 	priceData := types.PriceData{
-		PromptPrice:         1,
-		CompletionPrice:     2,
-		CacheReadPrice:      0.1,
-		CacheWritePrice:     1.25,
-		CacheWrite5mPrice:   1.25,
-		CacheWrite1hPrice:   2,
+		PromptPrice:       1,
+		CompletionPrice:   2,
+		CacheReadPrice:    0.1,
+		CacheWritePrice:   1.25,
+		CacheWrite5mPrice: 1.25,
+		CacheWrite1hPrice: 2,
 		GroupDiscountInfo: types.GroupDiscountInfo{
 			GroupDiscount: 1,
 		},
@@ -77,12 +78,12 @@ func TestCalculateTextQuotaSummaryUsesSplitClaudeCacheCreationRatios(t *testing.
 		FinalRequestRelayFormat: types.RelayFormatClaude,
 		OriginModelName:         "claude-3-7-sonnet",
 		PriceData: types.PriceData{
-			PromptPrice:         1,
-			CompletionPrice:     1,
-			CacheReadPrice:      0,
-			CacheWritePrice:     1,
-			CacheWrite5mPrice:   2,
-			CacheWrite1hPrice:   3,
+			PromptPrice:       1,
+			CompletionPrice:   1,
+			CacheReadPrice:    0,
+			CacheWritePrice:   1,
+			CacheWrite5mPrice: 2,
+			CacheWrite1hPrice: 3,
 			GroupDiscountInfo: types.GroupDiscountInfo{
 				GroupDiscount: 1,
 			},
@@ -115,12 +116,12 @@ func TestCalculateTextQuotaSummaryUsesAnthropicUsageSemanticFromUpstreamUsage(t 
 		RelayFormat:     types.RelayFormatOpenAI,
 		OriginModelName: "claude-3-7-sonnet",
 		PriceData: types.PriceData{
-			PromptPrice:         1,
-			CompletionPrice:     2,
-			CacheReadPrice:      0.1,
-			CacheWritePrice:     1.25,
-			CacheWrite5mPrice:   1.25,
-			CacheWrite1hPrice:   2,
+			PromptPrice:       1,
+			CompletionPrice:   2,
+			CacheReadPrice:    0.1,
+			CacheWritePrice:   1.25,
+			CacheWrite5mPrice: 1.25,
+			CacheWrite1hPrice: 2,
 			GroupDiscountInfo: types.GroupDiscountInfo{
 				GroupDiscount: 1,
 			},
@@ -180,10 +181,10 @@ func TestCalculateTextQuotaSummaryHandlesLegacyClaudeDerivedOpenAIUsage(t *testi
 		RelayFormat:     types.RelayFormatOpenAI,
 		OriginModelName: "claude-3-7-sonnet",
 		PriceData: types.PriceData{
-			PromptPrice:     1,
-			CompletionPrice: 5,
-			CacheReadPrice:  0.1,
-			CacheWritePrice: 1.25,
+			PromptPrice:       1,
+			CompletionPrice:   5,
+			CacheReadPrice:    0.1,
+			CacheWritePrice:   1.25,
 			CacheWrite5mPrice: 1.25,
 			CacheWrite1hPrice: 2,
 			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
@@ -216,9 +217,9 @@ func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheCreationFromPromptBill
 			ChannelType: constant.ChannelTypeOpenRouter,
 		},
 		PriceData: types.PriceData{
-			PromptPrice:     1,
-			CompletionPrice: 1,
-			CacheWritePrice: 1.25,
+			PromptPrice:       1,
+			CompletionPrice:   1,
+			CacheWritePrice:   1.25,
 			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
 		},
 		StartTime: time.Now(),
@@ -252,10 +253,10 @@ func TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling(t *testing.T
 			ChannelType: constant.ChannelTypeOpenRouter,
 		},
 		PriceData: types.PriceData{
-			PromptPrice:     1,
-			CompletionPrice: 1,
-			CacheReadPrice:  0.1,
-			CacheWritePrice: 1.25,
+			PromptPrice:       1,
+			CompletionPrice:   1,
+			CacheReadPrice:    0.1,
+			CacheWritePrice:   1.25,
 			GroupDiscountInfo: types.GroupDiscountInfo{GroupDiscount: 1},
 		},
 		StartTime: time.Now(),
@@ -377,4 +378,77 @@ func TestCalculateTextQuotaSummaryOpenAIResponsesCacheWriteTokens(t *testing.T) 
 	// quota = 3*5 + 81243*0.5 + 8661*6.25 + 1413*30
 	//       = 15 + 40621.5 + 54131.25 + 42390 = 137157.75 => 137158
 	require.Equal(t, int64(137158), summary.QuotaMicrodollars)
+}
+
+func TestCalculateTextQuotaSummaryBillsExtractedChatCompletionUsage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	raw := []byte(`{
+		"choices": [{"message": {"content": "Folding Portable Aluminum Picnic Table|neutral"}}],
+		"object": "chat.completion",
+		"usage": {
+			"prompt_tokens": 585,
+			"completion_tokens": 9,
+			"total_tokens": 594
+		}
+	}`)
+	var usage dto.Usage
+	require.NoError(t, common.Unmarshal(raw, &usage))
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "gpt-4.1-mini-2025-04-14",
+		PriceData: types.PriceData{
+			PromptPrice:     0.4,
+			CompletionPrice: 0.8,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+	}
+	summary := calculateTextQuotaSummary(ctx, relayInfo, &usage)
+	require.Equal(t, 585, summary.PromptTokens)
+	require.Equal(t, 9, summary.CompletionTokens)
+	require.Equal(t, int64(241), summary.QuotaMicrodollars)
+}
+
+func TestCalculateTextQuotaSummaryBillsGptImageUsage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	raw := []byte(`{
+		"background": "opaque",
+		"data": "[{\"b64_json\":\"aaaa\"}]",
+		"usage": {
+			"input_tokens": 1248,
+			"input_tokens_details": {"image_tokens": 1083, "text_tokens": 165},
+			"output_tokens": 63,
+			"total_tokens": 1311
+		}
+	}`)
+	var usage dto.Usage
+	require.NoError(t, common.Unmarshal(raw, &usage))
+	usage.NormalizeInputTokenDetails()
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "gpt-image-1",
+		PriceData: types.PriceData{
+			PromptPrice:     5,
+			CompletionPrice: 40,
+			ImagePrice:      10,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+	}
+	summary := calculateTextQuotaSummary(ctx, relayInfo, &usage)
+	require.Equal(t, 1248, summary.PromptTokens)
+	require.Equal(t, 63, summary.CompletionTokens)
+	require.Equal(t, 1083, summary.ImageTokens)
+	// text 165*5 + image input 1083*10 + image output 63*40 = 825 + 10830 + 2520 = 14175
+	require.Equal(t, int64(14175), summary.QuotaMicrodollars)
 }

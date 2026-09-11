@@ -56,3 +56,19 @@ func TestApplyOpenAIResponsesUsageCopiesNonCachePromptDetails(t *testing.T) {
 		t.Fatalf("ImageTokens=%d want 15", dst.PromptTokensDetails.ImageTokens)
 	}
 }
+
+func TestApplyOpenAIResponsesUsageCopiesPromptCompletionTokens(t *testing.T) {
+	src := &dto.Usage{
+		PromptTokens:     683,
+		CompletionTokens: 17,
+		TotalTokens:      700,
+	}
+	dst := &dto.Usage{}
+	applyOpenAIResponsesUsage(dst, src)
+	if dst.PromptTokens != 683 {
+		t.Fatalf("PromptTokens=%d want 683", dst.PromptTokens)
+	}
+	if dst.CompletionTokens != 17 {
+		t.Fatalf("CompletionTokens=%d want 17", dst.CompletionTokens)
+	}
+}

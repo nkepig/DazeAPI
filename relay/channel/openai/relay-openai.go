@@ -489,20 +489,6 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	// 写入新的 response body
 	service.WriteResponseWithConvert(c, resp, responseBody, info)
 
-	// Once we've written to the client, we should not return errors anymore
-	// because the upstream has already consumed resources and returned content
-	// We should still perform billing even if parsing fails
-	// format
-	if usageResp.InputTokens > 0 {
-		usageResp.PromptTokens += usageResp.InputTokens
-	}
-	if usageResp.OutputTokens > 0 {
-		usageResp.CompletionTokens += usageResp.OutputTokens
-	}
-	if usageResp.InputTokensDetails != nil {
-		usageResp.PromptTokensDetails.ImageTokens += usageResp.InputTokensDetails.ImageTokens
-		usageResp.PromptTokensDetails.TextTokens += usageResp.InputTokensDetails.TextTokens
-	}
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 	return &usageResp.Usage, nil
 }
@@ -510,6 +496,13 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 func applyUsagePostProcessing(info *relaycommon.RelayInfo, usage *dto.Usage, responseBody []byte) {
 	if info == nil || usage == nil {
 		return
+	}
+	usage.EnsureChatTokenFields()
+	if !service.ValidUsage(usage) && len(responseBody) > 0 {
+		var fromBody dto.Usage
+		if err := common.Unmarshal(responseBody, &fromBody); err == nil {
+			applyOpenAIResponsesUsage(usage, &fromBody)
+		}
 	}
 	usage.NormalizeInputTokenDetails()
 

@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -245,14 +246,104 @@ type Usage struct {
 }
 
 func (u *Usage) UnmarshalJSON(data []byte) error {
+	usageJSON := ExtractUsageJSON(data)
 	type usageAlias Usage
 	var decoded usageAlias
-	if err := json.Unmarshal(data, &decoded); err != nil {
+	if err := json.Unmarshal(usageJSON, &decoded); err != nil {
 		return err
 	}
 	*u = Usage(decoded)
-	u.OriginalUsageJSON = append(json.RawMessage(nil), data...)
+	u.OriginalUsageJSON = append(json.RawMessage(nil), usageJSON...)
+	u.EnsureChatTokenFields()
 	return nil
+}
+
+// ExtractUsageJSON returns the inner usage object when `data` is a full model
+// response envelope (choices / output / chat.completion). Otherwise it returns data as-is.
+func ExtractUsageJSON(data []byte) []byte {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return data
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &envelope); err != nil {
+		return data
+	}
+	nested, ok := envelope["usage"]
+	if !ok {
+		return data
+	}
+	nested = bytes.TrimSpace(nested)
+	if len(nested) == 0 || nested[0] != '{' {
+		return data
+	}
+	// Keep a real usage object as-is. Unwrap chat/image/response envelopes
+	// that only contain usage as a nested field (including gpt-image b64 payloads).
+	if looksLikeUsageFields(envelope) {
+		return data
+	}
+	if looksLikeUsageRaw(nested) {
+		return nested
+	}
+	return data
+}
+
+func looksLikeUsageRaw(raw json.RawMessage) bool {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return false
+	}
+	return looksLikeUsageFields(fields)
+}
+
+func looksLikeUsageFields(fields map[string]json.RawMessage) bool {
+	for _, key := range []string{"prompt_tokens", "completion_tokens", "input_tokens", "output_tokens", "total_tokens"} {
+		if _, ok := fields[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// EnsureChatTokenFields copies Responses-style input/output tokens onto the
+// chat-completion fields used by billing, and recovers tokens from a nested
+// usage envelope when the struct was unmarshaled from a full response body.
+func (u *Usage) EnsureChatTokenFields() {
+	if u == nil {
+		return
+	}
+	if u.PromptTokens == 0 && u.CompletionTokens == 0 && len(u.OriginalUsageJSON) > 0 {
+		extracted := ExtractUsageJSON(u.OriginalUsageJSON)
+		type tokenAlias struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			InputTokens      int `json:"input_tokens"`
+			OutputTokens     int `json:"output_tokens"`
+		}
+		var decoded tokenAlias
+		if err := json.Unmarshal(extracted, &decoded); err == nil {
+			u.PromptTokens = decoded.PromptTokens
+			u.CompletionTokens = decoded.CompletionTokens
+			if u.PromptTokens == 0 {
+				u.PromptTokens = decoded.InputTokens
+			}
+			if u.CompletionTokens == 0 {
+				u.CompletionTokens = decoded.OutputTokens
+			}
+			if !bytes.Equal(bytes.TrimSpace(extracted), bytes.TrimSpace(u.OriginalUsageJSON)) {
+				u.OriginalUsageJSON = append(json.RawMessage(nil), extracted...)
+			}
+		}
+	}
+	if u.PromptTokens == 0 && u.InputTokens > 0 {
+		u.PromptTokens = u.InputTokens
+	}
+	if u.CompletionTokens == 0 && u.OutputTokens > 0 {
+		u.CompletionTokens = u.OutputTokens
+	}
+	if u.TotalTokens == 0 {
+		u.TotalTokens = u.PromptTokens + u.CompletionTokens
+	}
 }
 
 type OpenAIVideoResponse struct {

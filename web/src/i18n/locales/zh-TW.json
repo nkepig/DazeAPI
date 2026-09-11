@@ -231,6 +231,7 @@
     "Uptime Kuma地址": "Uptime Kuma位址",
     "Uptime Kuma监控分类管理，可以配置多个监控分类用于服务状态展示（最多20个）": "Uptime Kuma監控分類管理，可以設定多個監控分類用於服務狀態展示（最多20個）",
     "Usage 已复制": "Usage 已複製",
+    "Usage 加载失败": "Usage 載入失敗",
     "User Info Endpoint": "User Info Endpoint",
     "Vertex AI 不支持 functionResponse.id 字段，开启后将自动移除该字段": "Vertex AI 不支援 functionResponse.id 字段，開啟後將自動移除該字段",
     "Waffo API 参数，可空（最多64位）": "Waffo API 参数，可空（最多64位）",

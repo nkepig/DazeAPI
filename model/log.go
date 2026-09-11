@@ -121,10 +121,80 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			// model redirect is not exposed on the self-service log API.
 			delete(otherMap, "is_model_mapped")
 			delete(otherMap, "upstream_model_name")
+			stripUsageFromOtherMap(otherMap)
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 		logs[i].Id = startIdx + i + 1
 	}
+}
+
+func stripUsageFromOtherMap(otherMap map[string]interface{}) {
+	if otherMap == nil {
+		return
+	}
+	if _, ok := otherMap["usage"]; !ok {
+		return
+	}
+	otherMap["has_usage"] = true
+	delete(otherMap, "usage")
+}
+
+func stripUsageFromLogs(logs []*Log) {
+	for i := range logs {
+		otherMap, _ := common.StrToMap(logs[i].Other)
+		if otherMap == nil {
+			continue
+		}
+		if _, ok := otherMap["usage"]; !ok {
+			continue
+		}
+		stripUsageFromOtherMap(otherMap)
+		logs[i].Other = common.MapToJsonStr(otherMap)
+	}
+}
+
+type ConsumeLogUsageQuery struct {
+	ID            int
+	RequestId     string
+	UserId        int
+	UserWhitelist []int
+}
+
+func GetConsumeLogUsage(query ConsumeLogUsageQuery) (map[string]interface{}, error) {
+	if query.UserWhitelist != nil && len(query.UserWhitelist) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var log Log
+	tx := LOG_DB.Model(&Log{})
+	if query.ID > 0 {
+		tx = tx.Where("id = ?", query.ID)
+	} else if query.RequestId != "" {
+		tx = tx.Where("request_id = ?", query.RequestId).Order("id desc")
+	} else {
+		return nil, errors.New("missing log id")
+	}
+	if query.UserId > 0 {
+		tx = tx.Where("user_id = ?", query.UserId)
+	}
+	if query.UserWhitelist != nil {
+		tx = tx.Where("user_id IN ?", query.UserWhitelist)
+	}
+	if err := tx.Select("other").Take(&log).Error; err != nil {
+		return nil, err
+	}
+	otherMap, _ := common.StrToMap(log.Other)
+	if otherMap == nil {
+		return map[string]interface{}{}, nil
+	}
+	usage, ok := otherMap["usage"]
+	if !ok {
+		return map[string]interface{}{}, nil
+	}
+	asMap, ok := usage.(map[string]interface{})
+	if !ok || asMap == nil {
+		return map[string]interface{}{}, nil
+	}
+	return asMap, nil
 }
 
 func GetLogByTokenId(tokenId int) (logs []*Log, err error) {
@@ -399,6 +469,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		}
 	}
 
+	stripUsageFromLogs(logs)
 	return logs, total, err
 }
 

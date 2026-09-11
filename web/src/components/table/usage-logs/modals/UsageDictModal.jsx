@@ -18,9 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useMemo } from 'react';
-import { Button, Descriptions, Empty, Modal, Typography } from '@douyinfe/semi-ui';
+import { Button, Descriptions, Empty, Modal, Spin, Typography } from '@douyinfe/semi-ui';
 import { IconCopy } from '@douyinfe/semi-icons';
-import { copy, showError, showSuccess } from '../../../../helpers';
+import { copy, showError, showSuccess, sanitizeUsageDict } from '../../../../helpers';
 
 const { Text } = Typography;
 
@@ -67,11 +67,19 @@ const UsageDictModal = ({
   showUsageDictModal,
   setShowUsageDictModal,
   usageDictTarget,
+  usageDictLoading,
   t,
 }) => {
-  const usage = usageDictTarget?.usage && typeof usageDictTarget.usage === 'object'
-    ? usageDictTarget.usage
-    : null;
+  const usage = useMemo(() => {
+    const raw =
+      usageDictTarget?.usage && typeof usageDictTarget.usage === 'object'
+        ? usageDictTarget.usage
+        : null;
+    if (!raw) {
+      return null;
+    }
+    return sanitizeUsageDict(raw);
+  }, [usageDictTarget]);
   const reconstructed = Boolean(usageDictTarget?.reconstructed);
   const rows = useMemo(
     () =>
@@ -155,14 +163,18 @@ const UsageDictModal = ({
           <Button
             icon={<IconCopy />}
             size='small'
-            disabled={!jsonText}
+            disabled={!jsonText || usageDictLoading}
             onClick={copyUsage}
           >
             {t('复制 Usage')}
           </Button>
         </div>
 
-        {!usage || rows.length === 0 ? (
+        {usageDictLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+            <Spin tip={t('加载中')} />
+          </div>
+        ) : !usage || rows.length === 0 ? (
           <Empty description={t('暂无 Usage 数据')} />
         ) : (
           <Descriptions data={rows} />

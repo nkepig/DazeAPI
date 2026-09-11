@@ -35,3 +35,32 @@ func TestResponsesToChatCopiesCacheWriteTokens(t *testing.T) {
 		t.Fatalf("CacheWriteTokens=%d want 8661", usage.PromptTokensDetails.CacheWriteTokens)
 	}
 }
+
+func TestResponsesToChatCopiesPromptCompletionTokens(t *testing.T) {
+	resp := &dto.OpenAIResponsesResponse{
+		ID:    "resp_085d874df192e4d5016aa3ed569bfc87d0b83b94fef53e5649",
+		Model: "gpt-5.6-sol",
+		Usage: &dto.Usage{
+			PromptTokens:     683,
+			CompletionTokens: 17,
+			TotalTokens:      700,
+		},
+	}
+
+	chatResp, usage, err := ResponsesResponseToChatCompletionsResponse(resp, "chatcmpl_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage.PromptTokens != 683 {
+		t.Fatalf("PromptTokens=%d want 683", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 17 {
+		t.Fatalf("CompletionTokens=%d want 17", usage.CompletionTokens)
+	}
+	if usage.TotalTokens != 700 {
+		t.Fatalf("TotalTokens=%d want 700", usage.TotalTokens)
+	}
+	if chatResp.Usage.PromptTokens != 683 {
+		t.Fatalf("chatResp.Usage.PromptTokens=%d want 683", chatResp.Usage.PromptTokens)
+	}
+}

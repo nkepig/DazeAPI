@@ -18,6 +18,8 @@ var usageGatewayOnlyKeys = map[string]struct{}{
 	"usage_source":   {},
 }
 
+const usageValueMaxLen = 200
+
 // AttachUsageDict stores the upstream usage object as other["usage"].
 // Prefer the original JSON from the model response so extra keys, zeros, and
 // nulls are preserved. Fall back to a full struct marshal when usage was built in code.
@@ -29,7 +31,93 @@ func AttachUsageDict(other map[string]interface{}, usage any) {
 	if len(asMap) == 0 {
 		return
 	}
-	other["usage"] = asMap
+	other["usage"] = SanitizeUsageDict(asMap)
+}
+
+// SanitizeUsageDict unwraps a full model response mistakenly stored as usage,
+// then clips oversized extra fields so the log UI can render them.
+func SanitizeUsageDict(asMap map[string]interface{}) map[string]interface{} {
+	if asMap == nil {
+		return nil
+	}
+	asMap = unwrapUsageDict(asMap)
+	clipped, _ := clipUsageValue(asMap, true).(map[string]interface{})
+	if clipped == nil {
+		return asMap
+	}
+	return clipped
+}
+
+func unwrapUsageDict(asMap map[string]interface{}) map[string]interface{} {
+	if asMap == nil {
+		return nil
+	}
+	nested, ok := asMap["usage"].(map[string]interface{})
+	if !ok || nested == nil {
+		return asMap
+	}
+	if looksLikeUsageMap(asMap) {
+		return asMap
+	}
+	if looksLikeUsageMap(nested) {
+		return nested
+	}
+	return asMap
+}
+
+func looksLikeUsageMap(asMap map[string]interface{}) bool {
+	if asMap == nil {
+		return false
+	}
+	for _, key := range []string{"prompt_tokens", "completion_tokens", "input_tokens", "output_tokens", "total_tokens"} {
+		if _, ok := asMap[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func clipUsageValue(value any, isRoot bool) any {
+	switch typed := value.(type) {
+	case string:
+		return clipUsageString(typed)
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(typed))
+		for key, child := range typed {
+			out[key] = clipUsageValue(child, false)
+		}
+		if isRoot {
+			return out
+		}
+		raw, err := common.Marshal(out)
+		if err != nil || len(raw) <= usageValueMaxLen {
+			return out
+		}
+		return clipUsageString(string(raw))
+	case []interface{}:
+		raw, err := common.Marshal(typed)
+		if err != nil {
+			return typed
+		}
+		if len(raw) > usageValueMaxLen {
+			return clipUsageString(string(raw))
+		}
+		clipped := make([]interface{}, len(typed))
+		for i, child := range typed {
+			clipped[i] = clipUsageValue(child, false)
+		}
+		return clipped
+	default:
+		return value
+	}
+}
+
+func clipUsageString(s string) string {
+	runes := []rune(s)
+	if len(runes) <= usageValueMaxLen {
+		return s
+	}
+	return string(runes[:usageValueMaxLen]) + "…"
 }
 
 func usageDictFromValue(usage any) map[string]interface{} {

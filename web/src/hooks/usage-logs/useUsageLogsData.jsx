@@ -31,6 +31,7 @@ import {
   renderNumber,
   getLogOther,
   getLogUsageDict,
+  sanitizeUsageDict,
   copy,
   renderClaudeLogContent,
   renderLogContent,
@@ -105,6 +106,8 @@ export const useLogsData = () => {
   const [retryAttemptsTarget, setRetryAttemptsTarget] = useState(null);
   const [showUsageDictModal, setShowUsageDictModal] = useState(false);
   const [usageDictTarget, setUsageDictTarget] = useState(null);
+  const [usageDictLoading, setUsageDictLoading] = useState(false);
+  const usageDictFetchRef = useRef(0);
 
   // User and admin
   const isAdminUser = isAdmin();
@@ -438,15 +441,53 @@ export const useLogsData = () => {
     setShowRetryAttemptsDrawer(true);
   };
 
-  const openUsageDictModal = (log) => {
+  const openUsageDictModal = async (log) => {
+    const gen = ++usageDictFetchRef.current;
     const parsed = getLogUsageDict(log);
-    setUsageDictTarget({
+    const target = {
       modelName: log?.model_name || '',
       requestId: log?.request_id || '',
-      usage: parsed.usage,
+      usage: parsed.usage ? sanitizeUsageDict(parsed.usage) : parsed.usage,
       reconstructed: parsed.reconstructed,
-    });
+    };
+    setUsageDictTarget(target);
     setShowUsageDictModal(true);
+    if (!parsed.needsFetch) {
+      setUsageDictLoading(false);
+      return;
+    }
+    setUsageDictLoading(true);
+    try {
+      const url = isAdminUser
+        ? log?.id
+          ? `/api/log/usage?id=${encodeURIComponent(log.id)}`
+          : `/api/log/usage?request_id=${encodeURIComponent(log?.request_id || '')}`
+        : `/api/log/self/usage?request_id=${encodeURIComponent(log?.request_id || '')}`;
+      const res = await API.get(url);
+      if (gen !== usageDictFetchRef.current) {
+        return;
+      }
+      const { success, message, data } = res.data;
+      if (!success) {
+        showError(message);
+        return;
+      }
+      setUsageDictTarget((prev) => ({
+        ...(prev || target),
+        usage:
+          data && typeof data === 'object' ? sanitizeUsageDict(data) : {},
+        reconstructed: false,
+      }));
+    } catch (error) {
+      if (gen !== usageDictFetchRef.current) {
+        return;
+      }
+      showError(error?.message || t('Usage 加载失败'));
+    } finally {
+      if (gen === usageDictFetchRef.current) {
+        setUsageDictLoading(false);
+      }
+    }
   };
 
   // Format logs data
@@ -783,6 +824,7 @@ export const useLogsData = () => {
     showUsageDictModal,
     setShowUsageDictModal,
     usageDictTarget,
+    usageDictLoading,
 
     // Functions
     loadLogs,

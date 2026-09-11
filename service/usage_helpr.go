@@ -5,5 +5,9 @@ import (
 )
 
 func ValidUsage(usage *dto.Usage) bool {
-	return usage != nil && (usage.PromptTokens != 0 || usage.CompletionTokens != 0)
+	if usage == nil {
+		return false
+	}
+	usage.EnsureChatTokenFields()
+	return usage.PromptTokens != 0 || usage.CompletionTokens != 0
 }

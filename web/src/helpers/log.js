@@ -40,12 +40,89 @@ function setIfPositive(target, key, value) {
   target[key] = n;
 }
 
-// Prefer the stored upstream usage dict. Older logs reconstruct a compact
-// usage object from token columns and billing fields already in `other`.
+const USAGE_VALUE_MAX_LEN = 200;
+
+function clipUsageText(value) {
+  const text = String(value);
+  if (text.length <= USAGE_VALUE_MAX_LEN) {
+    return text;
+  }
+  return `${text.slice(0, USAGE_VALUE_MAX_LEN)}…`;
+}
+
+function clipUsageValue(value, isRoot = false) {
+  if (typeof value === 'string') {
+    return clipUsageText(value);
+  }
+  if (Array.isArray(value)) {
+    try {
+      const encoded = JSON.stringify(value);
+      if (encoded.length > USAGE_VALUE_MAX_LEN) {
+        return clipUsageText(encoded);
+      }
+    } catch (e) {
+      return value;
+    }
+    return value.map((item) => clipUsageValue(item, false));
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    out[key] = clipUsageValue(child, false);
+  }
+  if (isRoot) {
+    return out;
+  }
+  try {
+    const encoded = JSON.stringify(out);
+    if (encoded.length > USAGE_VALUE_MAX_LEN) {
+      return clipUsageText(encoded);
+    }
+  } catch (e) {
+    return out;
+  }
+  return out;
+}
+
+export function sanitizeUsageDict(usage) {
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
+    return usage;
+  }
+  let dict = usage;
+  const nested = usage.usage;
+  if (
+    nested &&
+    typeof nested === 'object' &&
+    !Array.isArray(nested) &&
+    looksLikeUsageDict(nested) &&
+    !looksLikeUsageDict(usage)
+  ) {
+    dict = nested;
+  }
+  return clipUsageValue(dict, true);
+}
+
+function looksLikeUsageDict(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return false;
+  }
+  return ['prompt_tokens', 'completion_tokens', 'input_tokens', 'output_tokens', 'total_tokens'].some(
+    (key) => Object.prototype.hasOwnProperty.call(obj, key),
+  );
+}
+
+// Prefer the stored upstream usage dict. List APIs omit the dict and only
+// set `has_usage`; older logs reconstruct a compact usage object from token
+// columns and billing fields already in `other`.
 export function getLogUsageDict(record) {
   const other = getLogOther(record?.other) || {};
   if (other.usage && typeof other.usage === 'object' && !Array.isArray(other.usage)) {
-    return { usage: other.usage, reconstructed: false };
+    return { usage: sanitizeUsageDict(other.usage), reconstructed: false, needsFetch: false };
+  }
+  if (other.has_usage) {
+    return { usage: null, reconstructed: false, needsFetch: true };
   }
 
   const promptTokens = Number(record?.prompt_tokens || 0);
@@ -98,5 +175,5 @@ export function getLogUsageDict(record) {
     other.cache_creation_tokens_1h,
   );
 
-  return { usage, reconstructed: true };
+  return { usage, reconstructed: true, needsFetch: false };
 }

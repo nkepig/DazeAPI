@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -74,5 +75,67 @@ func TestAttachUsageDictNilSafe(t *testing.T) {
 	AttachUsageDict(other, nil)
 	if _, exists := other["usage"]; exists {
 		t.Fatal("nil usage should not be stored")
+	}
+}
+
+func TestAttachUsageDictUnwrapsResponseAndClipsLongFields(t *testing.T) {
+	longContent := strings.Repeat("A", 250)
+	raw := []byte(`{
+		"choices": [{"message": {"content": "` + longContent + `"}}],
+		"object": "chat.completion",
+		"usage": {
+			"prompt_tokens": 585,
+			"completion_tokens": 9,
+			"total_tokens": 594,
+			"dump": "` + longContent + `"
+		}
+	}`)
+	var usage dto.Usage
+	if err := common.Unmarshal(raw, &usage); err != nil {
+		t.Fatal(err)
+	}
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &usage)
+	stored, ok := other["usage"].(map[string]interface{})
+	if !ok {
+		t.Fatal("usage dict missing")
+	}
+	if _, exists := stored["choices"]; exists {
+		t.Fatal("choices should be stripped from stored usage")
+	}
+	if stored["prompt_tokens"] != float64(585) {
+		t.Fatalf("prompt_tokens=%v", stored["prompt_tokens"])
+	}
+	dump, _ := stored["dump"].(string)
+	if len([]rune(dump)) != 201 {
+		t.Fatalf("dump len=%d want 201 (200 + ellipsis), value=%q", len([]rune(dump)), dump)
+	}
+}
+
+func TestAttachUsageDictUnwrapsImageResponse(t *testing.T) {
+	raw := []byte(`{
+		"background": "opaque",
+		"data": "[{\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAByAAAAJgCAIAAABN5ONl\"}]",
+		"usage": {
+			"input_tokens": 1248,
+			"output_tokens": 63,
+			"total_tokens": 1311
+		}
+	}`)
+	var usage dto.Usage
+	if err := common.Unmarshal(raw, &usage); err != nil {
+		t.Fatal(err)
+	}
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &usage)
+	stored, ok := other["usage"].(map[string]interface{})
+	if !ok {
+		t.Fatal("usage dict missing")
+	}
+	if _, exists := stored["data"]; exists {
+		t.Fatal("image payload should not be stored in usage")
+	}
+	if stored["input_tokens"] != float64(1248) {
+		t.Fatalf("input_tokens=%v", stored["input_tokens"])
 	}
 }

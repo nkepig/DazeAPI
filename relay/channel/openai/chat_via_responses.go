@@ -42,6 +42,9 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	if usage == nil {
 		usage = &dto.Usage{}
 		chatResp.Usage = *usage
+	} else {
+		usage.EnsureChatTokenFields()
+		chatResp.Usage = *usage
 	}
 
 	var responseBody []byte
@@ -404,33 +407,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 					createAt = int64(streamResp.Response.CreatedAt)
 				}
 				if streamResp.Response.Usage != nil {
-					if streamResp.Response.Usage.InputTokens != 0 {
-						usage.PromptTokens = streamResp.Response.Usage.InputTokens
-						usage.InputTokens = streamResp.Response.Usage.InputTokens
-					} else if streamResp.Response.Usage.PromptTokens != 0 {
-						usage.PromptTokens = streamResp.Response.Usage.PromptTokens
-						usage.InputTokens = streamResp.Response.Usage.PromptTokens
-					}
-					if streamResp.Response.Usage.OutputTokens != 0 {
-						usage.CompletionTokens = streamResp.Response.Usage.OutputTokens
-						usage.OutputTokens = streamResp.Response.Usage.OutputTokens
-					} else if streamResp.Response.Usage.CompletionTokens != 0 {
-						usage.CompletionTokens = streamResp.Response.Usage.CompletionTokens
-						usage.OutputTokens = streamResp.Response.Usage.CompletionTokens
-					}
-					if streamResp.Response.Usage.TotalTokens != 0 {
-						usage.TotalTokens = streamResp.Response.Usage.TotalTokens
-					} else {
-						usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-					}
-					if streamResp.Response.Usage.InputTokensDetails != nil {
-						usage.InputTokensDetails = streamResp.Response.Usage.InputTokensDetails
-					}
-					usage.PromptTokensDetails = streamResp.Response.Usage.PromptTokensDetails
-					usage.NormalizeInputTokenDetails()
-					if streamResp.Response.Usage.CompletionTokenDetails.ReasoningTokens != 0 {
-						usage.CompletionTokenDetails.ReasoningTokens = streamResp.Response.Usage.CompletionTokenDetails.ReasoningTokens
-					}
+					applyOpenAIResponsesUsage(usage, streamResp.Response.Usage)
 				}
 			}
 

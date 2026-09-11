@@ -20,23 +20,8 @@ func applyOpenAIResponsesUsage(dst *dto.Usage, src *dto.Usage) {
 	if dst == nil || src == nil {
 		return
 	}
-	if src.InputTokens != 0 {
-		dst.PromptTokens = src.InputTokens
-	} else if src.PromptTokens != 0 {
-		dst.PromptTokens = src.PromptTokens
-	}
-	if src.OutputTokens != 0 {
-		dst.CompletionTokens = src.OutputTokens
-	} else if src.CompletionTokens != 0 {
-		dst.CompletionTokens = src.CompletionTokens
-	}
-	if src.TotalTokens != 0 {
-		dst.TotalTokens = src.TotalTokens
-	}
-	if src.InputTokensDetails != nil {
-		dst.InputTokensDetails = src.InputTokensDetails
-	}
-	dst.PromptTokensDetails = src.PromptTokensDetails
+	*dst = *src
+	dst.EnsureChatTokenFields()
 	dst.NormalizeInputTokenDetails()
 }
 

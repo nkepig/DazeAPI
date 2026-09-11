@@ -16,27 +16,10 @@ func ResponsesResponseToChatCompletionsResponse(resp *dto.OpenAIResponsesRespons
 
 	usage := &dto.Usage{}
 	if resp.Usage != nil {
-		if resp.Usage.InputTokens != 0 {
-			usage.PromptTokens = resp.Usage.InputTokens
-			usage.InputTokens = resp.Usage.InputTokens
-		}
-		if resp.Usage.OutputTokens != 0 {
-			usage.CompletionTokens = resp.Usage.OutputTokens
-			usage.OutputTokens = resp.Usage.OutputTokens
-		}
-		if resp.Usage.TotalTokens != 0 {
-			usage.TotalTokens = resp.Usage.TotalTokens
-		} else {
-			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-		}
-		if resp.Usage.InputTokensDetails != nil {
-			usage.InputTokensDetails = resp.Usage.InputTokensDetails
-		}
-		usage.PromptTokensDetails = resp.Usage.PromptTokensDetails
-		usage.NormalizeInputTokenDetails()
-		if resp.Usage.CompletionTokenDetails.ReasoningTokens != 0 {
-			usage.CompletionTokenDetails.ReasoningTokens = resp.Usage.CompletionTokenDetails.ReasoningTokens
-		}
+		copied := *resp.Usage
+		copied.EnsureChatTokenFields()
+		copied.NormalizeInputTokenDetails()
+		usage = &copied
 	}
 
 	created := resp.CreatedAt

@@ -100,6 +100,9 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	}
 	summary.IsClaudeUsageSemantic = summary.UsageSemantic == "anthropic"
 
+	if usage != nil {
+		usage.EnsureChatTokenFields()
+	}
 	billedByUpstream := ValidUsage(usage)
 	if usage == nil {
 		usage = &dto.Usage{}
@@ -316,6 +319,9 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 }
 
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
+	if usage != nil {
+		usage.EnsureChatTokenFields()
+	}
 	originUsage := usage
 	missingUpstreamUsage := !ValidUsage(originUsage)
 	if originUsage != nil {

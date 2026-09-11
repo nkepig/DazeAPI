@@ -112,15 +112,21 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		return newAPIError
 	}
 
+	imageUsage, _ := usage.(*dto.Usage)
+	if imageUsage != nil {
+		imageUsage.EnsureChatTokenFields()
+		imageUsage.NormalizeInputTokenDetails()
+	}
+
 	imageN := uint(1)
 	if request.N != nil {
 		imageN = *request.N
 	}
-	if usage.(*dto.Usage).TotalTokens == 0 {
-		usage.(*dto.Usage).TotalTokens = int(imageN)
+	if imageUsage != nil && imageUsage.TotalTokens == 0 {
+		imageUsage.TotalTokens = int(imageN)
 	}
-	if usage.(*dto.Usage).PromptTokens == 0 {
-		usage.(*dto.Usage).PromptTokens = int(imageN)
+	if imageUsage != nil && imageUsage.PromptTokens == 0 {
+		imageUsage.PromptTokens = int(imageN)
 	}
 
 	quality := "standard"
