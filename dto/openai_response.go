@@ -239,6 +239,20 @@ type Usage struct {
 
 	// OpenRouter Params
 	Cost any `json:"cost,omitempty"`
+
+	// OriginalUsageJSON is the usage object as received from upstream.
+	OriginalUsageJSON json.RawMessage `json:"-"`
+}
+
+func (u *Usage) UnmarshalJSON(data []byte) error {
+	type usageAlias Usage
+	var decoded usageAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*u = Usage(decoded)
+	u.OriginalUsageJSON = append(json.RawMessage(nil), data...)
+	return nil
 }
 
 type OpenAIVideoResponse struct {

@@ -18,7 +18,7 @@ func streamResponseXAI2OpenAI(xAIResp *dto.ChatCompletionsStreamResponse, usage 
 	if xAIResp == nil {
 		return nil
 	}
-	if xAIResp.Usage != nil {
+	if xAIResp.Usage != nil && usage != nil {
 		xAIResp.Usage.CompletionTokens = usage.CompletionTokens
 	}
 	openAIResp := &dto.ChatCompletionsStreamResponse{
@@ -34,7 +34,7 @@ func streamResponseXAI2OpenAI(xAIResp *dto.ChatCompletionsStreamResponse, usage 
 }
 
 func xAIStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
-	usage := &dto.Usage{}
+	var usage *dto.Usage
 
 	helper.SetEventStreamHeaders(c)
 
@@ -46,11 +46,11 @@ func xAIStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			return true
 		}
 
-		// 把 xAI 的usage转换为 OpenAI 的usage
 		if xAIResp.Usage != nil {
-			usage.PromptTokens = xAIResp.Usage.PromptTokens
-			usage.TotalTokens = xAIResp.Usage.TotalTokens
-			usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
+			usage = xAIResp.Usage
+			if usage.CompletionTokens == 0 && usage.TotalTokens >= usage.PromptTokens {
+				usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
+			}
 		}
 
 		openaiResponse := streamResponseXAI2OpenAI(xAIResp, usage)
@@ -63,6 +63,9 @@ func xAIStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 
 	helper.Done(c)
 	service.CloseResponseBodyGracefully(resp)
+	if usage == nil {
+		usage = &dto.Usage{}
+	}
 	return usage, nil
 }
 

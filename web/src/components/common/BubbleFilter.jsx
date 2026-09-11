@@ -22,7 +22,7 @@ import { createPortal } from 'react-dom';
 import { Tooltip } from '@douyinfe/semi-ui';
 import { IconChevronDown } from '@douyinfe/semi-icons';
 
-const STYLE_ID = 'dazeapi-bubble-filter-style-v4';
+const STYLE_ID = 'dazeapi-bubble-filter-style-v5';
 const CLOSE_ANIMATION_DURATION = 480;
 // After a bubble is opened by click, if no interaction touches it for this long,
 // it auto-collapses. Multiple bubbles can stay open at once; each has its own
@@ -262,55 +262,6 @@ const ensureBubbleFilterStyles = () => {
     @keyframes bubble-filter360-float {
       0%, 100% { transform: translateY(0px); }
       50% { transform: translateY(-6px); }
-    }
-
-    .bubble-filter360-list {
-      position: fixed;
-      z-index: 1400;
-      min-width: 220px;
-      max-width: min(360px, calc(100vw - 24px));
-      max-height: min(320px, 50vh);
-      overflow-x: hidden;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      padding: 8px;
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: saturate(180%) blur(20px);
-      -webkit-backdrop-filter: saturate(180%) blur(20px);
-      border-radius: 16px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
-      transform: translateX(-50%);
-      pointer-events: auto;
-    }
-
-    .bubble-filter360-list-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      width: 100%;
-      padding: 8px 12px;
-      border: none;
-      border-radius: 10px;
-      background: transparent;
-      color: var(--semi-color-text-0);
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.3;
-      cursor: pointer;
-      text-align: left;
-    }
-
-    .bubble-filter360-list-item:hover {
-      background: rgba(0, 0, 0, 0.04);
-    }
-
-    .bubble-filter360-list-item.selected {
-      background: rgba(0, 0, 0, 0.08);
-    }
-
-    .bubble-filter360-list-item .bubble-filter360-petal-count {
-      flex-shrink: 0;
     }
 
     @media (max-width: 768px) {
@@ -680,7 +631,6 @@ const BubbleFilter = ({
   const translatedSelectedLabel = selectedOption
     ? translate(selectedOption.label)
     : '';
-  const useListMenu = sortedOptions.length > 12;
 
   return (
     <div
@@ -716,48 +666,6 @@ const BubbleFilter = ({
 
       {isRendered && typeof document !== 'undefined'
         ? createPortal(
-            useListMenu ? (
-              <div
-                ref={cloudRef}
-                className='bubble-filter360-list'
-                style={{
-                  left: `${position.left}px`,
-                  top: `${position.top}px`,
-                }}
-                onMouseEnter={resetIdleTimer}
-                onMouseMove={resetIdleTimer}
-                onWheel={resetIdleTimer}
-              >
-                {sortedOptions.map((option) => {
-                  const translatedLabel = option._labelText || translate(option.label);
-                  const isSelected = selectedOption?.key === option.key;
-                  return (
-                    <button
-                      key={option.key}
-                      type='button'
-                      className={`bubble-filter360-list-item ${isSelected ? 'selected' : ''}`}
-                      onClick={() => handleSelect(option.value)}
-                    >
-                      <span className='bubble-filter360-petal-label'>
-                        {option.icon ? option.icon : null}
-                        {!option.icon && option.color ? (
-                          <span
-                            className='bubble-filter360-color-dot'
-                            style={{ '--bubble-filter-color': option.color }}
-                          />
-                        ) : null}
-                        <span className='bubble-filter360-petal-label-text'>{translatedLabel}</span>
-                      </span>
-                      {option.count !== undefined ? (
-                        <span className='bubble-filter360-petal-count'>
-                          {option.count}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
             <div
               ref={cloudRef}
               className={`bubble-filter360-cloud ${isOpen ? 'open' : ''} ${isSmall ? 'small' : ''}`}
@@ -820,8 +728,7 @@ const BubbleFilter = ({
                   </div>
                 );
               })}
-            </div>
-            ),
+            </div>,
             document.body,
           )
         : null}

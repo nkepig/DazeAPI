@@ -13,6 +13,67 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var usageGatewayOnlyKeys = map[string]struct{}{
+	"usage_semantic": {},
+	"usage_source":   {},
+}
+
+// AttachUsageDict stores the upstream usage object as other["usage"].
+// Prefer the original JSON from the model response so extra keys, zeros, and
+// nulls are preserved. Fall back to a full struct marshal when usage was built in code.
+func AttachUsageDict(other map[string]interface{}, usage any) {
+	if other == nil || usage == nil {
+		return
+	}
+	asMap := usageDictFromValue(usage)
+	if len(asMap) == 0 {
+		return
+	}
+	other["usage"] = asMap
+}
+
+func usageDictFromValue(usage any) map[string]interface{} {
+	switch typed := usage.(type) {
+	case *dto.Usage:
+		if typed == nil {
+			return nil
+		}
+		return usageDictFromUsage(typed)
+	case dto.Usage:
+		return usageDictFromUsage(&typed)
+	default:
+		return marshalUsageMap(usage)
+	}
+}
+
+func usageDictFromUsage(usage *dto.Usage) map[string]interface{} {
+	if usage == nil {
+		return nil
+	}
+	if len(usage.OriginalUsageJSON) > 0 && string(usage.OriginalUsageJSON) != "null" {
+		var asMap map[string]interface{}
+		if err := common.Unmarshal(usage.OriginalUsageJSON, &asMap); err == nil && asMap != nil {
+			return asMap
+		}
+	}
+	return marshalUsageMap(usage)
+}
+
+func marshalUsageMap(usage any) map[string]interface{} {
+	raw, err := common.Marshal(usage)
+	if err != nil || len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var asMap map[string]interface{}
+	if err := common.Unmarshal(raw, &asMap); err != nil || asMap == nil {
+		return nil
+	}
+	for key := range usageGatewayOnlyKeys {
+		delete(asMap, key)
+	}
+	return asMap
+}
+
 func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
 	if other == nil {
 		return
@@ -174,6 +235,7 @@ func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	info["text_output"] = usage.OutputTokenDetails.TextTokens
 	info["audio_input_price"] = priceData.AudioInputPrice
 	info["audio_output_price"] = priceData.AudioOutputPrice
+	AttachUsageDict(info, usage)
 	return info
 }
 
@@ -186,6 +248,7 @@ func GenerateAudioOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	info["text_output"] = usage.CompletionTokenDetails.TextTokens
 	info["audio_input_price"] = priceData.AudioInputPrice
 	info["audio_output_price"] = priceData.AudioOutputPrice
+	AttachUsageDict(info, usage)
 	return info
 }
 

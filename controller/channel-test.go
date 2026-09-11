@@ -520,6 +520,7 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	consumedTime := float64(milliseconds) / 1000.0
 	other := service.GenerateTextOtherInfo(c, info, priceData.PromptPrice, priceData.GroupDiscountInfo.GroupDiscount, priceData.CompletionPrice,
 		usage.PromptTokensDetails.CachedTokens, priceData.CacheReadPrice, priceData.PerCallPrice, priceData.GroupDiscountInfo.GroupSpecialRatio)
+	service.AttachUsageDict(other, usage)
 	model.RecordConsumeLog(c, 1, model.RecordConsumeLogParams{
 		ChannelId:        channel.Id,
 		PromptTokens:     usage.PromptTokens,

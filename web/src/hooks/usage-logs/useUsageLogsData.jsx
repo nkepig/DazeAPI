@@ -30,6 +30,7 @@ import {
   renderQuota,
   renderNumber,
   getLogOther,
+  getLogUsageDict,
   copy,
   renderClaudeLogContent,
   renderLogContent,
@@ -102,6 +103,8 @@ export const useLogsData = () => {
   const [groupOptions, setGroupOptions] = useState([]);
   const [showRetryAttemptsDrawer, setShowRetryAttemptsDrawer] = useState(false);
   const [retryAttemptsTarget, setRetryAttemptsTarget] = useState(null);
+  const [showUsageDictModal, setShowUsageDictModal] = useState(false);
+  const [usageDictTarget, setUsageDictTarget] = useState(null);
 
   // User and admin
   const isAdminUser = isAdmin();
@@ -435,6 +438,17 @@ export const useLogsData = () => {
     setShowRetryAttemptsDrawer(true);
   };
 
+  const openUsageDictModal = (log) => {
+    const parsed = getLogUsageDict(log);
+    setUsageDictTarget({
+      modelName: log?.model_name || '',
+      requestId: log?.request_id || '',
+      usage: parsed.usage,
+      reconstructed: parsed.reconstructed,
+    });
+    setShowUsageDictModal(true);
+  };
+
   // Format logs data
   const setLogsFormat = (logs) => {
     const requestConversionDisplayValue = (conversionChain) => {
@@ -766,6 +780,9 @@ export const useLogsData = () => {
     showRetryAttemptsDrawer,
     setShowRetryAttemptsDrawer,
     retryAttemptsTarget,
+    showUsageDictModal,
+    setShowUsageDictModal,
+    usageDictTarget,
 
     // Functions
     loadLogs,
@@ -779,6 +796,7 @@ export const useLogsData = () => {
     setLogType,
     openParamOverrideModal,
     openRetryAttemptsDrawer,
+    openUsageDictModal,
     groupFilter,
     setGroupFilter,
     groupOptions,

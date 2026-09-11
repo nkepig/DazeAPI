@@ -37,6 +37,7 @@ const LogsTable = (logsData) => {
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
     openRetryAttemptsDrawer,
+    openUsageDictModal,
     isAdminUser,
     billingDisplayMode,
     hasExpandableRows,
@@ -53,6 +54,7 @@ const LogsTable = (logsData) => {
         showUserInfoFunc,
         openChannelAffinityUsageCacheModal,
         openRetryAttemptsDrawer,
+        openUsageDictModal,
         isAdminUser,
         billingDisplayMode,
     });
@@ -63,6 +65,7 @@ const LogsTable = (logsData) => {
     showUserInfoFunc,
     openChannelAffinityUsageCacheModal,
     openRetryAttemptsDrawer,
+    openUsageDictModal,
     isAdminUser,
     billingDisplayMode,
   ]);

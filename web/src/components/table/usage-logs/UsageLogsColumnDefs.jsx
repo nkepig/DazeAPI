@@ -418,6 +418,29 @@ function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
   };
 }
 
+function renderClickableUsage(children, record, openUsageDictModal) {
+  return (
+    <span
+      role='button'
+      tabIndex={0}
+      style={{ cursor: 'pointer' }}
+      onClick={(event) => {
+        event.stopPropagation();
+        openUsageDictModal?.(record);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          event.stopPropagation();
+          openUsageDictModal?.(record);
+        }
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 export const getLogsColumns = ({
   t,
   COLUMN_KEYS,
@@ -425,6 +448,7 @@ export const getLogsColumns = ({
   showUserInfoFunc,
   openChannelAffinityUsageCacheModal,
   openRetryAttemptsDrawer,
+  openUsageDictModal,
   isAdminUser,
   billingDisplayMode = 'price',
 }) => {
@@ -786,11 +810,11 @@ export const getLogsColumns = ({
           // Subscription billed: show only tag (no $0), but keep tooltip for equivalent cost.
           return (
             <Tooltip content={`${t('由订阅抵扣')}：${renderQuota(text, 6)}`}>
-              <span>{renderBillingTag(record, t)}</span>
+              {renderClickableUsage(renderBillingTag(record, t), record, openUsageDictModal)}
             </Tooltip>
           );
         }
-        return <>{renderQuota(text, 6)}</>;
+        return renderClickableUsage(renderQuota(text, 6), record, openUsageDictModal);
       },
     },
     {
