@@ -99,6 +99,19 @@ function type2secretPrompt(type) {
   }
 }
 
+function parseChannelGroups(value) {
+  const raw = Array.isArray(value) ? value.join(',') : String(value || '');
+  const groups = [];
+  const seen = new Set();
+  for (const part of raw.split(/[,，\s]+/)) {
+    const name = part.trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    groups.push(name);
+  }
+  return groups;
+}
+
 function stripBodyPrefix(path) {
   const p = String(path || '').trim();
   if (/^body\./i.test(p)) return p.slice(5);
@@ -187,6 +200,7 @@ const EditChannelModal = (props) => {
     models: [],
     auto_ban: 1,
     test_model: '',
+    group: '',
     groups: [],
     priority: 0,
     weight: 0,
@@ -223,7 +237,6 @@ const EditChannelModal = (props) => {
     useState('');
   const formApiRef = useRef(null);
   const [channelSearchValue, setChannelSearchValue] = useState('');
-  const [groupOptions, setGroupOptions] = useState([]);
   const [isEnterpriseAccount, setIsEnterpriseAccount] = useState(false); // 是否为企业账户
   const redirectModelList = useMemo(() => {
     const mapping = inputs.model_mapping;
@@ -424,11 +437,8 @@ const EditChannelModal = (props) => {
       } else {
         data.models = data.models.split(',');
       }
-      if (data.group === '') {
-        data.groups = [];
-      } else {
-        data.groups = data.group.split(',');
-      }
+      data.group = data.group || '';
+      data.groups = parseChannelGroups(data.group);
       if (data.model_mapping !== '') {
         data.model_mapping = JSON.stringify(
           JSON.parse(data.model_mapping),
@@ -678,22 +688,6 @@ const EditChannelModal = (props) => {
     }
   };
 
-  const fetchGroups = async () => {
-    try {
-      const res = await API.get('/api/group/');
-      if (res?.data?.success) {
-        setGroupOptions(
-          (res.data.data || []).map((group) => ({
-            label: group,
-            value: group,
-          })),
-        );
-      }
-    } catch (error) {
-      // ignore
-    }
-  };
-
   const fetchModelGroups = async () => {
     try {
       const res = await API.get('/api/prefill_group?type=model');
@@ -801,7 +795,6 @@ const EditChannelModal = (props) => {
         setAdvancedSettingsOpen(false);
       }
       fetchModelGroups();
-      fetchGroups();
     } else {
       // 统一的模态框关闭重置逻辑
       resetModalState();
@@ -1099,9 +1092,9 @@ const EditChannelModal = (props) => {
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
     localInputs.models = localInputs.models.join(',');
-    const groupsForSubmit = Array.isArray(localInputs.groups) && localInputs.groups.length > 0
-      ? localInputs.groups
-      : (Array.isArray(inputs.groups) && inputs.groups.length > 0 ? inputs.groups : []);
+    const groupsForSubmit = parseChannelGroups(
+      localInputs.group ?? inputs.group ?? localInputs.groups ?? inputs.groups,
+    );
     localInputs.groups = groupsForSubmit;
     localInputs.group = groupsForSubmit.join(',');
 
@@ -1808,23 +1801,19 @@ const EditChannelModal = (props) => {
                   />
 
                   {/* Group Selection - Core Config */}
-                  <Form.Select
-                    field='groups'
+                  <Form.Input
+                    field='group'
                     label={t('分组')}
-                    placeholder={t('选择分组')}
-                    multiple
-                    filter
-                    allowAdditions
-                    additionLabel={t(
-                      '请在系统设置页面编辑分组折扣以添加新的分组：',
-                    )}
-                    optionList={groupOptions}
-                    style={{ width: '100%' }}
-                    getPopupContainer={() => document.body}
+                    placeholder={t('default, vip 或 default vip')}
+                    extraText={t('用逗号或空格分隔，保存后自动创建新分组')}
+                    showClear
                     onChange={(value) => {
-                      const groups = Array.isArray(value) ? value : [];
-                      handleInputChange('groups', groups);
-                      handleInputChange('group', groups.join(','));
+                      const groups = parseChannelGroups(value);
+                      if (formApiRef.current) {
+                        formApiRef.current.setValue('group', value);
+                        formApiRef.current.setValue('groups', groups);
+                      }
+                      setInputs((prev) => ({ ...prev, group: value, groups }));
                     }}
                   />
                   </FormSection>
