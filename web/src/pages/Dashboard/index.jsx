@@ -58,6 +58,18 @@ function CountUp({ end, duration = 480, prefix = '', suffix = '', formatter }) {
   return <>{prefix}{val.toLocaleString()}{suffix}</>;
 }
 
+function formatCompactTokens(n) {
+  const value = Number(n) || 0;
+  const abs = Math.abs(value);
+  const compact = (divisor, suffix) => {
+    const text = (value / divisor).toFixed(2).replace(/\.?0+$/, '');
+    return `${text}${suffix}`;
+  };
+  if (abs >= 1e9) return compact(1e9, 'B');
+  if (abs >= 1e6) return compact(1e6, 'M');
+  return value.toLocaleString();
+}
+
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return '早上好';
@@ -65,10 +77,10 @@ function getGreeting() {
   return '晚上好';
 }
 
-function ChartTooltip({ active, payload, label, metric: metricType, t }) {
+function ChartTooltip({ active, payload, label, metric: metricType }) {
   if (!active || !payload?.length) return null;
   const val = payload[0].value;
-  const display = metricType === 'quota' ? renderQuota(val, 2) : `${val?.toLocaleString()} ${t('次')}`;
+  const display = metricType === 'quota' ? renderQuota(val, 2) : formatCompactTokens(val);
   return (
     <div className='bg-white/90 border border-black/[0.08] rounded-[12px] shadow-[0_8px_40px_rgba(0,0,0,0.1)] px-3 py-2'>
       <p className='text-[11px] text-[#999] mb-0.5'>{label}</p>
@@ -143,7 +155,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userState, userDispatch] = useContext(UserContext);
   const [statusState] = useContext(StatusContext);
-  const [stats, setStats] = useState({ quota: 0, requests: 0, balance: 0, models: 0 });
+  const [stats, setStats] = useState({ quota: 0, tokens: 0, balance: 0, models: 0 });
   const [runwayDays, setRunwayDays] = useState(null);
   const [rawData, setRawData] = useState([]);
   const [chartRange, setChartRange] = useState(1);
@@ -201,18 +213,15 @@ const Dashboard = () => {
         }
 
         let todayQuota = 0;
-        let todayCount = 0;
+        let todayTokens = 0;
         if (statRes.data.success && statRes.data.data) {
           todayQuota = Math.abs(statRes.data.data.quota || 0);
-          const cachedCount = records
-            .filter((r) => r.created_at >= todayStart)
-            .reduce((sum, r) => sum + (r.count || 0), 0);
-          todayCount = cachedCount;
+          todayTokens = statRes.data.data.tokens || 0;
         } else {
           records.forEach((r) => {
             if (r.created_at >= todayStart) {
               todayQuota += r.quota || 0;
-              todayCount += r.count || 0;
+              todayTokens += r.token_used || 0;
             }
           });
         }
@@ -226,7 +235,7 @@ const Dashboard = () => {
 
         setStats({
           quota: todayQuota,
-          requests: todayCount,
+          tokens: todayTokens,
           balance,
           models: modelCount,
         });
@@ -347,7 +356,7 @@ const Dashboard = () => {
       const hm = `${pad2(d.getHours())}:00`;
       return {
         date: chartRange === 1 ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`,
-        count: 0,
+        tokens: 0,
         quota: 0,
       };
     });
@@ -356,7 +365,7 @@ const Dashboard = () => {
       if (r.created_at < rangeStart) return;
       const idx = Math.floor((r.created_at - rangeStart) / 3600);
       if (idx >= 0 && idx < hourMap.length) {
-        hourMap[idx].count += r.count || 0;
+        hourMap[idx].tokens += r.token_used || 0;
         hourMap[idx].quota += r.quota || 0;
       }
     });
@@ -375,7 +384,7 @@ const Dashboard = () => {
 
   const statItems = [
     { key: 'quota', icon: Zap, label: t('今日消耗额度'), value: stats.quota, formatter: (v) => renderQuota(v, 2), isMoney: true },
-    { key: 'requests', icon: Activity, label: t('今日请求次数'), value: stats.requests },
+    { key: 'tokens', icon: Activity, label: t('今日消耗 Token'), value: stats.tokens, formatter: formatCompactTokens, isCompact: true },
     { key: 'balance', icon: Wallet, label: t('账户余额'), value: stats.balance, formatter: (v) => renderQuota(v, 2), isMoney: true },
     { key: 'models', icon: Building2, label: t('支持模型'), value: stats.models, href: '/console/models' },
   ];
@@ -393,7 +402,7 @@ const Dashboard = () => {
         {statItems.map((item, i) => {
           const Icon = item.icon;
           const isBalance = item.key === 'balance';
-          const displayValue = item.isMoney
+          const displayValue = item.isMoney || item.isCompact
             ? (item.formatter ? item.formatter(item.value) : item.value)
             : (item.formatter
               ? <CountUp end={item.value} formatter={item.formatter} />
@@ -499,7 +508,7 @@ const Dashboard = () => {
           <div className='flex items-center gap-3'>
             <div className='daze-segment'>
               {[
-                { key: 'count', label: t('次数') },
+                { key: 'tokens', label: t('Token') },
                 { key: 'quota', label: t('花费') },
               ].map((m) => (
                 <button
@@ -627,11 +636,11 @@ const Dashboard = () => {
                   axisLine={false}
                   tickLine={false}
                   tickCount={8}
-                  tickFormatter={metric === 'quota' ? (v) => renderQuota(v, 2) : undefined}
+                  tickFormatter={metric === 'quota' ? (v) => renderQuota(v, 2) : (v) => formatCompactTokens(v)}
                   allowDecimals={true}
                   minTickGap={8}
                 />
-                <Tooltip content={<ChartTooltip metric={metric} t={t} />} />
+                <Tooltip content={<ChartTooltip metric={metric} />} />
                 <Area
                   type='monotone'
                   dataKey={dataKey}

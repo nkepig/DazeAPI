@@ -521,15 +521,16 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 }
 
 type Stat struct {
-	Quota int `json:"quota"`
-	Rpm   int `json:"rpm"`
-	Tpm   int `json:"tpm"`
+	Quota  int `json:"quota"`
+	Rpm    int `json:"rpm"`
+	Tpm    int `json:"tpm"`
+	Tokens int `json:"tokens"`
 }
 
 // SumUsedQuota aggregates quota/rpm/tpm stats. When userWhitelist != nil, stats
 // are restricted to logs whose user_id is in the whitelist.
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, userWhitelist []int) (stat Stat, err error) {
-	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
+	tx := LOG_DB.Table("logs").Select("sum(quota) quota, coalesce(sum(prompt_tokens), 0) + coalesce(sum(completion_tokens), 0) tokens")
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
@@ -577,15 +578,18 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	// 只统计最近60秒的rpm和tpm
 	rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
 
-	// 执行查询
+	// 执行查询。rpm/tpm 单独扫描，避免覆盖按时间范围汇总的 tokens。
 	if err := tx.Scan(&stat).Error; err != nil {
 		common.SysError("failed to query log stat: " + err.Error())
 		return stat, errors.New("查询统计数据失败")
 	}
-	if err := rpmTpmQuery.Scan(&stat).Error; err != nil {
+	var rpmTpm Stat
+	if err := rpmTpmQuery.Scan(&rpmTpm).Error; err != nil {
 		common.SysError("failed to query rpm/tpm stat: " + err.Error())
 		return stat, errors.New("查询统计数据失败")
 	}
+	stat.Rpm = rpmTpm.Rpm
+	stat.Tpm = rpmTpm.Tpm
 
 	return stat, nil
 }
