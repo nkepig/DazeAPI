@@ -817,6 +817,12 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		return true
 	})
 	if err != nil {
+		if claudeInfo.Usage != nil {
+			claudeInfo.Usage.EnsureChatTokenFields()
+			if claudeInfo.Usage.CompletionTokens > 0 {
+				return claudeInfo.Usage, nil
+			}
+		}
 		return nil, err
 	}
 

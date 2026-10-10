@@ -25,7 +25,7 @@ import { Zap, Activity, Wallet, Building2, Copy, Check, X, Terminal } from 'luci
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { API, isAdmin, renderQuota, goToRecharge, getTodayStartTimestamp, copy, showSuccess, setUserData } from '../../helpers';
+import { API, isAdmin, isRoot, renderQuota, goToRecharge, getTodayStartTimestamp, copy, showSuccess, setUserData } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import ChannelSuccessRatePanel from '../../components/dashboard/GroupSuccessRatePanel';
@@ -189,12 +189,15 @@ const Dashboard = () => {
 
       const endpoint = isAdmin() ? '/api/data/' : '/api/data/self';
       const sep = endpoint.includes('?') ? '&' : '?';
+      const statEndpoint = isRoot()
+        ? `/api/log/stat?type=2&start_timestamp=${todayStart}&end_timestamp=${now}`
+        : `/api/log/self/stat?start_timestamp=${todayStart}&end_timestamp=${now}`;
 
       const [selfRes, dataRes, pricingRes, statRes] = await Promise.all([
         API.get('/api/user/self'),
         API.get(`${endpoint}${sep}start_timestamp=${rangeStart}&end_timestamp=${now}`),
         API.get('/api/pricing'),
-        API.get(`/api/log/self/stat?start_timestamp=${todayStart}&end_timestamp=${now}`),
+        API.get(statEndpoint),
       ]);
 
       if (selfRes.data?.success && selfRes.data.data) {
@@ -346,16 +349,20 @@ const Dashboard = () => {
   const chartData = useMemo(() => {
     const todayStart = getTodayStartTimestamp();
     const rangeStart = todayStart - (chartRange - 1) * 86400;
-    const hourCount = chartRange * 24;
+    // 1 日按小时，3 日 / 7 日按天
+    const bucketSeconds = chartRange === 1 ? 3600 : 86400;
+    const bucketCount = chartRange === 1 ? 24 : chartRange;
     const filtered = selectedModel === 'all' ? rawData : rawData.filter((r) => r.model_name === selectedModel);
     const pad2 = (n) => String(n).padStart(2, '0');
 
-    const hourMap = Array.from({ length: hourCount }, (_, i) => {
-      const ts = rangeStart + i * 3600;
+    const buckets = Array.from({ length: bucketCount }, (_, i) => {
+      const ts = rangeStart + i * bucketSeconds;
       const d = new Date(ts * 1000);
-      const hm = `${pad2(d.getHours())}:00`;
+      const label = chartRange === 1
+        ? `${pad2(d.getHours())}:00`
+        : `${d.getMonth() + 1}/${d.getDate()}`;
       return {
-        date: chartRange === 1 ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`,
+        date: label,
         tokens: 0,
         quota: 0,
       };
@@ -363,13 +370,13 @@ const Dashboard = () => {
 
     filtered.forEach((r) => {
       if (r.created_at < rangeStart) return;
-      const idx = Math.floor((r.created_at - rangeStart) / 3600);
-      if (idx >= 0 && idx < hourMap.length) {
-        hourMap[idx].tokens += r.token_used || 0;
-        hourMap[idx].quota += r.quota || 0;
+      const idx = Math.floor((r.created_at - rangeStart) / bucketSeconds);
+      if (idx >= 0 && idx < buckets.length) {
+        buckets[idx].tokens += r.token_used || 0;
+        buckets[idx].quota += r.quota || 0;
       }
     });
-    return hourMap;
+    return buckets;
   }, [rawData, chartRange, selectedModel]);
 
   const today = new Date().toLocaleDateString(
@@ -613,7 +620,7 @@ const Dashboard = () => {
         <div className='h-[300px] relative overflow-hidden'>
           {!loading && (
             <ResponsiveContainer width='100%' height='100%'>
-              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 60, bottom: chartRange === 1 ? 20 : 36 }}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 8, left: 60, bottom: 20 }}>
                 <defs>
                   <linearGradient id='fillGrad' x1='0' y1='0' x2='0' y2='1'>
                     <stop offset='0%' stopColor='#6366f1' stopOpacity={0.16} />
@@ -625,10 +632,10 @@ const Dashboard = () => {
                   tick={{ fontSize: 10, fill: '#C8C8C8' }}
                   axisLine={false}
                   tickLine={false}
-                  interval={chartRange === 1 ? 0 : chartRange === 3 ? 3 : 5}
-                  angle={chartRange === 1 ? 0 : -35}
-                  textAnchor={chartRange === 1 ? 'middle' : 'end'}
-                  dy={chartRange === 1 ? 6 : 4}
+                  interval={0}
+                  angle={0}
+                  textAnchor='middle'
+                  dy={6}
                   minTickGap={4}
                 />
                 <YAxis

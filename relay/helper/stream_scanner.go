@@ -202,9 +202,15 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			writeMutex.Lock()
 			success := dataHandler(data)
 			writeMutex.Unlock()
-			if !success {
-				return
+			if success {
+				continue
 			}
+			// 客户端已经断开时，下游写失败不能停掉上游读取。
+			// Gemini / Responses 的最终 usage 往往在最后一包，中途快照的 completion_tokens 不是结算值。
+			if c.Request != nil && c.Request.Context().Err() != nil {
+				continue
+			}
+			return
 		}
 	})
 

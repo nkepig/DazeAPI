@@ -89,6 +89,10 @@ func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayIn
 		err := helper.StringData(c, data)
 		if err != nil {
 			logger.LogError(c, "failed to write stream data: "+err.Error())
+			// 客户端断开后继续读，让最后一包 usageMetadata 覆盖中途的输出 token。
+			if c.Request != nil && c.Request.Context().Err() != nil {
+				return true
+			}
 			return false
 		}
 		info.SendResponseCount++
