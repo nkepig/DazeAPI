@@ -41,6 +41,62 @@ func GetClaudeWebSearchPricePerThousand() float64 {
 	return ClaudeWebSearchPrice
 }
 
+const (
+	// Google Search grounding, USD per 1K calls.
+	// Gemini 3 bills each unique search query at $14.
+	// Gemini 2.5 and older bill $35 once per grounded prompt, and the query count is free.
+	GoogleSearchPrice               = 14.0
+	GoogleSearchGroundedPromptPrice = 35.0
+)
+
+type toolPricePrefix struct {
+	tool   string
+	prefix string
+	price  float64
+}
+
+// Longer prefixes are matched first. A matched numeric zero is terminal:
+// gemini-2.5 google_search is free even though the default is $14.
+var toolPricePrefixes = []toolPricePrefix{
+	{tool: "google_search", prefix: "gemini-2.5", price: 0},
+	{tool: "google_search", prefix: "gemini-2.0", price: 0},
+	{tool: "google_search", prefix: "gemini-1.5", price: 0},
+	{tool: "google_search_grounded_prompt", prefix: "gemini-2.5", price: GoogleSearchGroundedPromptPrice},
+	{tool: "google_search_grounded_prompt", prefix: "gemini-2.0", price: GoogleSearchGroundedPromptPrice},
+	{tool: "google_search_grounded_prompt", prefix: "gemini-1.5", price: GoogleSearchGroundedPromptPrice},
+}
+
+// GetToolPriceForModel returns the price in USD per 1K calls.
+// Lookup order: longest model-prefix override, then the tool default, then 0.
+func GetToolPriceForModel(toolName, modelName string) float64 {
+	bestLen := -1
+	bestPrice := 0.0
+	matched := false
+	for _, entry := range toolPricePrefixes {
+		if entry.tool != toolName || entry.prefix == "" {
+			continue
+		}
+		if strings.HasPrefix(modelName, entry.prefix) && len(entry.prefix) > bestLen {
+			bestLen = len(entry.prefix)
+			bestPrice = entry.price
+			matched = true
+		}
+	}
+	if matched {
+		return bestPrice
+	}
+	switch toolName {
+	case "google_search":
+		return GoogleSearchPrice
+	case "web_search", "web_search_preview":
+		return WebSearchPrice
+	case "file_search":
+		return FileSearchPrice
+	default:
+		return 0
+	}
+}
+
 func GetWebSearchPricePerThousand(modelName string, contextSize string) float64 {
 	// 确定模型类型
 	// https://platform.openai.com/docs/pricing Web search 价格按模型类型收费

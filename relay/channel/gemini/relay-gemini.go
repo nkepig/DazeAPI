@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -989,17 +990,19 @@ func buildUsageFromGeminiMetadata(metadata dto.GeminiUsageMetadata) dto.Usage {
 	usage.PromptTokensDetails.CachedTokens = metadata.CachedContentTokenCount
 
 	for _, detail := range metadata.PromptTokensDetails {
-		if detail.Modality == "AUDIO" {
-			usage.PromptTokensDetails.AudioTokens += detail.TokenCount
-		} else if detail.Modality == "TEXT" {
-			usage.PromptTokensDetails.TextTokens += detail.TokenCount
-		}
+		addGeminiInputModality(&usage.PromptTokensDetails, detail)
 	}
 	for _, detail := range metadata.ToolUsePromptTokensDetails {
-		if detail.Modality == "AUDIO" {
-			usage.PromptTokensDetails.AudioTokens += detail.TokenCount
-		} else if detail.Modality == "TEXT" {
-			usage.PromptTokensDetails.TextTokens += detail.TokenCount
+		addGeminiInputModality(&usage.PromptTokensDetails, detail)
+	}
+	for _, detail := range metadata.CandidatesTokensDetails {
+		switch strings.ToUpper(detail.Modality) {
+		case "IMAGE":
+			usage.CompletionTokenDetails.ImageTokens += detail.TokenCount
+		case "AUDIO":
+			usage.CompletionTokenDetails.AudioTokens += detail.TokenCount
+		case "TEXT":
+			usage.CompletionTokenDetails.TextTokens += detail.TokenCount
 		}
 	}
 
@@ -1007,11 +1010,166 @@ func buildUsageFromGeminiMetadata(metadata dto.GeminiUsageMetadata) dto.Usage {
 		usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
 	}
 
-	if usage.PromptTokens > 0 && usage.PromptTokensDetails.TextTokens == 0 && usage.PromptTokensDetails.AudioTokens == 0 {
+	if usage.PromptTokens > 0 && usage.PromptTokensDetails.TextTokens == 0 && usage.PromptTokensDetails.AudioTokens == 0 && usage.PromptTokensDetails.ImageTokens == 0 {
 		usage.PromptTokensDetails.TextTokens = usage.PromptTokens
 	}
 
 	return usage
+}
+
+// geminiUsageMetadataRaw returns the original usageMetadata object from a Gemini response.
+// The usage log stores this object for Gemini instead of the converted OpenAI usage.
+func geminiUsageMetadataRaw(body []byte) json.RawMessage {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return nil
+	}
+	var envelope struct {
+		UsageMetadata json.RawMessage `json:"usageMetadata"`
+	}
+	if err := common.Unmarshal(body, &envelope); err != nil {
+		return nil
+	}
+	trimmed := bytes.TrimSpace(envelope.UsageMetadata)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) || trimmed[0] != '{' {
+		return nil
+	}
+	return append(json.RawMessage(nil), trimmed...)
+}
+
+func withGeminiUsageMetadata(usage dto.Usage, body []byte) dto.Usage {
+	if raw := geminiUsageMetadataRaw(body); len(raw) > 0 {
+		usage.OriginalUsageJSON = raw
+	}
+	return usage
+}
+
+func geminiUsageMetadataHasTokens(metadata dto.GeminiUsageMetadata) bool {
+	if metadata.PromptTokenCount != 0 || metadata.CandidatesTokenCount != 0 || metadata.TotalTokenCount != 0 ||
+		metadata.ToolUsePromptTokenCount != 0 || metadata.ThoughtsTokenCount != 0 || metadata.CachedContentTokenCount != 0 {
+		return true
+	}
+	for _, details := range [][]dto.GeminiPromptTokensDetails{metadata.PromptTokensDetails, metadata.ToolUsePromptTokensDetails, metadata.CandidatesTokensDetails} {
+		for _, detail := range details {
+			if detail.TokenCount != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// mergeGeminiUsageMetadata keeps a cumulative Gemini usage snapshot across stream frames.
+// A modality reported by the new frame replaces that modality; a modality the new frame omits is kept.
+func mergeGeminiUsageMetadata(current, incoming dto.GeminiUsageMetadata) dto.GeminiUsageMetadata {
+	if incoming.PromptTokenCount > 0 {
+		current.PromptTokenCount = incoming.PromptTokenCount
+	}
+	if incoming.ToolUsePromptTokenCount > 0 {
+		current.ToolUsePromptTokenCount = incoming.ToolUsePromptTokenCount
+	}
+	if incoming.CandidatesTokenCount > 0 {
+		current.CandidatesTokenCount = incoming.CandidatesTokenCount
+	}
+	if incoming.TotalTokenCount > 0 {
+		current.TotalTokenCount = incoming.TotalTokenCount
+	}
+	if incoming.ThoughtsTokenCount > 0 {
+		current.ThoughtsTokenCount = incoming.ThoughtsTokenCount
+	}
+	if incoming.CachedContentTokenCount > 0 {
+		current.CachedContentTokenCount = incoming.CachedContentTokenCount
+	}
+	current.PromptTokensDetails = mergeGeminiTokenDetails(current.PromptTokensDetails, incoming.PromptTokensDetails)
+	current.ToolUsePromptTokensDetails = mergeGeminiTokenDetails(current.ToolUsePromptTokensDetails, incoming.ToolUsePromptTokensDetails)
+	current.CandidatesTokensDetails = mergeGeminiTokenDetails(current.CandidatesTokensDetails, incoming.CandidatesTokensDetails)
+	return current
+}
+
+func mergeGeminiTokenDetails(current, incoming []dto.GeminiPromptTokensDetails) []dto.GeminiPromptTokensDetails {
+	reported := map[string]bool{}
+	for _, detail := range incoming {
+		if detail.TokenCount > 0 {
+			reported[strings.ToUpper(strings.TrimSpace(detail.Modality))] = true
+		}
+	}
+	merged := make([]dto.GeminiPromptTokensDetails, 0, len(current)+len(incoming))
+	for _, detail := range current {
+		if detail.TokenCount <= 0 || reported[strings.ToUpper(strings.TrimSpace(detail.Modality))] {
+			continue
+		}
+		merged = append(merged, detail)
+	}
+	for _, detail := range incoming {
+		if detail.TokenCount > 0 {
+			merged = append(merged, detail)
+		}
+	}
+	return merged
+}
+
+func addGeminiInputModality(details *dto.InputTokenDetails, detail dto.GeminiPromptTokensDetails) {
+	if details == nil {
+		return
+	}
+	switch strings.ToUpper(detail.Modality) {
+	case "AUDIO":
+		details.AudioTokens += detail.TokenCount
+	case "IMAGE":
+		details.ImageTokens += detail.TokenCount
+	case "TEXT":
+		details.TextTokens += detail.TokenCount
+	}
+}
+
+// geminiGroundingCounter accumulates unique Google Search queries across one
+// response. Gemini 3 bills each unique non-empty query; Gemini 2.5 and older
+// bill one grounded prompt. Both counts are recorded and the price table
+// decides which one costs money. Image-search queries count like web queries.
+type geminiGroundingCounter struct {
+	queries map[string]struct{}
+}
+
+func (g *geminiGroundingCounter) observe(response *dto.GeminiChatResponse) {
+	if g == nil || response == nil {
+		return
+	}
+	for _, candidate := range response.Candidates {
+		metadata := candidate.GroundingMetadata
+		if metadata == nil {
+			continue
+		}
+		for _, query := range metadata.WebSearchQueries {
+			g.addQuery(query)
+		}
+		for _, query := range metadata.ImageSearchQueries {
+			g.addQuery(query)
+		}
+	}
+}
+
+func (g *geminiGroundingCounter) addQuery(query string) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return
+	}
+	if g.queries == nil {
+		g.queries = make(map[string]struct{})
+	}
+	g.queries[query] = struct{}{}
+}
+
+func (g *geminiGroundingCounter) commit(info *relaycommon.RelayInfo) {
+	if g == nil || info == nil || len(g.queries) == 0 {
+		return
+	}
+	info.SetBillableToolCount(dto.BuildInToolGoogleSearch, len(g.queries))
+	info.SetBillableToolCount(dto.BuildInToolGoogleSearchGroundedPrompt, 1)
+}
+
+func recordGeminiGrounding(info *relaycommon.RelayInfo, response *dto.GeminiChatResponse) {
+	var grounding geminiGroundingCounter
+	grounding.observe(response)
+	grounding.commit(info)
 }
 
 func responseGeminiChat2OpenAI(c *gin.Context, response *dto.GeminiChatResponse) *dto.OpenAITextResponse {
@@ -1225,6 +1383,8 @@ func handleFinalStream(c *gin.Context, info *relaycommon.RelayInfo, resp *dto.Ch
 
 func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response, callback func(data string, geminiResponse *dto.GeminiChatResponse) bool) (*dto.Usage, *types.NewAPIError) {
 	var usage = &dto.Usage{}
+	var accumulatedUsage dto.GeminiUsageMetadata
+	var grounding geminiGroundingCounter
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
 		var geminiResponse dto.GeminiChatResponse
@@ -1238,10 +1398,16 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
 		}
 
-		if geminiResponse.UsageMetadata.TotalTokenCount != 0 ||
-			geminiResponse.UsageMetadata.PromptTokenCount != 0 ||
-			geminiResponse.UsageMetadata.CandidatesTokenCount != 0 {
-			mappedUsage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata)
+		// Commit on every frame so a client abort keeps the queries seen so far.
+		grounding.observe(&geminiResponse)
+		grounding.commit(info)
+
+		if geminiUsageMetadataHasTokens(geminiResponse.UsageMetadata) {
+			accumulatedUsage = mergeGeminiUsageMetadata(accumulatedUsage, geminiResponse.UsageMetadata)
+			mappedUsage := withGeminiUsageMetadata(buildUsageFromGeminiMetadata(accumulatedUsage), []byte(data))
+			if len(mappedUsage.OriginalUsageJSON) == 0 && len(usage.OriginalUsageJSON) > 0 {
+				mappedUsage.OriginalUsageJSON = append(json.RawMessage(nil), usage.OriginalUsageJSON...)
+			}
 			*usage = mappedUsage
 		}
 
@@ -1355,8 +1521,9 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	recordGeminiGrounding(info, &geminiResponse)
 	if len(geminiResponse.Candidates) == 0 {
-		usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata)
+		usage := withGeminiUsageMetadata(buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata), responseBody)
 
 		var newAPIError *types.NewAPIError
 		if geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
@@ -1392,7 +1559,7 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	}
 	fullTextResponse := responseGeminiChat2OpenAI(c, &geminiResponse)
 	fullTextResponse.Model = info.UpstreamModelName
-	usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata)
+	usage := withGeminiUsageMetadata(buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata), responseBody)
 
 	fullTextResponse.Usage = usage
 

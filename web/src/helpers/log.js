@@ -86,13 +86,33 @@ function clipUsageValue(value, isRoot = false) {
   return out;
 }
 
+function looksLikeGeminiUsage(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return false;
+  }
+  return ['promptTokenCount', 'candidatesTokenCount', 'totalTokenCount', 'candidatesTokensDetails'].some(
+    (key) => Object.prototype.hasOwnProperty.call(obj, key),
+  );
+}
+
 export function sanitizeUsageDict(usage) {
   if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
     return usage;
   }
   let dict = usage;
+  const metadata = usage.usageMetadata;
+  if (
+    metadata &&
+    typeof metadata === 'object' &&
+    !Array.isArray(metadata) &&
+    looksLikeGeminiUsage(metadata) &&
+    !looksLikeGeminiUsage(usage)
+  ) {
+    dict = metadata;
+  }
   const nested = usage.usage;
   if (
+    dict === usage &&
     nested &&
     typeof nested === 'object' &&
     !Array.isArray(nested) &&
@@ -153,13 +173,20 @@ export function getLogUsageDict(record) {
     );
   }
   setIfPositive(promptDetails, 'audio_tokens', other.audio_input);
-  setIfPositive(promptDetails, 'image_tokens', other.image_output);
+  if (other.image_output_kind === 'completion') {
+    setIfPositive(promptDetails, 'image_tokens', other.image_input);
+  } else {
+    setIfPositive(promptDetails, 'image_tokens', other.image_output);
+  }
   if (Object.keys(promptDetails).length > 0) {
     usage.prompt_tokens_details = promptDetails;
   }
 
   const completionDetails = {};
   setIfPositive(completionDetails, 'audio_tokens', other.audio_output);
+  if (other.image_output_kind === 'completion') {
+    setIfPositive(completionDetails, 'image_tokens', other.image_output);
+  }
   if (Object.keys(completionDetails).length > 0) {
     usage.completion_tokens_details = completionDetails;
   }

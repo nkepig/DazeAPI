@@ -331,3 +331,128 @@ func TestGeminiTextGenerationHandlerDerivesPromptTokensFromUpstreamTotalWhenProm
 	require.Equal(t, 100, usage.CompletionTokens)
 	require.Equal(t, 110, usage.TotalTokens)
 }
+
+func TestBuildUsageFromGeminiMetadataRecordsImageTokens(t *testing.T) {
+	t.Parallel()
+
+	usage := buildUsageFromGeminiMetadata(dto.GeminiUsageMetadata{
+		PromptTokenCount:     24744,
+		CandidatesTokenCount: 4057,
+		TotalTokenCount:      28801,
+		PromptTokensDetails: []dto.GeminiPromptTokensDetails{
+			{Modality: "TEXT", TokenCount: 24000},
+			{Modality: "IMAGE", TokenCount: 744},
+		},
+		CandidatesTokensDetails: []dto.GeminiPromptTokensDetails{
+			{Modality: "TEXT", TokenCount: 4057},
+			{Modality: "IMAGE", TokenCount: 2335392},
+		},
+	})
+
+	require.Equal(t, 744, usage.PromptTokensDetails.ImageTokens)
+	require.Equal(t, 2335392, usage.CompletionTokenDetails.ImageTokens)
+	require.Equal(t, 4057, usage.CompletionTokens)
+}
+
+func TestGeminiTextGenerationHandlerBillsGoogleSearchQueries(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-3.8-flash:generateContent", nil)
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-3.8-flash",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3.8-flash",
+		},
+	}
+
+	payload := dto.GeminiChatResponse{
+		Candidates: []dto.GeminiChatCandidate{
+			{
+				Content: dto.GeminiChatContent{Role: "model", Parts: []dto.GeminiPart{{Text: "weather"}}},
+				GroundingMetadata: &dto.GeminiGroundingMetadata{
+					WebSearchQueries:   []string{"Shanghai weather today", "  ", "current weather in Shanghai"},
+					ImageSearchQueries: []string{"current weather in Shanghai"},
+				},
+			},
+		},
+		UsageMetadata: dto.GeminiUsageMetadata{
+			PromptTokenCount:     100,
+			CandidatesTokenCount: 20,
+			TotalTokenCount:      120,
+		},
+	}
+	body, err := common.Marshal(payload)
+	require.NoError(t, err)
+
+	usage, newAPIError := GeminiTextGenerationHandler(c, info, &http.Response{
+		Body: io.NopCloser(bytes.NewReader(body)),
+	})
+	require.Nil(t, newAPIError)
+	require.NotNil(t, usage)
+	require.NotNil(t, info.ResponsesUsageInfo)
+	require.Equal(t, 2, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolGoogleSearch].CallCount)
+	require.Equal(t, 1, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolGoogleSearchGroundedPrompt].CallCount)
+	require.Contains(t, string(usage.OriginalUsageJSON), `"promptTokenCount":100`)
+	require.NotContains(t, string(usage.OriginalUsageJSON), `"prompt_tokens"`)
+}
+
+func TestGeminiStreamHandlerAccumulatesSearchQueriesAndImageOutput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-3.8-flash:streamGenerateContent", nil)
+
+	oldStreamingTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 300
+	t.Cleanup(func() {
+		constant.StreamingTimeout = oldStreamingTimeout
+	})
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-3.8-flash",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3.8-flash",
+		},
+	}
+
+	first := dto.GeminiChatResponse{
+		Candidates: []dto.GeminiChatCandidate{{
+			Content:           dto.GeminiChatContent{Role: "model", Parts: []dto.GeminiPart{{Text: "a"}}},
+			GroundingMetadata: &dto.GeminiGroundingMetadata{WebSearchQueries: []string{"q1"}},
+		}},
+	}
+	second := dto.GeminiChatResponse{
+		Candidates: []dto.GeminiChatCandidate{{
+			Content:           dto.GeminiChatContent{Role: "model", Parts: []dto.GeminiPart{{Text: "b"}}},
+			GroundingMetadata: &dto.GeminiGroundingMetadata{WebSearchQueries: []string{"q1", "q2"}},
+		}},
+		UsageMetadata: dto.GeminiUsageMetadata{
+			PromptTokenCount:     10,
+			CandidatesTokenCount: 4,
+			TotalTokenCount:      14,
+			CandidatesTokensDetails: []dto.GeminiPromptTokensDetails{
+				{Modality: "IMAGE", TokenCount: 1290},
+			},
+		},
+	}
+	firstData, err := common.Marshal(first)
+	require.NoError(t, err)
+	secondData, err := common.Marshal(second)
+	require.NoError(t, err)
+	streamBody := []byte("data: " + string(firstData) + "\n" + "data: " + string(secondData) + "\n" + "data: [DONE]\n")
+
+	usage, newAPIError := geminiStreamHandler(c, info, &http.Response{
+		Body: io.NopCloser(bytes.NewReader(streamBody)),
+	}, func(_ string, _ *dto.GeminiChatResponse) bool {
+		return true
+	})
+	require.Nil(t, newAPIError)
+	require.NotNil(t, usage)
+	require.Equal(t, 1290, usage.CompletionTokenDetails.ImageTokens)
+	require.Equal(t, 2, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolGoogleSearch].CallCount)
+	require.Contains(t, string(usage.OriginalUsageJSON), `"candidatesTokensDetails"`)
+	require.Contains(t, string(usage.OriginalUsageJSON), `"tokenCount":1290`)
+}
+

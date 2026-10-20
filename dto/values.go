@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"bytes"
 	"encoding/json"
 	"strconv"
 )
@@ -48,21 +49,33 @@ func (s FlexString) MarshalJSON() ([]byte, error) {
 
 type IntValue int
 
+// UnmarshalJSON accepts JSON numbers (including scientific notation), numeric
+// strings, and null. Responses payloads often send created_at as 1.79e9 and
+// nullable counters as null; a plain int rejects both and drops the event.
 func (i *IntValue) UnmarshalJSON(b []byte) error {
-	var n int
-	if err := json.Unmarshal(b, &n); err == nil {
-		*i = IntValue(n)
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || string(b) == "null" {
+		*i = 0
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(b, &f); err == nil {
+		*i = IntValue(int(f))
 		return nil
 	}
 	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
 	}
-	v, err := strconv.Atoi(s)
+	if s == "" {
+		*i = 0
+		return nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return err
 	}
-	*i = IntValue(v)
+	*i = IntValue(int(f))
 	return nil
 }
 

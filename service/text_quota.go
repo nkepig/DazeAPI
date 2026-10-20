@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ type textQuotaSummary struct {
 	CacheCreationTokens5m    int
 	CacheCreationTokens1h    int
 	ImageTokens              int
+	ImageBilledTokens        int
+	ImageOutputTokens        int
 	AudioTokens              int
 	ModelName                string
 	TokenName                string
@@ -39,6 +42,7 @@ type textQuotaSummary struct {
 	CacheWrite5mPrice        float64
 	CacheWrite1hPrice        float64
 	ImagePrice               float64
+	ImageOutputPrice         float64
 	AudioInputPrice          float64
 	GroupDiscount            float64
 	PerCallPrice             float64
@@ -53,6 +57,15 @@ type textQuotaSummary struct {
 	FileSearchPrice          float64
 	FileSearchCallCount      int
 	ImageGenerationCallPrice float64
+	ToolSurchargeItems       []ToolSurchargeItem
+}
+
+// ToolSurchargeItem is one billable hosted-tool line written to consume logs.
+// Price is USD per 1K calls, before group discount.
+type ToolSurchargeItem struct {
+	Name  string  `json:"name"`
+	Count int     `json:"count"`
+	Price float64 `json:"price"`
 }
 
 func cacheWriteTokensTotal(summary textQuotaSummary) int {
@@ -77,6 +90,57 @@ func isLegacyClaudeDerivedOpenAIUsage(relayInfo *relaycommon.RelayInfo, usage *d
 		return false
 	}
 	return usage.ClaudeCacheCreation5mTokens > 0 || usage.ClaudeCacheCreation1hTokens > 0
+}
+
+func isSeparatelyBilledTool(name string) bool {
+	switch name {
+	case dto.BuildInToolWebSearchPreview, dto.BuildInToolFileSearch, "web_search":
+		return true
+	default:
+		return false
+	}
+}
+
+func collectToolSurchargeItems(relayInfo *relaycommon.RelayInfo, modelName string) []ToolSurchargeItem {
+	if relayInfo == nil || relayInfo.ResponsesUsageInfo == nil {
+		return nil
+	}
+	items := make([]ToolSurchargeItem, 0, len(relayInfo.ResponsesUsageInfo.BuiltInTools))
+	for name, tool := range relayInfo.ResponsesUsageInfo.BuiltInTools {
+		if tool == nil || tool.CallCount <= 0 || isSeparatelyBilledTool(name) {
+			continue
+		}
+		count := tool.CallCount
+		if count > 10000 {
+			count = 10000
+		}
+		price := operation_setting.GetToolPriceForModel(name, modelName)
+		if price <= 0 {
+			continue
+		}
+		items = append(items, ToolSurchargeItem{
+			Name:  name,
+			Count: count,
+			Price: price,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+	return items
+}
+
+func toolSurchargeQuota(items []ToolSurchargeItem, groupDiscount decimal.Decimal) decimal.Decimal {
+	microdollarsPerMillion := decimal.NewFromInt(pricing.MicrodollarsPerDollar)
+	var surcharge decimal.Decimal
+	for _, item := range items {
+		surcharge = surcharge.Add(decimal.NewFromFloat(item.Price).
+			Mul(decimal.NewFromInt(int64(item.Count))).
+			Mul(microdollarsPerMillion).
+			Div(decimal.NewFromInt(1000)).
+			Mul(groupDiscount))
+	}
+	return surcharge
 }
 
 func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) textQuotaSummary {
@@ -117,7 +181,12 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	summary.CacheCreationTokens5m = usage.ClaudeCacheCreation5mTokens
 	summary.CacheCreationTokens1h = usage.ClaudeCacheCreation1hTokens
 	summary.ImageTokens = usage.PromptTokensDetails.ImageTokens
+	summary.ImageBilledTokens = summary.ImageTokens
+	summary.ImageOutputTokens = usage.CompletionTokenDetails.ImageTokens
 	summary.AudioTokens = usage.PromptTokensDetails.AudioTokens
+	if summary.ImageOutputTokens > 0 {
+		summary.ImageOutputPrice = summary.CompletionPrice
+	}
 
 	// 阶梯计费：按实际输入上下文长度重新选档，覆盖预估时的输入/输出单价
 	if priceData.UseTieredPricing {
@@ -146,6 +215,12 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 				relayInfo.PriceData.CacheWrite1hPrice = summary.CacheWrite1hPrice
 			}
 		}
+	}
+
+	// 未单独标价的输入图片与文本输入同价。不再把图片 token 再加进输出。
+	if priceData.ImagePrice <= 0 && summary.ImageTokens > 0 && summary.PromptPrice > 0 {
+		summary.ImageBilledTokens = summary.ImageTokens
+		summary.ImagePrice = summary.PromptPrice
 	}
 
 	legacyClaudeDerived := isLegacyClaudeDerivedOpenAIUsage(relayInfo, usage)
@@ -208,6 +283,9 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		}
 	}
 
+	summary.ToolSurchargeItems = collectToolSurchargeItems(relayInfo, summary.ModelName)
+	dToolSurchargeQuota := toolSurchargeQuota(summary.ToolSurchargeItems, groupDiscount)
+
 	var dImageGenerationCallQuota decimal.Decimal
 	if ctx.GetBool("image_generation_call") {
 		summary.ImageGenerationCallPrice = operation_setting.GetGPTImage1PriceOnceCall(ctx.GetString("image_generation_call_quality"), ctx.GetString("image_generation_call_size"))
@@ -217,9 +295,13 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	if !summary.UsePerCallPricing {
 		dPromptTokens := decimal.NewFromInt(int64(summary.PromptTokens))
 		dCacheTokens := decimal.NewFromInt(int64(summary.CacheTokens))
-		dImageTokens := decimal.NewFromInt(int64(summary.ImageTokens))
+		dImageTokens := decimal.NewFromInt(int64(summary.ImageBilledTokens))
+		dImageOutputTokens := decimal.NewFromInt(int64(summary.ImageOutputTokens))
 		dAudioTokens := decimal.NewFromInt(int64(summary.AudioTokens))
 		dCompletionTokens := decimal.NewFromInt(int64(summary.CompletionTokens))
+		if summary.ImageOutputTokens > 0 && summary.CompletionTokens >= summary.ImageOutputTokens {
+			dCompletionTokens = dCompletionTokens.Sub(dImageOutputTokens)
+		}
 		dCachedCreationTokens := decimal.NewFromInt(int64(summary.CacheCreationTokens))
 
 		dPromptPrice := decimal.NewFromFloat(summary.PromptPrice)
@@ -229,6 +311,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		dCacheWrite5mPrice := decimal.NewFromFloat(summary.CacheWrite5mPrice)
 		dCacheWrite1hPrice := decimal.NewFromFloat(summary.CacheWrite1hPrice)
 		dImagePrice := decimal.NewFromFloat(summary.ImagePrice)
+		dImageOutputPrice := decimal.NewFromFloat(summary.ImageOutputPrice)
 		dAudioInputPrice := decimal.NewFromFloat(summary.AudioInputPrice)
 
 		baseTokens := dPromptTokens
@@ -270,15 +353,24 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 			audioInputCost = dAudioTokens.Mul(dAudioInputPrice).Div(decimal.NewFromInt(1000000))
 		}
 
+		var imageOutputCost decimal.Decimal
+		if !dImageOutputTokens.IsZero() {
+			imageOutputCost = dImageOutputTokens.Mul(dImageOutputPrice)
+		}
+		if baseTokens.IsNegative() {
+			baseTokens = decimal.Zero
+		}
+
 		promptCost := baseTokens.Mul(dPromptPrice)
 		completionCost := dCompletionTokens.Mul(dCompletionPrice)
-		totalCost := promptCost.Add(completionCost).Add(cachedTokensCost).Add(cacheWriteCost).Add(imageCost).Add(audioInputCost)
+		totalCost := promptCost.Add(completionCost).Add(cachedTokensCost).Add(cacheWriteCost).Add(imageCost).Add(imageOutputCost).Add(audioInputCost)
 		totalCost = totalCost.Mul(groupDiscount)
 
 		totalCost = totalCost.Add(dWebSearchQuota)
 		totalCost = totalCost.Add(dClaudeWebSearchQuota)
 		totalCost = totalCost.Add(dFileSearchQuota)
 		totalCost = totalCost.Add(dImageGenerationCallQuota)
+		totalCost = totalCost.Add(dToolSurchargeQuota)
 
 		if len(priceData.OtherDiscounts) > 0 {
 			for _, discount := range priceData.OtherDiscounts {
@@ -289,10 +381,14 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		summary.QuotaMicrodollars = totalCost.Round(0).IntPart()
 	} else {
 		totalCost := decimal.NewFromFloat(summary.PerCallPrice).Mul(microdollarsPerMillion).Mul(groupDiscount)
+		if summary.ImageOutputTokens > 0 {
+			totalCost = totalCost.Add(decimal.NewFromInt(int64(summary.ImageOutputTokens)).Mul(decimal.NewFromFloat(summary.ImageOutputPrice)).Mul(groupDiscount))
+		}
 		totalCost = totalCost.Add(dWebSearchQuota)
 		totalCost = totalCost.Add(dClaudeWebSearchQuota)
 		totalCost = totalCost.Add(dFileSearchQuota)
 		totalCost = totalCost.Add(dImageGenerationCallQuota)
+		totalCost = totalCost.Add(dToolSurchargeQuota)
 		if len(priceData.OtherDiscounts) > 0 {
 			for _, discount := range priceData.OtherDiscounts {
 				totalCost = totalCost.Mul(decimal.NewFromFloat(discount))
@@ -301,7 +397,8 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		summary.QuotaMicrodollars = totalCost.Round(0).IntPart()
 	}
 
-	if !billedByUpstream || summary.TotalTokens == 0 {
+	hasToolOrImageOutput := !dToolSurchargeQuota.IsZero() || summary.ImageOutputTokens > 0
+	if (!billedByUpstream && !hasToolOrImageOutput) || (summary.TotalTokens == 0 && !hasToolOrImageOutput) {
 		summary.QuotaMicrodollars = 0
 	}
 
@@ -354,6 +451,14 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		cost := decimal.NewFromFloat(summary.ImageGenerationCallPrice).Mul(microdollarsPerMillion).Mul(groupDiscount)
 		extraContent = append(extraContent, fmt.Sprintf("Image Generation Call 花费 %s", pricing.FormatDollars(cost.IntPart())))
 	}
+	for _, item := range summary.ToolSurchargeItems {
+		cost := decimal.NewFromFloat(item.Price).
+			Mul(decimal.NewFromInt(int64(item.Count))).
+			Mul(microdollarsPerMillion).
+			Div(decimal.NewFromInt(1000)).
+			Mul(groupDiscount)
+		extraContent = append(extraContent, fmt.Sprintf("%s 调用 %d 次，调用花费 %s", item.Name, item.Count, pricing.FormatDollars(cost.IntPart())))
+	}
 
 	if missingUpstreamUsage {
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
@@ -394,10 +499,23 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	if adminRejectReason != "" {
 		other["reject_reason"] = adminRejectReason
 	}
+	if summary.ImageOutputTokens != 0 {
+		other["image"] = true
+		other["image_output"] = summary.ImageOutputTokens
+		other["image_output_kind"] = "completion"
+		other["image_output_price"] = summary.ImageOutputPrice
+	}
 	if summary.ImageTokens != 0 {
 		other["image"] = true
+		other["image_input"] = summary.ImageTokens
+		other["image_tokens"] = summary.ImageTokens
 		other["image_price"] = summary.ImagePrice
-		other["image_output"] = summary.ImageTokens
+	}
+	if usage != nil && usage.CompletionTokenDetails.ReasoningTokens > 0 {
+		other["reasoning_tokens"] = usage.CompletionTokenDetails.ReasoningTokens
+	}
+	if len(summary.ToolSurchargeItems) > 0 {
+		other["tool_surcharges"] = summary.ToolSurchargeItems
 	}
 	if summary.WebSearchCallCount > 0 {
 		other["web_search"] = true

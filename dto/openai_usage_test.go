@@ -176,3 +176,90 @@ func TestUsageUnmarshalExtractsNestedImageResponse(t *testing.T) {
 		t.Fatalf("ImageTokens=%d want 1083", usage.PromptTokensDetails.ImageTokens)
 	}
 }
+
+func TestResponsesPayloadWithNullsKeepsOriginalUsage(t *testing.T) {
+	raw := []byte(`{
+		"type": "response.completed",
+		"response": {
+			"id": "resp_1",
+			"object": "response",
+			"created_at": 1.79186032e9,
+			"status": "completed",
+			"max_output_tokens": null,
+			"instructions": null,
+			"parallel_tool_calls": null,
+			"store": null,
+			"temperature": null,
+			"top_p": null,
+			"reasoning": {"effort": "medium", "summary": null, "mode": "standard"},
+			"output": [{
+				"type": "message",
+				"role": "assistant",
+				"content": [{"type": "output_text", "text": "hi", "annotations": []}]
+			}],
+			"usage": {
+				"prompt_tokens": 1,
+				"completion_tokens": 105,
+				"input_tokens": 4406,
+				"output_tokens": 99,
+				"total_tokens": 4505,
+				"input_tokens_details": {"cached_tokens": 3840},
+				"completion_tokens_details": {"reasoning_tokens": 80},
+				"output_tokens_details": {"reasoning_tokens": 76}
+			}
+		}
+	}`)
+	var stream ResponsesStreamResponse
+	if err := common.Unmarshal(raw, &stream); err != nil {
+		t.Fatal(err)
+	}
+	if stream.Response == nil || stream.Response.Usage == nil {
+		t.Fatal("response usage was dropped")
+	}
+	usage, kind := ParseModelUsage(raw)
+	if kind != "responses" {
+		t.Fatalf("kind=%s", kind)
+	}
+	if usage.PromptTokens != 4406 || usage.CompletionTokens != 99 {
+		t.Fatalf("tokens=%d/%d want 4406/99", usage.PromptTokens, usage.CompletionTokens)
+	}
+	if usage.PromptTokensDetails.CachedTokens != 3840 {
+		t.Fatalf("cached=%d", usage.PromptTokensDetails.CachedTokens)
+	}
+	if usage.CompletionTokenDetails.ReasoningTokens != 76 {
+		t.Fatalf("reasoning=%d want 76", usage.CompletionTokenDetails.ReasoningTokens)
+	}
+}
+
+func TestParseModelUsageChatCompletionPrefersPromptFields(t *testing.T) {
+	raw := []byte(`{
+		"id": "resp_ft",
+		"object": "chat.completion",
+		"created": 1791860287,
+		"model": "gpt-5.5",
+		"choices": [{"index": 0, "message": {"role": "assistant", "content": "hi"}, "finish_reason": "stop"}],
+		"usage": {
+			"prompt_tokens": 4406,
+			"completion_tokens": 105,
+			"total_tokens": 4511,
+			"prompt_tokens_details": {"cached_tokens": 3840},
+			"completion_tokens_details": {"reasoning_tokens": 80},
+			"input_tokens": 4406,
+			"output_tokens": 99,
+			"output_tokens_details": {"reasoning_tokens": 76}
+		}
+	}`)
+	usage, kind := ParseModelUsage(raw)
+	if kind != "chat" {
+		t.Fatalf("kind=%s", kind)
+	}
+	if usage.PromptTokens != 4406 || usage.CompletionTokens != 105 {
+		t.Fatalf("tokens=%d/%d want 4406/105", usage.PromptTokens, usage.CompletionTokens)
+	}
+	if usage.PromptTokensDetails.CachedTokens != 3840 {
+		t.Fatalf("cached=%d", usage.PromptTokensDetails.CachedTokens)
+	}
+	if usage.CompletionTokenDetails.ReasoningTokens != 80 {
+		t.Fatalf("reasoning=%d want 80", usage.CompletionTokenDetails.ReasoningTokens)
+	}
+}

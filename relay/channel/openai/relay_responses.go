@@ -21,8 +21,7 @@ func applyOpenAIResponsesUsage(dst *dto.Usage, src *dto.Usage) {
 		return
 	}
 	*dst = *src
-	dst.EnsureChatTokenFields()
-	dst.NormalizeInputTokenDetails()
+	dst.PrepareResponsesBilling()
 }
 
 func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -36,6 +35,10 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	}
 	err = common.Unmarshal(responseBody, &responsesResponse)
 	if err != nil {
+		if parsed, kind := dto.ParseModelUsage(responseBody); parsed != nil && kind == "responses" {
+			service.IOCopyBytesGracefully(c, resp, responseBody)
+			return parsed, nil
+		}
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 	if oaiError := responsesResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
@@ -52,7 +55,9 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	usage := dto.Usage{}
-	if responsesResponse.Usage != nil {
+	if parsed, kind := dto.ParseModelUsage(responseBody); parsed != nil && kind == "responses" {
+		applyOpenAIResponsesUsage(&usage, parsed)
+	} else if responsesResponse.Usage != nil {
 		applyOpenAIResponsesUsage(&usage, responsesResponse.Usage)
 	}
 	if info == nil || info.ResponsesUsageInfo == nil || info.ResponsesUsageInfo.BuiltInTools == nil {
@@ -84,38 +89,56 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 		// 检查当前数据是否包含 completed 状态和 usage 信息
 		var streamResponse dto.ResponsesStreamResponse
-		if err := common.UnmarshalJsonStr(data, &streamResponse); err == nil {
-			sendResponsesStreamData(c, streamResponse, data)
-			switch streamResponse.Type {
-			case "response.completed", "response.incomplete":
-				if streamResponse.Response != nil {
-					if streamResponse.Response.Usage != nil {
-						applyOpenAIResponsesUsage(usage, streamResponse.Response.Usage)
-					}
-					if streamResponse.Response.HasImageGenerationCall() {
-						c.Set("image_generation_call", true)
-						c.Set("image_generation_call_quality", streamResponse.Response.GetQuality())
-						c.Set("image_generation_call_size", streamResponse.Response.GetSize())
-					}
-				}
-			case dto.ResponsesOutputTypeItemDone:
-				// 函数调用处理
-				if streamResponse.Item != nil {
-					switch streamResponse.Item.Type {
-					case dto.BuildInCallWebSearchCall:
-						if info != nil && info.ResponsesUsageInfo != nil && info.ResponsesUsageInfo.BuiltInTools != nil {
-							if webSearchTool, exists := info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolWebSearchPreview]; exists && webSearchTool != nil {
-								webSearchTool.CallCount++
-							}
+		if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
+			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
+				applyOpenAIResponsesUsage(usage, parsed)
+			}
+			// 结构体解析失败时仍把原始事件转给客户端，避免整段响应被丢掉。
+			forwardRawResponsesEvent(c, data)
+			logger.LogError(c, "failed to unmarshal stream response: "+err.Error())
+			return true
+		}
+		sendResponsesStreamData(c, streamResponse, data)
+		switch streamResponse.Type {
+		case "response.completed", "response.incomplete", "response.done":
+			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
+				applyOpenAIResponsesUsage(usage, parsed)
+			} else if streamResponse.Response != nil && streamResponse.Response.Usage != nil {
+				applyOpenAIResponsesUsage(usage, streamResponse.Response.Usage)
+			}
+			if streamResponse.Response != nil && streamResponse.Response.HasImageGenerationCall() {
+				c.Set("image_generation_call", true)
+				c.Set("image_generation_call_quality", streamResponse.Response.GetQuality())
+				c.Set("image_generation_call_size", streamResponse.Response.GetSize())
+			}
+		case dto.ResponsesOutputTypeItemDone:
+			// 函数调用处理
+			if streamResponse.Item != nil {
+				switch streamResponse.Item.Type {
+				case dto.BuildInCallWebSearchCall:
+					if info != nil && info.ResponsesUsageInfo != nil && info.ResponsesUsageInfo.BuiltInTools != nil {
+						if webSearchTool, exists := info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolWebSearchPreview]; exists && webSearchTool != nil {
+							webSearchTool.CallCount++
 						}
 					}
 				}
 			}
-		} else {
-			logger.LogError(c, "failed to unmarshal stream response: "+err.Error())
 		}
 		return true
 	})
 
 	return usage, nil
+}
+
+func forwardRawResponsesEvent(c *gin.Context, data string) {
+	if data == "" {
+		return
+	}
+	var meta struct {
+		Type string `json:"type"`
+	}
+	if err := common.UnmarshalJsonStr(data, &meta); err != nil || meta.Type == "" {
+		return
+	}
+	sendResponsesStreamData(c, dto.ResponsesStreamResponse{Type: meta.Type}, data)
 }

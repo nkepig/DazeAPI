@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/types"
 )
@@ -228,11 +229,12 @@ type Usage struct {
 	UsageSemantic        string `json:"usage_semantic,omitempty"`
 	UsageSource          string `json:"usage_source,omitempty"`
 
-	PromptTokensDetails    InputTokenDetails  `json:"prompt_tokens_details"`
-	CompletionTokenDetails OutputTokenDetails `json:"completion_tokens_details"`
-	InputTokens            int                `json:"input_tokens"`
-	OutputTokens           int                `json:"output_tokens"`
-	InputTokensDetails     *InputTokenDetails `json:"input_tokens_details"`
+	PromptTokensDetails    InputTokenDetails   `json:"prompt_tokens_details"`
+	CompletionTokenDetails OutputTokenDetails  `json:"completion_tokens_details"`
+	InputTokens            int                 `json:"input_tokens"`
+	OutputTokens           int                 `json:"output_tokens"`
+	InputTokensDetails     *InputTokenDetails  `json:"input_tokens_details"`
+	OutputTokensDetails    *OutputTokenDetails `json:"output_tokens_details,omitempty"`
 
 	// claude cache 1h
 	ClaudeCacheCreation5mTokens int `json:"claude_cache_creation_5_m_tokens"`
@@ -255,7 +257,92 @@ func (u *Usage) UnmarshalJSON(data []byte) error {
 	*u = Usage(decoded)
 	u.OriginalUsageJSON = append(json.RawMessage(nil), usageJSON...)
 	u.EnsureChatTokenFields()
+	u.NormalizeInputTokenDetails()
+	u.NormalizeOutputTokenDetails()
 	return nil
+}
+
+// ParseModelUsage reads the usage object from an original model response.
+// Chat Completions use the top-level usage (prompt_tokens / completion_tokens).
+// Responses events and response objects use response.usage or usage
+// (input_tokens / output_tokens). Converted copies are not consulted.
+func ParseModelUsage(data []byte) (*Usage, string) {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return nil, ""
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &envelope); err != nil {
+		return nil, ""
+	}
+	object := jsonText(envelope["object"])
+	eventType := jsonText(envelope["type"])
+
+	kind := ""
+	var usageRaw json.RawMessage
+	switch {
+	case strings.HasPrefix(eventType, "response.") || object == "response":
+		kind = "responses"
+		if respRaw := bytes.TrimSpace(envelope["response"]); len(respRaw) > 0 && respRaw[0] == '{' {
+			var response map[string]json.RawMessage
+			if err := json.Unmarshal(respRaw, &response); err == nil {
+				usageRaw = response["usage"]
+			}
+		}
+		if !jsonObject(usageRaw) {
+			usageRaw = envelope["usage"]
+		}
+	case object == "chat.completion" || object == "chat.completion.chunk" || hasJSONValue(envelope["choices"]):
+		kind = "chat"
+		usageRaw = envelope["usage"]
+	default:
+		if jsonObject(envelope["usage"]) {
+			usageRaw = envelope["usage"]
+			if looksLikeResponsesUsage(usageRaw) {
+				kind = "responses"
+			} else {
+				kind = "chat"
+			}
+		}
+	}
+	if !jsonObject(usageRaw) {
+		return nil, ""
+	}
+	var usage Usage
+	if err := json.Unmarshal(usageRaw, &usage); err != nil {
+		return nil, ""
+	}
+	if kind == "responses" {
+		usage.PrepareResponsesBilling()
+	} else {
+		usage.PrepareChatBilling()
+	}
+	if usage.PromptTokens == 0 && usage.CompletionTokens == 0 && usage.InputTokens == 0 && usage.OutputTokens == 0 {
+		return nil, ""
+	}
+	return &usage, kind
+}
+
+func jsonObject(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	return len(raw) > 0 && raw[0] == '{'
+}
+
+func hasJSONValue(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	return len(raw) > 0 && string(raw) != "null"
+}
+
+func looksLikeResponsesUsage(raw json.RawMessage) bool {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return false
+	}
+	_, input := fields["input_tokens"]
+	_, output := fields["output_tokens"]
+	_, prompt := fields["prompt_tokens"]
+	_, completion := fields["completion_tokens"]
+	return (input || output) && !prompt && !completion
 }
 
 // ExtractUsageJSON returns the inner usage object when `data` is a full model
@@ -346,6 +433,93 @@ func (u *Usage) EnsureChatTokenFields() {
 	}
 }
 
+// PrepareResponsesBilling keeps Responses input/output counts authoritative
+// for quota, even when a converted prompt/completion copy is also present.
+func (u *Usage) PrepareResponsesBilling() {
+	if u == nil {
+		return
+	}
+	u.useOriginalTokenFields("responses")
+	u.EnsureChatTokenFields()
+	u.NormalizeInputTokenDetails()
+	u.NormalizeOutputTokenDetails()
+}
+
+// PrepareChatBilling keeps Chat Completions prompt/completion counts
+// authoritative for quota.
+func (u *Usage) PrepareChatBilling() {
+	if u == nil {
+		return
+	}
+	u.useOriginalTokenFields("chat")
+	u.EnsureChatTokenFields()
+	u.NormalizeInputTokenDetails()
+	u.NormalizeOutputTokenDetails()
+}
+
+func (u *Usage) useOriginalTokenFields(kind string) {
+	if u == nil || len(u.OriginalUsageJSON) == 0 {
+		return
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(u.OriginalUsageJSON, &fields); err != nil {
+		return
+	}
+	readInt := func(key string) (int, bool) {
+		raw, ok := fields[key]
+		if !ok {
+			return 0, false
+		}
+		raw = bytes.TrimSpace(raw)
+		if len(raw) == 0 || string(raw) == "null" {
+			return 0, false
+		}
+		var n float64
+		if err := json.Unmarshal(raw, &n); err != nil {
+			return 0, false
+		}
+		return int(n), true
+	}
+	switch kind {
+	case "responses":
+		if n, ok := readInt("input_tokens"); ok {
+			u.InputTokens = n
+			u.PromptTokens = n
+		}
+		if n, ok := readInt("output_tokens"); ok {
+			u.OutputTokens = n
+			u.CompletionTokens = n
+		}
+		if _, ok := fields["input_tokens_details"]; ok && u.InputTokensDetails != nil {
+			u.PromptTokensDetails = *u.InputTokensDetails
+			u.PromptTokensDetails.normalizeCacheWrite()
+		}
+		if _, ok := fields["output_tokens_details"]; ok && u.OutputTokensDetails != nil {
+			u.CompletionTokenDetails = *u.OutputTokensDetails
+		}
+	case "chat":
+		if n, ok := readInt("prompt_tokens"); ok {
+			u.PromptTokens = n
+		}
+		if n, ok := readInt("completion_tokens"); ok {
+			u.CompletionTokens = n
+		}
+		if _, ok := fields["completion_tokens_details"]; ok {
+			// Chat completions report reasoning on completion_tokens_details.
+			// Drop a converted output_tokens_details copy when both are present.
+			if raw, exists := fields["completion_tokens_details"]; exists && jsonObject(raw) {
+				var details OutputTokenDetails
+				if err := json.Unmarshal(raw, &details); err == nil {
+					u.CompletionTokenDetails = details
+				}
+			}
+		}
+	}
+	if n, ok := readInt("total_tokens"); ok {
+		u.TotalTokens = n
+	}
+}
+
 type OpenAIVideoResponse struct {
 	Id        string `json:"id" example:"file-abc123"`
 	Object    string `json:"object" example:"file"`
@@ -413,31 +587,53 @@ func (u *Usage) NormalizeInputTokenDetails() {
 	u.PromptTokensDetails.normalizeCacheWrite()
 }
 
+// NormalizeOutputTokenDetails copies Responses output_tokens_details onto the
+// completion details used by logs when the chat field was not reported.
+func (u *Usage) NormalizeOutputTokenDetails() {
+	if u == nil || u.OutputTokensDetails == nil {
+		return
+	}
+	src := u.OutputTokensDetails
+	if u.CompletionTokenDetails.ReasoningTokens == 0 {
+		u.CompletionTokenDetails.ReasoningTokens = src.ReasoningTokens
+	}
+	if u.CompletionTokenDetails.TextTokens == 0 {
+		u.CompletionTokenDetails.TextTokens = src.TextTokens
+	}
+	if u.CompletionTokenDetails.AudioTokens == 0 {
+		u.CompletionTokenDetails.AudioTokens = src.AudioTokens
+	}
+	if u.CompletionTokenDetails.ImageTokens == 0 {
+		u.CompletionTokenDetails.ImageTokens = src.ImageTokens
+	}
+}
+
 type OutputTokenDetails struct {
 	TextTokens      int `json:"text_tokens"`
 	AudioTokens     int `json:"audio_tokens"`
 	ReasoningTokens int `json:"reasoning_tokens"`
+	ImageTokens     int `json:"image_tokens"`
 }
 
 type OpenAIResponsesResponse struct {
 	ID                 string             `json:"id"`
 	Object             string             `json:"object"`
-	CreatedAt          int                `json:"created_at"`
+	CreatedAt          IntValue           `json:"created_at"`
 	Status             json.RawMessage    `json:"status"`
 	Error              any                `json:"error,omitempty"`
 	IncompleteDetails  *IncompleteDetails `json:"incomplete_details,omitempty"`
-	Instructions       string             `json:"instructions"`
-	MaxOutputTokens    int                `json:"max_output_tokens"`
+	Instructions       *string            `json:"instructions"`
+	MaxOutputTokens    *int               `json:"max_output_tokens"`
 	Model              string             `json:"model"`
 	Output             []ResponsesOutput  `json:"output"`
-	ParallelToolCalls  bool               `json:"parallel_tool_calls"`
+	ParallelToolCalls  *bool              `json:"parallel_tool_calls"`
 	PreviousResponseID json.RawMessage    `json:"previous_response_id"`
 	Reasoning          *Reasoning         `json:"reasoning"`
-	Store              bool               `json:"store"`
-	Temperature        float64            `json:"temperature"`
+	Store              *bool              `json:"store"`
+	Temperature        *float64           `json:"temperature"`
 	ToolChoice         json.RawMessage    `json:"tool_choice"`
 	Tools              []map[string]any   `json:"tools"`
-	TopP               float64            `json:"top_p"`
+	TopP               *float64           `json:"top_p"`
 	Truncation         json.RawMessage    `json:"truncation"`
 	Usage              *Usage             `json:"usage"`
 	User               json.RawMessage    `json:"user"`
@@ -508,14 +704,31 @@ type ResponsesOutputContent struct {
 	Annotations []interface{} `json:"annotations"`
 }
 
+func (c *ResponsesOutputContent) UnmarshalJSON(data []byte) error {
+	var aux struct {
+		Type        string          `json:"type"`
+		Text        json.RawMessage `json:"text"`
+		Annotations []interface{}   `json:"annotations"`
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	c.Type = aux.Type
+	c.Text = jsonText(aux.Text)
+	c.Annotations = aux.Annotations
+	return nil
+}
+
 type ResponsesReasoningSummaryPart struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
 const (
-	BuildInToolWebSearchPreview = "web_search_preview"
-	BuildInToolFileSearch       = "file_search"
+	BuildInToolWebSearchPreview           = "web_search_preview"
+	BuildInToolFileSearch                 = "file_search"
+	BuildInToolGoogleSearch               = "google_search"
+	BuildInToolGoogleSearchGroundedPrompt = "google_search_grounded_prompt"
 )
 
 const (

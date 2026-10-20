@@ -56,6 +56,29 @@ type ResponsesUsageInfo struct {
 	BuiltInTools map[string]*BuildInToolInfo
 }
 
+// SetBillableToolCount records an upstream-reported call count for one tool price key.
+// A later observation replaces the previous count for the same key. Negative counts are ignored.
+func (info *RelayInfo) SetBillableToolCount(name string, count int) {
+	if info == nil || name == "" || count < 0 {
+		return
+	}
+	if info.ResponsesUsageInfo == nil {
+		info.ResponsesUsageInfo = &ResponsesUsageInfo{}
+	}
+	if info.ResponsesUsageInfo.BuiltInTools == nil {
+		info.ResponsesUsageInfo.BuiltInTools = make(map[string]*BuildInToolInfo)
+	}
+	if existing, ok := info.ResponsesUsageInfo.BuiltInTools[name]; ok && existing != nil {
+		existing.CallCount = count
+		existing.ToolName = name
+		return
+	}
+	info.ResponsesUsageInfo.BuiltInTools[name] = &BuildInToolInfo{
+		ToolName:  name,
+		CallCount: count,
+	}
+}
+
 type ChannelMeta struct {
 	ChannelType          int
 	ChannelId            int

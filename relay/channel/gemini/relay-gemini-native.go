@@ -42,7 +42,8 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 	}
 
 	// 计算使用量（基于 UsageMetadata）
-	usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata)
+	recordGeminiGrounding(info, &geminiResponse)
+	usage := withGeminiUsageMetadata(buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata), responseBody)
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 

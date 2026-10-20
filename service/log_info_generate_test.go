@@ -112,6 +112,53 @@ func TestAttachUsageDictUnwrapsResponseAndClipsLongFields(t *testing.T) {
 	}
 }
 
+func TestAttachUsageDictKeepsGeminiUsageMetadata(t *testing.T) {
+	usage := dto.Usage{
+		PromptTokens:     24744,
+		CompletionTokens: 4057,
+		OriginalUsageJSON: []byte(`{
+			"promptTokenCount": 24744,
+			"candidatesTokenCount": 4057,
+			"totalTokenCount": 28801,
+			"candidatesTokensDetails": [{"modality": "IMAGE", "tokenCount": 2335392}]
+		}`),
+	}
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &usage)
+	stored, ok := other["usage"].(map[string]interface{})
+	if !ok {
+		t.Fatal("usage dict missing")
+	}
+	if stored["promptTokenCount"] != float64(24744) {
+		t.Fatalf("promptTokenCount=%v", stored["promptTokenCount"])
+	}
+	if _, exists := stored["prompt_tokens"]; exists {
+		t.Fatal("converted usage replaced usageMetadata")
+	}
+	details, ok := stored["candidatesTokensDetails"].([]interface{})
+	if !ok || len(details) != 1 {
+		t.Fatalf("candidatesTokensDetails=%v", stored["candidatesTokensDetails"])
+	}
+}
+
+func TestSanitizeUsageDictUnwrapsGeminiResponse(t *testing.T) {
+	raw := map[string]interface{}{
+		"candidates": []interface{}{},
+		"usageMetadata": map[string]interface{}{
+			"promptTokenCount":        float64(24744),
+			"candidatesTokenCount":    float64(4057),
+			"candidatesTokensDetails": []interface{}{},
+		},
+	}
+	got := SanitizeUsageDict(raw)
+	if got["promptTokenCount"] != float64(24744) {
+		t.Fatalf("promptTokenCount=%v", got["promptTokenCount"])
+	}
+	if _, exists := got["candidates"]; exists {
+		t.Fatal("gemini response envelope should be unwrapped to usageMetadata")
+	}
+}
+
 func TestAttachUsageDictUnwrapsImageResponse(t *testing.T) {
 	raw := []byte(`{
 		"background": "opaque",

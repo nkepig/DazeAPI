@@ -60,6 +60,12 @@ const normalizeUsageLogPricingData = (other) => {
     cache_creation_tokens: Number(other.cache_creation_tokens ?? 0),
     cache_creation_tokens_5m: Number(other.cache_creation_tokens_5m ?? 0),
     cache_creation_tokens_1h: Number(other.cache_creation_tokens_1h ?? 0),
+    image_input: Number(other.image_input || 0),
+    image_output: other.image_output,
+    image_output_kind: other.image_output_kind,
+    image_output_price: Number(other.image_output_price || 0),
+    tool_surcharges: other.tool_surcharges,
+    reasoning_tokens: Number(other.reasoning_tokens || 0),
     // 透传计费语义标记：Anthropic 语义下 prompt_tokens 已是未命中缓存的输入，
     // 前端展示时不能再从中扣除 cache_tokens，否则普通输入会被算成 0。
     claude: other.claude === true,

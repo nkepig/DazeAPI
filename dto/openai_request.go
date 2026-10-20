@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -934,6 +935,33 @@ func (r *OpenAIResponsesRequest) GetToolsMap() []map[string]any {
 type Reasoning struct {
 	Effort  string `json:"effort,omitempty"`
 	Summary string `json:"summary,omitempty"`
+}
+
+// UnmarshalJSON accepts null summary/effort. Codex responses send
+// "summary": null, and a plain string field fails the whole response.
+func (r *Reasoning) UnmarshalJSON(data []byte) error {
+	var aux struct {
+		Effort  json.RawMessage `json:"effort"`
+		Summary json.RawMessage `json:"summary"`
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	r.Effort = jsonText(aux.Effort)
+	r.Summary = jsonText(aux.Summary)
+	return nil
+}
+
+func jsonText(raw json.RawMessage) string {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return ""
+	}
+	return text
 }
 
 type Input struct {

@@ -497,15 +497,11 @@ func applyUsagePostProcessing(info *relaycommon.RelayInfo, usage *dto.Usage, res
 	if info == nil || usage == nil {
 		return
 	}
-	usage.EnsureChatTokenFields()
-	if !service.ValidUsage(usage) && len(responseBody) > 0 {
-		var fromBody dto.Usage
-		if err := common.Unmarshal(responseBody, &fromBody); err == nil {
-			applyOpenAIResponsesUsage(usage, &fromBody)
-		}
+	if parsed, kind := dto.ParseModelUsage(responseBody); parsed != nil && (kind == "chat" || kind == "responses") {
+		*usage = *parsed
+	} else {
+		usage.PrepareChatBilling()
 	}
-	usage.NormalizeInputTokenDetails()
-
 	switch info.ChannelType {
 	case constant.ChannelTypeDeepSeek:
 		if usage.PromptTokensDetails.CachedTokens == 0 && usage.PromptCacheHitTokens != 0 {

@@ -270,6 +270,9 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 
 		var streamResp dto.ResponsesStreamResponse
 		if err := common.UnmarshalJsonStr(data, &streamResp); err != nil {
+			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
+				applyOpenAIResponsesUsage(usage, parsed)
+			}
 			logger.LogError(c, "failed to unmarshal responses stream event: "+err.Error())
 			return true
 		}
@@ -400,15 +403,17 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		case "response.function_call_arguments.done":
 
 		case "response.completed":
+			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
+				applyOpenAIResponsesUsage(usage, parsed)
+			} else if streamResp.Response != nil && streamResp.Response.Usage != nil {
+				applyOpenAIResponsesUsage(usage, streamResp.Response.Usage)
+			}
 			if streamResp.Response != nil {
 				if streamResp.Response.Model != "" {
 					model = streamResp.Response.Model
 				}
 				if streamResp.Response.CreatedAt != 0 {
 					createAt = int64(streamResp.Response.CreatedAt)
-				}
-				if streamResp.Response.Usage != nil {
-					applyOpenAIResponsesUsage(usage, streamResp.Response.Usage)
 				}
 			}
 

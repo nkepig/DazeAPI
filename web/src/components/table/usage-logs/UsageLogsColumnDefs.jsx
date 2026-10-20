@@ -382,6 +382,12 @@ function buildUsageLogPricingData(other) {
     cache_creation_tokens: Number(other.cache_creation_tokens ?? 0),
     cache_creation_tokens_5m: Number(other.cache_creation_tokens_5m ?? 0),
     cache_creation_tokens_1h: Number(other.cache_creation_tokens_1h ?? 0),
+    image_input: Number(other.image_input || 0),
+    image_output: other.image_output,
+    image_output_kind: other.image_output_kind,
+    image_output_price: Number(other.image_output_price || 0),
+    tool_surcharges: other.tool_surcharges,
+    reasoning_tokens: Number(other.reasoning_tokens || 0),
   };
 }
 

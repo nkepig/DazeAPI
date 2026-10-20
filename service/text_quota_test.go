@@ -452,3 +452,135 @@ func TestCalculateTextQuotaSummaryBillsGptImageUsage(t *testing.T) {
 	// text 165*5 + image input 1083*10 + image output 63*40 = 825 + 10830 + 2520 = 14175
 	require.Equal(t, int64(14175), summary.QuotaMicrodollars)
 }
+
+func TestCalculateTextQuotaSummaryBillsGoogleSearchAndImageOutput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-3.8-flash",
+		PriceData: types.PriceData{
+			PromptPrice:     0.75,
+			CompletionPrice: 3.75,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1.3,
+			},
+		},
+		StartTime: time.Now(),
+		ResponsesUsageInfo: &relaycommon.ResponsesUsageInfo{
+			BuiltInTools: map[string]*relaycommon.BuildInToolInfo{
+				dto.BuildInToolGoogleSearch: {
+					ToolName:  dto.BuildInToolGoogleSearch,
+					CallCount: 1,
+				},
+				dto.BuildInToolGoogleSearchGroundedPrompt: {
+					ToolName:  dto.BuildInToolGoogleSearchGroundedPrompt,
+					CallCount: 1,
+				},
+			},
+		},
+	}
+	usage := &dto.Usage{
+		PromptTokens:     1000,
+		CompletionTokens: 100,
+		CompletionTokenDetails: dto.OutputTokenDetails{
+			ImageTokens: 2000,
+		},
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, 2000, summary.ImageOutputTokens)
+	require.Equal(t, 3.75, summary.ImageOutputPrice)
+	require.Equal(t, 0.75, summary.PromptPrice)
+	require.Equal(t, []ToolSurchargeItem{{
+		Name:  dto.BuildInToolGoogleSearch,
+		Count: 1,
+		Price: 14,
+	}}, summary.ToolSurchargeItems)
+	// tokens (1000*0.75 + 100*3.75 + 2000*3.75) * 1.3 = 11212.5 → 11213
+	// google_search 14/1000 * 1.3 dollars = 18200 microdollars
+	require.Equal(t, int64(29413), summary.QuotaMicrodollars)
+}
+
+func TestCalculateTextQuotaSummarySubtractsImageOutputAlreadyInsideCompletion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-2.5-flash",
+		PriceData: types.PriceData{
+			PromptPrice:     0.15,
+			CompletionPrice: 0.6,
+			ImagePrice:      30,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+		ResponsesUsageInfo: &relaycommon.ResponsesUsageInfo{
+			BuiltInTools: map[string]*relaycommon.BuildInToolInfo{
+				dto.BuildInToolGoogleSearch: {
+					ToolName:  dto.BuildInToolGoogleSearch,
+					CallCount: 3,
+				},
+				dto.BuildInToolGoogleSearchGroundedPrompt: {
+					ToolName:  dto.BuildInToolGoogleSearchGroundedPrompt,
+					CallCount: 1,
+				},
+			},
+		},
+	}
+	usage := &dto.Usage{
+		PromptTokens:     100,
+		CompletionTokens: 1390,
+		CompletionTokenDetails: dto.OutputTokenDetails{
+			ImageTokens: 1290,
+		},
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, 0.6, summary.ImageOutputPrice)
+	require.Equal(t, []ToolSurchargeItem{{
+		Name:  dto.BuildInToolGoogleSearchGroundedPrompt,
+		Count: 1,
+		Price: 35,
+	}}, summary.ToolSurchargeItems)
+	// text 100*0.15 + (1390-1290)*0.6 + image output 1290*0.6 = 15 + 60 + 774 = 849
+	// grounded prompt 35/1000 dollars = 35000 microdollars
+	require.Equal(t, int64(35849), summary.QuotaMicrodollars)
+}
+
+func TestCalculateTextQuotaSummaryBillsPromptImageAtInputAndOutputPrice(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		OriginModelName: "gemini-3.8-flash",
+		PriceData: types.PriceData{
+			PromptPrice:     0.75,
+			CompletionPrice: 3.75,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1.3,
+			},
+		},
+		StartTime: time.Now(),
+	}
+	usage := &dto.Usage{
+		PromptTokens:     1208,
+		CompletionTokens: 8,
+		PromptTokensDetails: dto.InputTokenDetails{
+			ImageTokens: 1107,
+			TextTokens:  101,
+		},
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, 1107, summary.ImageTokens)
+	require.Equal(t, 1107, summary.ImageBilledTokens)
+	require.Equal(t, 0.75, summary.ImagePrice)
+	// (101+1107)*0.75 + 8*3.75 = 906 + 30 = 936; *1.3 = 1216.8 → 1217
+	require.Equal(t, int64(1217), summary.QuotaMicrodollars)
+}

@@ -52,6 +52,9 @@ func unwrapUsageDict(asMap map[string]interface{}) map[string]interface{} {
 	if asMap == nil {
 		return nil
 	}
+	if metadata, ok := asMap["usageMetadata"].(map[string]interface{}); ok && metadata != nil && looksLikeGeminiUsageMap(metadata) && !looksLikeGeminiUsageMap(asMap) {
+		return metadata
+	}
 	nested, ok := asMap["usage"].(map[string]interface{})
 	if !ok || nested == nil {
 		return asMap
@@ -63,6 +66,18 @@ func unwrapUsageDict(asMap map[string]interface{}) map[string]interface{} {
 		return nested
 	}
 	return asMap
+}
+
+func looksLikeGeminiUsageMap(asMap map[string]interface{}) bool {
+	if asMap == nil {
+		return false
+	}
+	for _, key := range []string{"promptTokenCount", "candidatesTokenCount", "totalTokenCount", "candidatesTokensDetails"} {
+		if _, ok := asMap[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func looksLikeUsageMap(asMap map[string]interface{}) bool {

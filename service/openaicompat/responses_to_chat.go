@@ -17,8 +17,7 @@ func ResponsesResponseToChatCompletionsResponse(resp *dto.OpenAIResponsesRespons
 	usage := &dto.Usage{}
 	if resp.Usage != nil {
 		copied := *resp.Usage
-		copied.EnsureChatTokenFields()
-		copied.NormalizeInputTokenDetails()
+		copied.PrepareResponsesBilling()
 		usage = &copied
 	}
 

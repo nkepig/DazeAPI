@@ -435,10 +435,18 @@ func (c *GeminiChatGenerationConfig) UnmarshalJSON(data []byte) error {
 type MediaResolution string
 
 type GeminiChatCandidate struct {
-	Content       GeminiChatContent        `json:"content"`
-	FinishReason  *string                  `json:"finishReason"`
-	Index         int64                    `json:"index"`
-	SafetyRatings []GeminiChatSafetyRating `json:"safetyRatings"`
+	Content           GeminiChatContent        `json:"content"`
+	FinishReason      *string                  `json:"finishReason"`
+	Index             int64                    `json:"index"`
+	SafetyRatings     []GeminiChatSafetyRating `json:"safetyRatings"`
+	GroundingMetadata *GeminiGroundingMetadata `json:"groundingMetadata,omitempty"`
+}
+
+// GeminiGroundingMetadata is the Google Search grounding block on a candidate.
+// Query lists are the evidence used to bill google_search.
+type GeminiGroundingMetadata struct {
+	WebSearchQueries   []string `json:"webSearchQueries,omitempty"`
+	ImageSearchQueries []string `json:"imageSearchQueries,omitempty"`
 }
 
 type GeminiChatSafetyRating struct {
@@ -466,6 +474,7 @@ type GeminiUsageMetadata struct {
 	CachedContentTokenCount    int                         `json:"cachedContentTokenCount"`
 	PromptTokensDetails        []GeminiPromptTokensDetails `json:"promptTokensDetails"`
 	ToolUsePromptTokensDetails []GeminiPromptTokensDetails `json:"toolUsePromptTokensDetails"`
+	CandidatesTokensDetails    []GeminiPromptTokensDetails `json:"candidatesTokensDetails"`
 }
 
 type GeminiPromptTokensDetails struct {
