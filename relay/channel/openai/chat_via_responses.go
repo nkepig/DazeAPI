@@ -436,6 +436,11 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			}
 
 		case "response.error", "response.failed":
+			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
+				applyOpenAIResponsesUsage(usage, parsed)
+			} else if streamResp.Response != nil && streamResp.Response.Usage != nil {
+				applyOpenAIResponsesUsage(usage, streamResp.Response.Usage)
+			}
 			if streamResp.Response != nil {
 				if oaiErr := streamResp.Response.GetOpenAIError(); oaiErr != nil && oaiErr.Type != "" {
 					streamErr = types.WithOpenAIError(*oaiErr, http.StatusInternalServerError)

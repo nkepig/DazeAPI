@@ -453,7 +453,7 @@ export const useLogsData = () => {
     const target = {
       modelName: log?.model_name || '',
       requestId: log?.request_id || '',
-      usage: parsed.usage ? sanitizeUsageDict(parsed.usage) : parsed.usage,
+      usage: parsed.usage,
       reconstructed: parsed.reconstructed,
     };
     setUsageDictTarget(target);
@@ -480,8 +480,7 @@ export const useLogsData = () => {
       }
       setUsageDictTarget((prev) => ({
         ...(prev || target),
-        usage:
-          data && typeof data === 'object' ? sanitizeUsageDict(data) : {},
+        usage: data && typeof data === 'object' ? data : {},
         reconstructed: false,
       }));
     } catch (error) {
@@ -498,16 +497,6 @@ export const useLogsData = () => {
 
   // Format logs data
   const setLogsFormat = (logs) => {
-    const requestConversionDisplayValue = (conversionChain) => {
-      const chain = Array.isArray(conversionChain)
-        ? conversionChain.filter(Boolean)
-        : [];
-      if (chain.length <= 1) {
-        return t('原生格式');
-      }
-      return `${chain.join(' -> ')}`;
-    };
-
     let expandDatesLocal = {};
     for (let i = 0; i < logs.length; i++) {
       logs[i].timestamp2string = timestamp2string(logs[i].created_at);
@@ -719,7 +708,7 @@ export const useLogsData = () => {
   // Page handlers
   const handlePageChange = (page) => {
     setActivePage(page);
-    loadLogs(page, pageSize).then((r) => {});
+    loadLogs(page, pageSize).then(() => {});
   };
 
   const handlePageSizeChange = async (size) => {

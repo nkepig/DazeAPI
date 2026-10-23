@@ -9,7 +9,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -101,7 +100,7 @@ func GetLogUsage(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, service.SanitizeUsageDict(usage))
+	common.ApiSuccess(c, usage)
 }
 
 func GetUserLogUsage(c *gin.Context) {
@@ -122,7 +121,7 @@ func GetUserLogUsage(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, service.SanitizeUsageDict(usage))
+	common.ApiSuccess(c, usage)
 }
 
 func GetLogByKey(c *gin.Context) {

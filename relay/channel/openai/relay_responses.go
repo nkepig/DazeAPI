@@ -100,7 +100,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 		sendResponsesStreamData(c, streamResponse, data)
 		switch streamResponse.Type {
-		case "response.completed", "response.incomplete", "response.done":
+		case "response.completed", "response.incomplete", "response.done", "response.failed", "response.error":
 			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
 				applyOpenAIResponsesUsage(usage, parsed)
 			} else if streamResponse.Response != nil && streamResponse.Response.Usage != nil {

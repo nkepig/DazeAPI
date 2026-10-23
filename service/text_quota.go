@@ -483,6 +483,9 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 
 	logContent := strings.Join(extraContent, ", ")
+	if logContent == "" {
+		logContent = fmt.Sprintf("输入 %d tokens，输出 %d tokens", summary.PromptTokens, summary.CompletionTokens)
+	}
 	var other map[string]interface{}
 	if summary.IsClaudeUsageSemantic {
 		other = GenerateClaudeOtherInfo(ctx, relayInfo,

@@ -31,7 +31,23 @@ func AttachUsageDict(other map[string]interface{}, usage any) {
 	if len(asMap) == 0 {
 		return
 	}
+	if originalUsage := usageOriginalJSON(usage); len(originalUsage) > 0 {
+		other["usage"] = asMap
+		return
+	}
 	other["usage"] = SanitizeUsageDict(asMap)
+}
+
+func usageOriginalJSON(usage any) []byte {
+	switch typed := usage.(type) {
+	case *dto.Usage:
+		if typed != nil {
+			return typed.OriginalUsageJSON
+		}
+	case dto.Usage:
+		return typed.OriginalUsageJSON
+	}
+	return nil
 }
 
 // SanitizeUsageDict unwraps a full model response mistakenly stored as usage,

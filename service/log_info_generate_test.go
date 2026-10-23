@@ -69,6 +69,25 @@ func TestAttachUsageDictKeepsOriginalJSON(t *testing.T) {
 	}
 }
 
+func TestAttachUsageDictPreservesLongOriginalFields(t *testing.T) {
+	longValue := strings.Repeat("A", usageValueMaxLen+50)
+	usage := dto.Usage{
+		PromptTokens:      12,
+		CompletionTokens:  3,
+		OriginalUsageJSON: []byte(`{"input_tokens":12,"output_tokens":3,"vendor_detail":"` + longValue + `"}`),
+	}
+
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &usage)
+	stored, ok := other["usage"].(map[string]interface{})
+	if !ok {
+		t.Fatal("usage dict missing")
+	}
+	if stored["vendor_detail"] != longValue {
+		t.Fatalf("vendor_detail was modified: got length %d want %d", len(stored["vendor_detail"].(string)), len(longValue))
+	}
+}
+
 func TestAttachUsageDictNilSafe(t *testing.T) {
 	AttachUsageDict(nil, &dto.Usage{PromptTokens: 1})
 	other := map[string]interface{}{}
@@ -78,7 +97,7 @@ func TestAttachUsageDictNilSafe(t *testing.T) {
 	}
 }
 
-func TestAttachUsageDictUnwrapsResponseAndClipsLongFields(t *testing.T) {
+func TestAttachUsageDictPreservesOriginalLongFields(t *testing.T) {
 	longContent := strings.Repeat("A", 250)
 	raw := []byte(`{
 		"choices": [{"message": {"content": "` + longContent + `"}}],
@@ -107,8 +126,8 @@ func TestAttachUsageDictUnwrapsResponseAndClipsLongFields(t *testing.T) {
 		t.Fatalf("prompt_tokens=%v", stored["prompt_tokens"])
 	}
 	dump, _ := stored["dump"].(string)
-	if len([]rune(dump)) != 201 {
-		t.Fatalf("dump len=%d want 201 (200 + ellipsis), value=%q", len([]rune(dump)), dump)
+	if dump != longContent {
+		t.Fatalf("dump was modified: len=%d want %d", len([]rune(dump)), len([]rune(longContent)))
 	}
 }
 

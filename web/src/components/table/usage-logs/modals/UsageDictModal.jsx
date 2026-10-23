@@ -70,16 +70,14 @@ const UsageDictModal = ({
   usageDictLoading,
   t,
 }) => {
-  const usage = useMemo(() => {
+  const rawUsage = useMemo(() => {
     const raw =
       usageDictTarget?.usage && typeof usageDictTarget.usage === 'object'
         ? usageDictTarget.usage
         : null;
-    if (!raw) {
-      return null;
-    }
-    return sanitizeUsageDict(raw);
+    return raw;
   }, [usageDictTarget]);
+  const usage = useMemo(() => sanitizeUsageDict(rawUsage), [rawUsage]);
   const reconstructed = Boolean(usageDictTarget?.reconstructed);
   const rows = useMemo(
     () =>
@@ -90,15 +88,15 @@ const UsageDictModal = ({
     [usage],
   );
   const jsonText = useMemo(() => {
-    if (!usage) {
+    if (!rawUsage) {
       return '';
     }
     try {
-      return JSON.stringify(usage, null, 2);
+      return JSON.stringify(rawUsage, null, 2);
     } catch (e) {
       return '';
     }
-  }, [usage]);
+  }, [rawUsage]);
 
   const copyUsage = async () => {
     if (!jsonText) {

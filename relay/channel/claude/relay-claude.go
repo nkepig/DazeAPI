@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -547,12 +548,13 @@ func ResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.OpenAITextRe
 }
 
 type ClaudeResponseInfo struct {
-	ResponseId   string
-	Created      int64
-	Model        string
-	ResponseText strings.Builder
-	Usage        *dto.Usage
-	Done         bool
+	ResponseId              string
+	Created                 int64
+	Model                   string
+	ResponseText            strings.Builder
+	Usage                   *dto.Usage
+	Done                    bool
+	UsageFromChatCompletion bool
 }
 
 func cacheCreationTokensForOpenAIUsage(usage *dto.Usage) int {
@@ -668,13 +670,7 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 
 		// message_start, 获取usage
 		if claudeResponse.Message != nil && claudeResponse.Message.Usage != nil {
-			claudeInfo.Usage.PromptTokens = claudeResponse.Message.Usage.InputTokens
-			claudeInfo.Usage.UsageSemantic = "anthropic"
-			claudeInfo.Usage.PromptTokensDetails.CachedTokens = claudeResponse.Message.Usage.CacheReadInputTokens
-			claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens = claudeResponse.Message.Usage.CacheCreationInputTokens
-			claudeInfo.Usage.ClaudeCacheCreation5mTokens = claudeResponse.Message.Usage.GetCacheCreation5mTokens()
-			claudeInfo.Usage.ClaudeCacheCreation1hTokens = claudeResponse.Message.Usage.GetCacheCreation1hTokens()
-			claudeInfo.Usage.CompletionTokens = claudeResponse.Message.Usage.OutputTokens
+			applyNativeClaudeUsage(claudeInfo.Usage, claudeResponse.Message.Usage, nil)
 		}
 	} else if claudeResponse.Type == "content_block_delta" {
 		if claudeResponse.Delta != nil {
@@ -686,32 +682,33 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 			}
 		}
 	} else if claudeResponse.Type == "message_delta" {
-		// 最终的usage获取
+		// message_delta 往往只带 output_tokens，空的 input 不能覆盖 message_start。
 		if claudeResponse.Usage != nil {
-			claudeInfo.Usage.UsageSemantic = "anthropic"
-			if claudeResponse.Usage.InputTokens > 0 {
-				// 不叠加，只取最新的
-				claudeInfo.Usage.PromptTokens = claudeResponse.Usage.InputTokens
+			prev := *claudeInfo.Usage
+			applyNativeClaudeUsage(claudeInfo.Usage, claudeResponse.Usage, nil)
+			if claudeResponse.Usage.InputTokens == 0 {
+				claudeInfo.Usage.PromptTokens = prev.PromptTokens
+				claudeInfo.Usage.InputTokens = prev.InputTokens
 			}
-			if claudeResponse.Usage.CacheReadInputTokens > 0 {
-				claudeInfo.Usage.PromptTokensDetails.CachedTokens = claudeResponse.Usage.CacheReadInputTokens
+			if claudeResponse.Usage.OutputTokens == 0 {
+				claudeInfo.Usage.CompletionTokens = prev.CompletionTokens
+				claudeInfo.Usage.OutputTokens = prev.OutputTokens
 			}
-			if claudeResponse.Usage.CacheCreationInputTokens > 0 {
-				claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens = claudeResponse.Usage.CacheCreationInputTokens
+			if claudeResponse.Usage.CacheReadInputTokens == 0 {
+				claudeInfo.Usage.PromptTokensDetails.CachedTokens = prev.PromptTokensDetails.CachedTokens
 			}
-			if cacheCreation5m := claudeResponse.Usage.GetCacheCreation5mTokens(); cacheCreation5m > 0 {
-				claudeInfo.Usage.ClaudeCacheCreation5mTokens = cacheCreation5m
+			if claudeResponse.Usage.CacheCreationInputTokens == 0 {
+				claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens = prev.PromptTokensDetails.CachedCreationTokens
 			}
-			if cacheCreation1h := claudeResponse.Usage.GetCacheCreation1hTokens(); cacheCreation1h > 0 {
-				claudeInfo.Usage.ClaudeCacheCreation1hTokens = cacheCreation1h
+			if claudeResponse.Usage.GetCacheCreation5mTokens() == 0 {
+				claudeInfo.Usage.ClaudeCacheCreation5mTokens = prev.ClaudeCacheCreation5mTokens
 			}
-			if claudeResponse.Usage.OutputTokens > 0 {
-				claudeInfo.Usage.CompletionTokens = claudeResponse.Usage.OutputTokens
+			if claudeResponse.Usage.GetCacheCreation1hTokens() == 0 {
+				claudeInfo.Usage.ClaudeCacheCreation1hTokens = prev.ClaudeCacheCreation1hTokens
 			}
 			claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeInfo.Usage.CompletionTokens
+			claudeInfo.Usage.OriginalUsageJSON = prev.OriginalUsageJSON
 		}
-
-		// 判断是否完整
 		claudeInfo.Done = true
 	} else if claudeResponse.Type == "content_block_start" {
 	} else {
@@ -725,7 +722,79 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 	return true
 }
 
+// applyNativeClaudeUsage copies a /v1/messages usage object onto the billing usage.
+// input_tokens and output_tokens stay on both the Claude fields and the chat fields.
+func applyNativeClaudeUsage(dst *dto.Usage, src *dto.ClaudeUsage, raw json.RawMessage) {
+	if dst == nil || src == nil {
+		return
+	}
+	dst.PromptTokens = src.InputTokens
+	dst.InputTokens = src.InputTokens
+	dst.CompletionTokens = src.OutputTokens
+	dst.OutputTokens = src.OutputTokens
+	dst.TotalTokens = src.InputTokens + src.OutputTokens
+	dst.UsageSemantic = "anthropic"
+	dst.UsageSource = "anthropic"
+	dst.PromptTokensDetails.CachedTokens = src.CacheReadInputTokens
+	dst.PromptTokensDetails.CachedCreationTokens = src.CacheCreationInputTokens
+	dst.ClaudeCacheCreation5mTokens = src.GetCacheCreation5mTokens()
+	dst.ClaudeCacheCreation1hTokens = src.GetCacheCreation1hTokens()
+	raw = bytes.TrimSpace(raw)
+	if len(raw) > 0 && string(raw) != "null" {
+		dst.OriginalUsageJSON = append(json.RawMessage(nil), raw...)
+	}
+}
+
+func claudeUsageJSON(data []byte) json.RawMessage {
+	for _, path := range []string{"usage", "message.usage"} {
+		value := gjson.GetBytes(data, path)
+		if value.Exists() && value.IsObject() {
+			return json.RawMessage(value.Raw)
+		}
+	}
+	return nil
+}
+
+func syncClaudeUsageAliases(usage *dto.Usage) {
+	if usage == nil {
+		return
+	}
+	usage.InputTokens = usage.PromptTokens
+	usage.OutputTokens = usage.CompletionTokens
+	if usage.TotalTokens == 0 {
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+}
+
+// chatUsageFromModelResponse returns the usage object on an OpenAI chat
+// completion body. A native Messages response is not handled here.
+func chatUsageFromModelResponse(data []byte) *dto.Usage {
+	parsed, kind := dto.ParseModelUsage(data)
+	if parsed == nil || kind != "chat" {
+		return nil
+	}
+	return parsed
+}
+
+func rememberChatUsage(claudeInfo *ClaudeResponseInfo, usage *dto.Usage) {
+	if claudeInfo == nil || usage == nil {
+		return
+	}
+	claudeInfo.Usage = usage
+	claudeInfo.UsageFromChatCompletion = true
+	claudeInfo.Done = true
+}
+
 func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo, data string) *types.NewAPIError {
+	if chatUsage := chatUsageFromModelResponse([]byte(data)); chatUsage != nil {
+		rememberChatUsage(claudeInfo, chatUsage)
+		if info != nil && info.RelayFormat == types.RelayFormatOpenAI {
+			if err := helper.StringData(c, data); err != nil {
+				logger.LogError(c, "send_stream_response_failed: "+err.Error())
+			}
+			return nil
+		}
+	}
 	var claudeResponse dto.ClaudeResponse
 	err := common.UnmarshalJsonStr(data, &claudeResponse)
 	if err != nil {
@@ -781,14 +850,14 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 			common.SysLog("claude response usage is not complete, maybe upstream error")
 		}
 	}
-	if claudeInfo.Usage != nil {
+	if claudeInfo.Usage != nil && claudeInfo.Usage.UsageSemantic == "" && !claudeInfo.UsageFromChatCompletion {
 		claudeInfo.Usage.UsageSemantic = "anthropic"
 	}
 
 	if info.RelayFormat == types.RelayFormatClaude {
 		//
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
-		if info.ShouldIncludeUsage {
+		if info.ShouldIncludeUsage && !claudeInfo.UsageFromChatCompletion {
 			openAIUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)
 			response := helper.GenerateFinalUsageResponse(claudeInfo.ResponseId, claudeInfo.Created, info.UpstreamModelName, openAIUsage)
 			err := helper.ObjectData(c, response)
@@ -843,15 +912,13 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	if claudeInfo.Usage == nil {
 		claudeInfo.Usage = &dto.Usage{}
 	}
+	if chatUsage := chatUsageFromModelResponse(data); chatUsage != nil {
+		rememberChatUsage(claudeInfo, chatUsage)
+		service.WriteResponseWithConvert(c, httpResp, data, info)
+		return nil
+	}
 	if claudeResponse.Usage != nil {
-		claudeInfo.Usage.PromptTokens = claudeResponse.Usage.InputTokens
-		claudeInfo.Usage.CompletionTokens = claudeResponse.Usage.OutputTokens
-		claudeInfo.Usage.TotalTokens = claudeResponse.Usage.InputTokens + claudeResponse.Usage.OutputTokens
-		claudeInfo.Usage.UsageSemantic = "anthropic"
-		claudeInfo.Usage.PromptTokensDetails.CachedTokens = claudeResponse.Usage.CacheReadInputTokens
-		claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens = claudeResponse.Usage.CacheCreationInputTokens
-		claudeInfo.Usage.ClaudeCacheCreation5mTokens = claudeResponse.Usage.GetCacheCreation5mTokens()
-		claudeInfo.Usage.ClaudeCacheCreation1hTokens = claudeResponse.Usage.GetCacheCreation1hTokens()
+		applyNativeClaudeUsage(claudeInfo.Usage, claudeResponse.Usage, claudeUsageJSON(data))
 	}
 	var responseData []byte
 	switch info.RelayFormat {
