@@ -264,6 +264,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	}
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+		captureOpenAIResponsesStreamUsage(usage, data)
 		if streamErr != nil {
 			return false
 		}
@@ -457,13 +458,9 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	})
 
 	if streamErr != nil {
-		// new-api #4199 只在没有输出时不计费。客户端断开（client_gone / context canceled）
-		// 但已经拿到输入和输出 token 时，仍按实际用量结算，不能把预扣退成 0。
-		if usage != nil {
-			usage.EnsureChatTokenFields()
-			if usage.CompletionTokens > 0 {
-				return usage, nil
-			}
+		// 保留已收到的上游用量，即使输出 token 为 0；结算层仍会按实际字段决定计费。
+		if service.ValidUsage(usage) {
+			return usage, nil
 		}
 		return nil, streamErr
 	}
@@ -488,8 +485,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	}
 	if info.RelayFormat == types.RelayFormatOpenAI && info.ShouldIncludeUsage && usage != nil {
 		if err := helper.ObjectData(c, helper.GenerateFinalUsageResponse(responseId, createAt, model, *usage)); err != nil {
-			usage.EnsureChatTokenFields()
-			if usage.CompletionTokens > 0 {
+			if service.ValidUsage(usage) {
 				return usage, nil
 			}
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)

@@ -88,6 +88,39 @@ func TestAttachUsageDictPreservesLongOriginalFields(t *testing.T) {
 	}
 }
 
+func TestAttachUsageDictKeepsOriginalAllZeroUsage(t *testing.T) {
+	var usage dto.Usage
+	raw := []byte(`{"input_tokens":0,"output_tokens":0,"total_tokens":0}`)
+	if err := common.Unmarshal(raw, &usage); err != nil {
+		t.Fatal(err)
+	}
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &usage)
+	stored, ok := other["usage"].(map[string]interface{})
+	if !ok {
+		t.Fatal("original all-zero usage should still be stored")
+	}
+	if stored["input_tokens"] != float64(0) || stored["output_tokens"] != float64(0) {
+		t.Fatalf("stored usage=%v, want original zero fields", stored)
+	}
+}
+
+func TestAttachUsageDictDoesNotStoreEmptyUsage(t *testing.T) {
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &dto.Usage{})
+	if _, exists := other["usage"]; exists {
+		t.Fatal("empty usage should not be stored")
+	}
+}
+
+func TestAttachUsageDictDoesNotStoreNormalizedUsageWithoutOriginalJSON(t *testing.T) {
+	other := map[string]interface{}{}
+	AttachUsageDict(other, &dto.Usage{PromptTokens: 4406, CompletionTokens: 1})
+	if _, exists := other["usage"]; exists {
+		t.Fatal("normalized usage without original JSON should not be stored as upstream usage")
+	}
+}
+
 func TestAttachUsageDictNilSafe(t *testing.T) {
 	AttachUsageDict(nil, &dto.Usage{PromptTokens: 1})
 	other := map[string]interface{}{}

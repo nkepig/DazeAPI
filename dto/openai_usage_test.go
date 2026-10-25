@@ -231,6 +231,65 @@ func TestResponsesPayloadWithNullsKeepsOriginalUsage(t *testing.T) {
 	}
 }
 
+func TestParseModelUsageFindsNestedResponseUsageWithoutEventType(t *testing.T) {
+	raw := []byte(`{"response":{"usage":{"input_tokens":4406,"output_tokens":0,"total_tokens":4406}}}`)
+	usage, kind := ParseModelUsage(raw)
+	if kind != "responses" || usage == nil {
+		t.Fatalf("kind=%q usage=%v, want responses usage", kind, usage)
+	}
+	if usage.PromptTokens != 4406 || usage.CompletionTokens != 0 {
+		t.Fatalf("tokens=%d/%d want 4406/0", usage.PromptTokens, usage.CompletionTokens)
+	}
+	if string(usage.OriginalUsageJSON) != `{"input_tokens":4406,"output_tokens":0,"total_tokens":4406}` {
+		t.Fatalf("OriginalUsageJSON=%s", usage.OriginalUsageJSON)
+	}
+}
+
+func TestParseModelUsageKeepsZeroOutputUsage(t *testing.T) {
+	raw := []byte(`{
+		"object": "chat.completion.chunk",
+		"choices": [],
+		"usage": {
+			"prompt_tokens": 4406,
+			"completion_tokens": 0,
+			"total_tokens": 4406
+		}
+	}`)
+	usage, kind := ParseModelUsage(raw)
+	if kind != "chat" || usage == nil {
+		t.Fatalf("kind=%q usage=%v, want chat usage", kind, usage)
+	}
+	if usage.PromptTokens != 4406 || usage.CompletionTokens != 0 {
+		t.Fatalf("tokens=%d/%d want 4406/0", usage.PromptTokens, usage.CompletionTokens)
+	}
+	if !bytes.Contains(usage.OriginalUsageJSON, []byte(`"completion_tokens": 0`)) {
+		t.Fatalf("original usage lost zero output token: %s", usage.OriginalUsageJSON)
+	}
+}
+
+func TestParseModelUsageKeepsOneOutputToken(t *testing.T) {
+	raw := []byte(`{
+		"type": "response.completed",
+		"response": {
+			"usage": {
+				"input_tokens": 4406,
+				"output_tokens": 1,
+				"total_tokens": 4407
+			}
+		}
+	}`)
+	usage, kind := ParseModelUsage(raw)
+	if kind != "responses" || usage == nil {
+		t.Fatalf("kind=%q usage=%v, want responses usage", kind, usage)
+	}
+	if usage.PromptTokens != 4406 || usage.CompletionTokens != 1 {
+		t.Fatalf("tokens=%d/%d want 4406/1", usage.PromptTokens, usage.CompletionTokens)
+	}
+	if !bytes.Contains(usage.OriginalUsageJSON, []byte(`"output_tokens": 1`)) {
+		t.Fatalf("original usage lost output token: %s", usage.OriginalUsageJSON)
+	}
+}
+
 func TestParseModelUsageChatCompletionPrefersPromptFields(t *testing.T) {
 	raw := []byte(`{
 		"id": "resp_ft",

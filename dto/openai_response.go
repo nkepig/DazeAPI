@@ -305,7 +305,16 @@ func ParseModelUsage(data []byte) (*Usage, string) {
 			}
 		}
 	}
-	if !jsonObject(usageRaw) {
+	if !looksLikeUsageRaw(usageRaw) {
+		if responseRaw := bytes.TrimSpace(envelope["response"]); len(responseRaw) > 0 && responseRaw[0] == '{' {
+			var response map[string]json.RawMessage
+			if err := json.Unmarshal(responseRaw, &response); err == nil && looksLikeUsageRaw(response["usage"]) {
+				usageRaw = response["usage"]
+				kind = "responses"
+			}
+		}
+	}
+	if !looksLikeUsageRaw(usageRaw) {
 		return nil, ""
 	}
 	var usage Usage
@@ -316,9 +325,6 @@ func ParseModelUsage(data []byte) (*Usage, string) {
 		usage.PrepareResponsesBilling()
 	} else {
 		usage.PrepareChatBilling()
-	}
-	if usage.PromptTokens == 0 && usage.CompletionTokens == 0 && usage.InputTokens == 0 && usage.OutputTokens == 0 {
-		return nil, ""
 	}
 	return &usage, kind
 }

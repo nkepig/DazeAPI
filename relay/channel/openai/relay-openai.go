@@ -124,6 +124,12 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+		if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "chat" {
+			// Capture usage as soon as the upstream sends it. Some providers put
+			// the usage-only chunk before the final finish chunk.
+			usage = parsed
+			containStreamUsage = true
+		}
 		if lastStreamData != "" {
 			err := HandleStreamFormat(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
 			if err != nil {

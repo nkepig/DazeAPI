@@ -7,6 +7,37 @@ import (
 	"github.com/QuantumNous/new-api/common"
 )
 
+func TestGetConsumeLogUsageRequestIDSelectsConsumeLog(t *testing.T) {
+	requestID := "usage-query-regression"
+	LOG_DB.Where("request_id = ?", requestID).Delete(&Log{})
+	defer LOG_DB.Where("request_id = ?", requestID).Delete(&Log{})
+
+	consumeLog := Log{
+		Type:      LogTypeConsume,
+		RequestId: requestID,
+		Other:     `{"usage":{"input_tokens":4406,"output_tokens":1,"total_tokens":4407}}`,
+	}
+	if err := LOG_DB.Create(&consumeLog).Error; err != nil {
+		t.Fatal(err)
+	}
+	newerErrorLog := Log{
+		Type:      LogTypeError,
+		RequestId: requestID,
+		Other:     `{"error":"upstream error"}`,
+	}
+	if err := LOG_DB.Create(&newerErrorLog).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	usage, err := GetConsumeLogUsage(ConsumeLogUsageQuery{RequestId: requestID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage["input_tokens"] != float64(4406) || usage["output_tokens"] != float64(1) {
+		t.Fatalf("usage=%v, want consume log usage", usage)
+	}
+}
+
 // formatUserLogs must strip channel_name (top-level and inside
 // admin_info.retry_attempts[]) so users reading their own logs cannot see
 // the channel name. admin_info, reject_reason, and model redirect fields

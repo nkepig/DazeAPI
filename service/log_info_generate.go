@@ -20,12 +20,20 @@ var usageGatewayOnlyKeys = map[string]struct{}{
 
 const usageValueMaxLen = 200
 
-// AttachUsageDict stores the upstream usage object as other["usage"].
-// Prefer the original JSON from the model response so extra keys, zeros, and
-// nulls are preserved. Fall back to a full struct marshal when usage was built in code.
+// AttachUsageDict stores only the original upstream usage object. A normalized
+// dto.Usage without OriginalUsageJSON is relay-generated data, not a faithful
+// copy of the model response, so it must not be presented as upstream usage.
 func AttachUsageDict(other map[string]interface{}, usage any) {
 	if other == nil || usage == nil {
 		return
+	}
+	if !hasOriginalUsageJSON(usage) {
+		if _, isUsageStruct := usage.(*dto.Usage); isUsageStruct {
+			return
+		}
+		if _, isUsageStruct := usage.(dto.Usage); isUsageStruct {
+			return
+		}
 	}
 	asMap := usageDictFromValue(usage)
 	if len(asMap) == 0 {
@@ -48,6 +56,17 @@ func usageOriginalJSON(usage any) []byte {
 		return typed.OriginalUsageJSON
 	}
 	return nil
+}
+
+func hasOriginalUsageJSON(usage any) bool {
+	switch typed := usage.(type) {
+	case *dto.Usage:
+		return typed != nil && len(typed.OriginalUsageJSON) > 0 && string(typed.OriginalUsageJSON) != "null"
+	case dto.Usage:
+		return len(typed.OriginalUsageJSON) > 0 && string(typed.OriginalUsageJSON) != "null"
+	default:
+		return false
+	}
 }
 
 // SanitizeUsageDict unwraps a full model response mistakenly stored as usage,
@@ -175,7 +194,7 @@ func usageDictFromUsage(usage *dto.Usage) map[string]interface{} {
 			return asMap
 		}
 	}
-	return marshalUsageMap(usage)
+	return nil
 }
 
 func marshalUsageMap(usage any) map[string]interface{} {

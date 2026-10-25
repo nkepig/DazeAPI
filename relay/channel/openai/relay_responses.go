@@ -24,6 +24,14 @@ func applyOpenAIResponsesUsage(dst *dto.Usage, src *dto.Usage) {
 	dst.PrepareResponsesBilling()
 }
 
+func captureOpenAIResponsesStreamUsage(dst *dto.Usage, data string) bool {
+	if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
+		applyOpenAIResponsesUsage(dst, parsed)
+		return true
+	}
+	return false
+}
+
 func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
 
@@ -86,6 +94,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	var usage = &dto.Usage{}
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+		captureOpenAIResponsesStreamUsage(usage, data)
 
 		// 检查当前数据是否包含 completed 状态和 usage 信息
 		var streamResponse dto.ResponsesStreamResponse

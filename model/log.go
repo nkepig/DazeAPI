@@ -165,7 +165,7 @@ func GetConsumeLogUsage(query ConsumeLogUsageQuery) (map[string]interface{}, err
 		return nil, gorm.ErrRecordNotFound
 	}
 	var log Log
-	tx := LOG_DB.Model(&Log{})
+	tx := LOG_DB.Model(&Log{}).Where("type = ?", LogTypeConsume)
 	if query.ID > 0 {
 		tx = tx.Where("id = ?", query.ID)
 	} else if query.RequestId != "" {

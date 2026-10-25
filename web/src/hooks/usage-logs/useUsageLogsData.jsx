@@ -480,7 +480,13 @@ export const useLogsData = () => {
       }
       setUsageDictTarget((prev) => ({
         ...(prev || target),
-        usage: data && typeof data === 'object' ? data : {},
+        usage:
+          data &&
+          typeof data === 'object' &&
+          !Array.isArray(data) &&
+          Object.keys(data).length > 0
+            ? data
+            : null,
         reconstructed: false,
       }));
     } catch (error) {
