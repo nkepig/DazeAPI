@@ -173,6 +173,7 @@ type RelayInfo struct {
 	RuntimeHeadersOverride                map[string]interface{}
 	UseRuntimeHeadersOverride             bool
 	ParamOverrideAudit                    []string
+	UpstreamRequestBody                   string
 
 	PriceData types.PriceData
 

@@ -87,7 +87,7 @@ function formatScalar(value) {
 function emptyRule() {
   return {
     id: nextRuleId(),
-    condOp: 'eq',
+    condOp: 'always',
     condPath: '',
     condValue: '',
     action: 'set',
@@ -149,7 +149,8 @@ function operationToRule(op) {
 
 function parseToRules(raw) {
   if (raw == null) return { rules: [], visual: true, text: '' };
-  const text = typeof raw === 'string' ? raw.trim() : JSON.stringify(raw, null, 2);
+  const text =
+    typeof raw === 'string' ? raw.trim() : JSON.stringify(raw, null, 2);
   if (!text || text === '{}') return { rules: [], visual: true, text: '' };
 
   const fail = (pretty) => ({
@@ -190,11 +191,20 @@ function parseToRules(raw) {
 
   if (Array.isArray(parsed)) {
     const rules = parsed.map(operationToRule);
-    if (rules.some((rule) => !rule)) return fail(JSON.stringify(parsed, null, 2));
-    return { rules, visual: true, text: JSON.stringify({ operations: parsed }, null, 2) };
+    if (rules.some((rule) => !rule))
+      return fail(JSON.stringify(parsed, null, 2));
+    return {
+      rules,
+      visual: true,
+      text: JSON.stringify({ operations: parsed }, null, 2),
+    };
   }
 
-  if (parsed && typeof parsed === 'object' && Array.isArray(parsed.operations)) {
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    Array.isArray(parsed.operations)
+  ) {
     const extraKeys = Object.keys(parsed).filter((key) => key !== 'operations');
     if (extraKeys.length > 0) return fail(JSON.stringify(parsed, null, 2));
     const rules = parsed.operations.map(operationToRule);
@@ -247,7 +257,12 @@ function ruleToOperation(rule) {
     if (!condPath) return null;
     const condition = {
       path: condPath,
-      mode: rule.condOp === 'neq' ? 'full' : rule.condOp === 'eq' ? 'full' : rule.condOp,
+      mode:
+        rule.condOp === 'neq'
+          ? 'full'
+          : rule.condOp === 'eq'
+            ? 'full'
+            : rule.condOp,
       value: parseScalar(rule.condValue),
     };
     if (rule.condOp === 'neq') condition.invert = true;
@@ -258,9 +273,7 @@ function ruleToOperation(rule) {
 }
 
 function rulesToJson(rules) {
-  const operations = (rules || [])
-    .map(ruleToOperation)
-    .filter(Boolean);
+  const operations = (rules || []).map(ruleToOperation).filter(Boolean);
   if (operations.length === 0) return '';
   return JSON.stringify({ operations }, null, 2);
 }
@@ -384,6 +397,11 @@ const ParamOverrideEditor = ({
     { value: 'delete', label: t('删除字段') },
   ];
 
+  const booleanOptions = [
+    { value: 'false', label: t('关闭（false）') },
+    { value: 'true', label: t('开启（true）') },
+  ];
+
   const renderActionFields = (rule) => {
     if (rule.action === 'delete') {
       return (
@@ -445,12 +463,21 @@ const ParamOverrideEditor = ({
           onChange={(v) => patchRule(rule.id, { targetPath: v })}
           style={{ flex: '1 1 140px' }}
         />
-        <Input
-          placeholder={t('新值，如 0.2')}
-          value={rule.setValue}
-          onChange={(v) => patchRule(rule.id, { setValue: v })}
-          style={{ flex: '1 1 140px' }}
-        />
+        {/^(body\.)?reasoning\.enabled$/i.test(rule.targetPath.trim()) ? (
+          <Select
+            value={rule.setValue === 'true' ? 'true' : 'false'}
+            optionList={booleanOptions}
+            onChange={(v) => patchRule(rule.id, { setValue: v })}
+            style={{ flex: '1 1 140px' }}
+          />
+        ) : (
+          <Input
+            placeholder={t('新值，如 0.2')}
+            value={rule.setValue}
+            onChange={(v) => patchRule(rule.id, { setValue: v })}
+            style={{ flex: '1 1 140px' }}
+          />
+        )}
       </>
     );
   };
@@ -458,13 +485,16 @@ const ParamOverrideEditor = ({
   return (
     <Form.Slot label={t('参数重定向')}>
       <div className='param-override-editor'>
-        <div className='flex items-center justify-end mb-2'>
+        <div className='param-override-toolbar'>
+          <span className='param-override-mode-label'>
+            {mode === 'visual' ? t('可视化规则') : t('非可视化 JSON')}
+          </span>
           <button
             type='button'
             className='param-override-mode'
             onClick={() => switchMode(mode === 'visual' ? 'json' : 'visual')}
           >
-            {mode === 'visual' ? t('JSON') : t('规则视图')}
+            {mode === 'visual' ? t('编辑 JSON') : t('返回可视化')}
           </button>
         </div>
 
@@ -478,7 +508,9 @@ const ParamOverrideEditor = ({
           <>
             {rules.length === 0 ? (
               <div className='param-rule-empty'>
-                {t('还没有规则。例如：如果 body.model 等于 gpt-4，则把 body.temperature 改为 0.2')}
+                {t(
+                  '还没有规则。例如：如果 body.model 等于 gpt-4，则把 body.temperature 改为 0.2',
+                )}
               </div>
             ) : (
               rules.map((rule, index) => (
@@ -499,7 +531,9 @@ const ParamOverrideEditor = ({
                           <Input
                             placeholder={t('请求字段，如 body.model')}
                             value={rule.condPath}
-                            onChange={(v) => patchRule(rule.id, { condPath: v })}
+                            onChange={(v) =>
+                              patchRule(rule.id, { condPath: v })
+                            }
                             style={{ flex: '1 1 140px' }}
                           />
                           <Select
@@ -508,12 +542,29 @@ const ParamOverrideEditor = ({
                             onChange={(v) => patchRule(rule.id, { condOp: v })}
                             style={{ width: 108 }}
                           />
-                          <Input
-                            placeholder={t('条件值，如 gpt-4')}
-                            value={rule.condValue}
-                            onChange={(v) => patchRule(rule.id, { condValue: v })}
-                            style={{ flex: '1 1 140px' }}
-                          />
+                          {/^((body\.)?reasoning\.enabled)$/i.test(
+                            rule.condPath.trim(),
+                          ) && ['eq', 'neq'].includes(rule.condOp) ? (
+                            <Select
+                              value={
+                                rule.condValue === 'false' ? 'false' : 'true'
+                              }
+                              optionList={booleanOptions}
+                              onChange={(v) =>
+                                patchRule(rule.id, { condValue: v })
+                              }
+                              style={{ flex: '1 1 140px' }}
+                            />
+                          ) : (
+                            <Input
+                              placeholder={t('条件值，如 gpt-4')}
+                              value={rule.condValue}
+                              onChange={(v) =>
+                                patchRule(rule.id, { condValue: v })
+                              }
+                              style={{ flex: '1 1 140px' }}
+                            />
+                          )}
                         </>
                       )}
                     </div>

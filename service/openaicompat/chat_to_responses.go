@@ -391,10 +391,21 @@ func ChatCompletionsRequestToResponsesRequest(req *dto.GeneralOpenAIRequest) (*d
 		out.MaxOutputTokens = lo.ToPtr(maxOutputTokens)
 	}
 
+	if len(req.Reasoning) > 0 {
+		var reasoning dto.Reasoning
+		if err := common.Unmarshal(req.Reasoning, &reasoning); err != nil {
+			return nil, fmt.Errorf("invalid reasoning options: %w", err)
+		}
+		out.Reasoning = &reasoning
+	}
+
 	if req.ReasoningEffort != "" {
-		out.Reasoning = &dto.Reasoning{
-			Effort:  req.ReasoningEffort,
-			Summary: "detailed",
+		if out.Reasoning == nil {
+			out.Reasoning = &dto.Reasoning{}
+		}
+		out.Reasoning.Effort = req.ReasoningEffort
+		if out.Reasoning.Summary == "" {
+			out.Reasoning.Summary = "detailed"
 		}
 	}
 

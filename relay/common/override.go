@@ -27,11 +27,12 @@ const (
 var errSourceHeaderNotFound = errors.New("source header does not exist")
 
 var paramOverrideKeyAuditPaths = map[string]struct{}{
-	"model":          {},
-	"original_model": {},
-	"upstream_model": {},
-	"service_tier":   {},
-	"inference_geo":  {},
+	"model":             {},
+	"original_model":    {},
+	"upstream_model":    {},
+	"service_tier":      {},
+	"inference_geo":     {},
+	"reasoning.enabled": {},
 }
 
 type paramOverrideAuditRecorder struct {

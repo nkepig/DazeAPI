@@ -1,0 +1,29 @@
+{
+  "id": "b646d4dbd",
+  "name": "Frontend build",
+  "command": "cd web && bun run build",
+  "description": "Verify user switch UI build after replacing the unbound Form.Switch with controlled Switch",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a17cb6-7186-7220-ad4c-a3e92b6d531d-54285/b646d4dbd.output",
+  "cwd": "/Users/nkpig/work/DazeAPI",
+  "startTime": 1793158690483,
+  "endTime": 1793158704507,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 81671,
+  "bytesWritten": 13137,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1200,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

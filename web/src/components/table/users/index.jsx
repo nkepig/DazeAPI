@@ -71,6 +71,7 @@ const UsersPage = () => {
 
       <EditUserModal
         refresh={refresh}
+        updateUserInList={usersData.updateUserInList}
         visible={showEditUser}
         handleClose={closeEditUser}
         editingUser={editingUser}

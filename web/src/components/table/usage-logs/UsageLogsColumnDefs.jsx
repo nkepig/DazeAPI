@@ -29,6 +29,7 @@ import {
 } from '@douyinfe/semi-ui';
 import {
   renderQuota,
+  formatCompactTokens,
   stringToColor,
   getLogOther,
   renderModelTag,
@@ -253,7 +254,7 @@ function toTokenNumber(value) {
 }
 
 function formatTokenCount(value) {
-  return toTokenNumber(value).toLocaleString();
+  return formatCompactTokens(value);
 }
 
 function getPromptCacheSummary(other) {
@@ -760,7 +761,7 @@ export const getLogsColumns = ({
               lineHeight: 1.2,
             }}
           >
-            <span>{text}</span>
+            <span>{formatTokenCount(text)}</span>
             {cacheText ? (
               <span
                 style={{
@@ -789,7 +790,7 @@ export const getLogsColumns = ({
             record.type === 2 ||
             record.type === 5 ||
             record.type === 6) ? (
-          <>{<span> {text} </span>}</>
+          <>{<span> {formatTokenCount(text)} </span>}</>
         ) : (
           <></>
         );

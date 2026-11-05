@@ -65,6 +65,9 @@ const renderRole = (role, t) => {
 };
 
 const isUserRequestRecordEnabled = (record) => {
+  if (typeof record?.request_record_enabled === 'boolean') {
+    return record.request_record_enabled;
+  }
   if (!record?.setting) return false;
   try {
     const parsed =
@@ -84,12 +87,17 @@ const renderUsername = (text, record, t) => {
   const isUserDisabled = record.status === 2 && record.DeletedAt == null;
   const nameClass = isUserDisabled ? 'text-red-600 font-semibold' : '';
   const remark = record.remark;
-  const isTestUser = !record.group_ratio || record.group_ratio === '{}' || record.group_ratio === '""';
+  const isTestUser =
+    !record.group_ratio ||
+    record.group_ratio === '{}' ||
+    record.group_ratio === '""';
   const requestRecordEnabled = isUserRequestRecordEnabled(record);
   const extras = (
     <>
       {isTestUser && (
-        <Tag color='orange' size='small' shape='circle'>test</Tag>
+        <Tag color='orange' size='small' shape='circle'>
+          test
+        </Tag>
       )}
       {requestRecordEnabled && (
         <StatusPill variant='warning'>{t('正在记录')}</StatusPill>
@@ -318,8 +326,8 @@ export const getUsersColumns = ({
       dataIndex: 'operate',
       fixed: 'right',
       width: 200,
-       render: (text, record, index) =>
-         renderOperations(text, record, {
+      render: (text, record, index) =>
+        renderOperations(text, record, {
           setEditingUser,
           setShowEditUser,
           showPromoteModal,

@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Skeleton } from '@douyinfe/semi-ui';
-import { renderQuota } from '../../../helpers';
+import { renderQuota, formatCompactTokens } from '../../../helpers';
 import { useMinimumLoadingTime } from '../../../hooks/common/useMinimumLoadingTime';
 
 const StatItem = ({ label, value }) => (
@@ -43,6 +43,7 @@ const LogsActions = ({
       <Skeleton.Title style={{ width: 100, height: 16, borderRadius: 4 }} />
       <Skeleton.Title style={{ width: 60, height: 16, borderRadius: 4 }} />
       <Skeleton.Title style={{ width: 60, height: 16, borderRadius: 4 }} />
+      <Skeleton.Title style={{ width: 60, height: 16, borderRadius: 4 }} />
     </div>
   );
 
@@ -52,9 +53,11 @@ const LogsActions = ({
         <div className='flex items-center gap-6 flex-wrap'>
           <StatItem label={t('消耗额度')} value={renderQuota(stat.quota)} />
           <div className='w-px h-3 bg-[#e8e8e8]' />
+          <StatItem label={t('消耗 Token')} value={formatCompactTokens(stat.tokens)} />
+          <div className='w-px h-3 bg-[#e8e8e8]' />
           <StatItem label='RPM' value={stat.rpm} />
           <div className='w-px h-3 bg-[#e8e8e8]' />
-          <StatItem label='TPM' value={stat.tpm} />
+          <StatItem label='TPM' value={formatCompactTokens(stat.tpm)} />
         </div>
       </Skeleton>
     </div>

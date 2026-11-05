@@ -634,6 +634,18 @@ export function renderNumber(num) {
   }
 }
 
+export function formatCompactTokens(value) {
+  const number = Number(value) || 0;
+  const abs = Math.abs(number);
+  const compact = (divisor, suffix) => {
+    const text = (number / divisor).toFixed(2).replace(/\.?0+$/, '');
+    return `${text}${suffix}`;
+  };
+  if (abs >= 1e9) return compact(1e9, 'B');
+  if (abs >= 1e6) return compact(1e6, 'M');
+  return number.toLocaleString();
+}
+
 export function renderQuotaNumberWithDigit(num, digits = 2) {
   if (typeof num !== 'number' || isNaN(num)) {
     return 0;
@@ -977,7 +989,7 @@ export function renderModelPrice(
 
   if (perCallPrice !== undefined && perCallPrice > 0) {
     const perCallAmount = perCallPrice * groupRatio;
-    const imageOutputAmount = (completionImageTokens / 1_000_000) * imageOutputPrice * groupRatio;
+    const imageOutputAmount = (completionImageTokens / 1000000) * imageOutputPrice * groupRatio;
     const toolSurcharge = collectToolSurchargeTerms(pricingData, groupRatio, symbol, rate);
     const total = perCallAmount + imageOutputAmount + toolSurcharge.amount;
     const perCallLines = [
@@ -1018,20 +1030,20 @@ export function renderModelPrice(
     textOutputTokens,
   );
   const candidateOutputTokens = Math.max(textOutputTokens - reasoningTokens, 0);
-  const imageOutputAmount = (completionImageTokens / 1_000_000) * imageOutputPrice * groupRatio;
+  const imageOutputAmount = (completionImageTokens / 1000000) * imageOutputPrice * groupRatio;
   const toolSurcharge = collectToolSurchargeTerms(pricingData, groupRatio, symbol, rate);
 
   const inputAmount =
-    (normalInputTokens / 1_000_000) * promptPrice * groupRatio +
-    (cacheInputTokens / 1_000_000) * cacheReadPrice * groupRatio +
-    (cacheWriteBaseTokens / 1_000_000) * cacheWritePrice * groupRatio +
-    (cacheWrite5mTokens / 1_000_000) * cacheWrite5mPrice * groupRatio +
-    (cacheWrite1hTokens / 1_000_000) * cacheWrite1hPrice * groupRatio +
-    (imageInputTokens / 1_000_000) * imageInputPrice * groupRatio +
-    (audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio;
+    (normalInputTokens / 1000000) * promptPrice * groupRatio +
+    (cacheInputTokens / 1000000) * cacheReadPrice * groupRatio +
+    (cacheWriteBaseTokens / 1000000) * cacheWritePrice * groupRatio +
+    (cacheWrite5mTokens / 1000000) * cacheWrite5mPrice * groupRatio +
+    (cacheWrite1hTokens / 1000000) * cacheWrite1hPrice * groupRatio +
+    (imageInputTokens / 1000000) * imageInputPrice * groupRatio +
+    (audioPromptTokens / 1000000) * (audioInputPrice || promptPrice) * groupRatio;
 
-  const candidateOutputAmount = (candidateOutputTokens / 1_000_000) * completionPrice * groupRatio;
-  const reasoningAmount = (reasoningTokens / 1_000_000) * completionPrice * groupRatio;
+  const candidateOutputAmount = (candidateOutputTokens / 1000000) * completionPrice * groupRatio;
+  const reasoningAmount = (reasoningTokens / 1000000) * completionPrice * groupRatio;
   const outputAmount =
     candidateOutputAmount +
     (webSearchCallCount / 1000) * webSearchPrice * groupRatio +
@@ -1062,13 +1074,13 @@ export function renderModelPrice(
   if (imageGenerationCall && imageGenerationCallPrice > 0) outputTerms.push('图片生成1 × ' + symbol + formatBillingDisplayPrice(imageGenerationCallPrice, rate, 8));
 
   const lines = [];
-  if (inputTerms.length > 0) lines.push(inputLabel + ': ' + inputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((normalInputTokens / 1_000_000) * promptPrice * groupRatio));
-  if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1_000_000) * cacheReadPrice * groupRatio));
-  if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1_000_000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1_000_000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1_000_000) * cacheWrite1hPrice * groupRatio));
-  if (imageInputTerms.length > 0) lines.push(imageLabel + ': ' + imageInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((imageInputTokens / 1_000_000) * imageInputPrice * groupRatio));
+  if (inputTerms.length > 0) lines.push(inputLabel + ': ' + inputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((normalInputTokens / 1000000) * promptPrice * groupRatio));
+  if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1000000) * cacheReadPrice * groupRatio));
+  if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1000000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1000000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1000000) * cacheWrite1hPrice * groupRatio));
+  if (imageInputTerms.length > 0) lines.push(imageLabel + ': ' + imageInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((imageInputTokens / 1000000) * imageInputPrice * groupRatio));
   if (completionImageTokens > 0 && imageOutputPrice > 0) lines.push('图片输出: ' + completionImageTokens + ' × ' + symbol + formatBillingDisplayPrice(imageOutputPrice, rate, 8) + '/m × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(imageOutputAmount));
   if (toolSurcharge.terms.length > 0) lines.push('工具  : ' + toolSurcharge.terms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(toolSurcharge.amount));
-  if (audioInputTerms.length > 0) lines.push('音频输入: ' + audioInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1_000_000) * (audioInputPrice || promptPrice) * groupRatio));
+  if (audioInputTerms.length > 0) lines.push('音频输入: ' + audioInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((audioPromptTokens / 1000000) * (audioInputPrice || promptPrice) * groupRatio));
   if (outputTerms.length > 0) lines.push('输出  : ' + outputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(outputAmount));
   if (reasoningTokens > 0 && completionPrice > 0) lines.push('思考  : ' + reasoningTokens + ' × ' + symbol + formatBillingDisplayPrice(completionPrice, rate, 8) + '/m × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(reasoningAmount));
   lines.push('结果  : ' + renderDisplayAmountFromUsd(totalAmount));

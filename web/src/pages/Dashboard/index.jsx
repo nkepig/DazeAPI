@@ -25,7 +25,7 @@ import { Zap, Activity, Wallet, Building2, Copy, Check, X, Terminal } from 'luci
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { API, isAdmin, isRoot, renderQuota, goToRecharge, getTodayStartTimestamp, copy, showSuccess, setUserData } from '../../helpers';
+import { API, isAdmin, isRoot, renderQuota, formatCompactTokens, goToRecharge, getTodayStartTimestamp, copy, showSuccess, setUserData } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import ChannelSuccessRatePanel from '../../components/dashboard/GroupSuccessRatePanel';
@@ -56,18 +56,6 @@ function CountUp({ end, duration = 480, prefix = '', suffix = '', formatter }) {
   }, [end, duration]);
   if (formatter) return <>{formatter(val)}</>;
   return <>{prefix}{val.toLocaleString()}{suffix}</>;
-}
-
-function formatCompactTokens(n) {
-  const value = Number(n) || 0;
-  const abs = Math.abs(value);
-  const compact = (divisor, suffix) => {
-    const text = (value / divisor).toFixed(2).replace(/\.?0+$/, '');
-    return `${text}${suffix}`;
-  };
-  if (abs >= 1e9) return compact(1e9, 'B');
-  if (abs >= 1e6) return compact(1e6, 'M');
-  return value.toLocaleString();
 }
 
 function getGreeting() {

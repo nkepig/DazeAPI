@@ -226,11 +226,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		defer bodyStorage.Close()
 		c.Request.Body = io.NopCloser(bodyStorage)
-		var requestBodyBytes []byte
 		var recorder *service.RecordingResponseWriter
+		relayInfo.UpstreamRequestBody = ""
 		if relayInfo.UserSetting.RequestRecordEnabled {
 			common.SysLog(fmt.Sprintf("user request record enabled: user_id=%d channel_id=%d request_id=%s", relayInfo.UserId, channel.Id, relayInfo.RequestId))
-			requestBodyBytes, _ = bodyStorage.Bytes()
 			recorder = &service.RecordingResponseWriter{ResponseWriter: c.Writer}
 			c.Writer = recorder
 		}
@@ -248,7 +247,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		if recorder != nil {
 			c.Writer = recorder.ResponseWriter
-			recordChannelRequest(c, relayInfo, channel, requestBodyBytes, recorder.Body.Bytes(), newAPIError)
+			recordChannelRequest(c, relayInfo, channel, recorder.Body.Bytes(), newAPIError)
 		}
 
 		if newAPIError == nil {
@@ -272,7 +271,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 }
 
-func recordChannelRequest(c *gin.Context, info *relaycommon.RelayInfo, channel *model.Channel, requestBody []byte, responseBody []byte, relayErr *types.NewAPIError) {
+func recordChannelRequest(c *gin.Context, info *relaycommon.RelayInfo, channel *model.Channel, responseBody []byte, relayErr *types.NewAPIError) {
 	if c == nil || info == nil || channel == nil {
 		return
 	}
@@ -302,7 +301,7 @@ func recordChannelRequest(c *gin.Context, info *relaycommon.RelayInfo, channel *
 		IsStream:     info.IsStream,
 		RetryIndex:   info.RetryIndex,
 		Error:        errorMessage,
-		RequestBody:  string(requestBody),
+		RequestBody:  info.UpstreamRequestBody,
 		ResponseBody: string(responseBody),
 	})
 }

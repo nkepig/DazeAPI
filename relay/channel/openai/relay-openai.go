@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net/http"
@@ -480,6 +481,33 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 
 func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
+
+	if strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+		c.Header("Cache-Control", "no-cache")
+		helper.SetEventStreamHeaders(c)
+		c.Status(resp.StatusCode)
+
+		reader := bufio.NewReader(resp.Body)
+		for {
+			line, readErr := reader.ReadString('\n')
+			if len(line) > 0 {
+				if _, err := io.WriteString(c.Writer, line); err != nil {
+					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
+				}
+				if line == "\n" || line == "\r\n" {
+					c.Writer.Flush()
+				}
+			}
+			if readErr != nil {
+				if readErr == io.EOF {
+					break
+				}
+				return nil, types.NewOpenAIError(readErr, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
+			}
+		}
+		c.Writer.Flush()
+		return &dto.Usage{}, nil
+	}
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {

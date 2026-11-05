@@ -39,6 +39,7 @@ import {
   Form,
   InputNumber,
   Select,
+  Switch,
 } from '@douyinfe/semi-ui';
 import { ChevronDown } from 'lucide-react';
 import { ModalTitle } from '../../../common/ui/FormSection';
@@ -98,7 +99,10 @@ const EditUserModal = (props) => {
       const overrides = {};
       if (data.group_ratio) {
         try {
-          const parsed = typeof data.group_ratio === 'string' ? JSON.parse(data.group_ratio) : data.group_ratio;
+          const parsed =
+            typeof data.group_ratio === 'string'
+              ? JSON.parse(data.group_ratio)
+              : data.group_ratio;
           let idCounter = 0;
           for (const [g, v] of Object.entries(parsed)) {
             const ratio = typeof v === 'number' ? Number(v.toFixed(2)) : 1;
@@ -127,7 +131,11 @@ const EditUserModal = (props) => {
                 return {};
               }
             })();
-      setRequestRecordEnabled(setting.request_record_enabled === true);
+      setRequestRecordEnabled(
+        typeof data.request_record_enabled === 'boolean'
+          ? data.request_record_enabled
+          : setting.request_record_enabled === true,
+      );
       formApiRef.current?.setValues({ ...getInitValues(), ...data });
     } else {
       showError(message);
@@ -136,8 +144,9 @@ const EditUserModal = (props) => {
   };
 
   useEffect(() => {
+    if (!props.visible) return;
     loadUser();
-  }, [props.editingUser.id]);
+  }, [props.editingUser.id, props.visible]);
 
   const submit = async (values) => {
     setLoading(true);
@@ -153,7 +162,9 @@ const EditUserModal = (props) => {
         const fullGroupRatio = {};
         groupList.forEach((item) => {
           if (item.name && item.name.trim() !== '') {
-            fullGroupRatio[item.name.trim()] = Number((item.ratio ?? 1).toFixed(2));
+            fullGroupRatio[item.name.trim()] = Number(
+              (item.ratio ?? 1).toFixed(2),
+            );
           }
         });
         payload.group_ratio = JSON.stringify(fullGroupRatio);
@@ -176,6 +187,38 @@ const EditUserModal = (props) => {
         } catch {
           /* ignore */
         }
+      }
+      if (userId) {
+        const existingSetting =
+          typeof props.editingUser.setting === 'string'
+            ? (() => {
+                try {
+                  return JSON.parse(props.editingUser.setting);
+                } catch {
+                  return {};
+                }
+              })()
+            : props.editingUser.setting || {};
+        const updatedSetting = { ...existingSetting };
+        if (isAdmin()) {
+          updatedSetting.request_record_enabled = requestRecordEnabled;
+        }
+        const localUpdate = {
+          id: Number(userId),
+          username: payload.username,
+          display_name: payload.display_name,
+          remark: payload.remark,
+          setting: JSON.stringify(updatedSetting),
+          request_record_enabled: requestRecordEnabled,
+        };
+        if (isAdmin()) {
+          localUpdate.group_ratio = payload.group_ratio;
+        }
+        if (payload.quota_delta) {
+          localUpdate.quota =
+            Number(props.editingUser.quota || 0) + payload.quota_delta;
+        }
+        props.updateUserInList?.(localUpdate);
       }
       if (typeof props.refresh === 'function') {
         await props.refresh();
@@ -234,156 +277,173 @@ const EditUserModal = (props) => {
             getFormApi={(api) => (formApiRef.current = api)}
             onSubmit={submit}
           >
-              <>
-                <Form.Input
-                  field='username'
-                  label={t('用户名')}
-                  placeholder={t('登录名')}
-                  rules={[{ required: true, message: t('请输入用户名') }]}
-                  showClear
-                />
-                <Form.Input
-                  field='password'
-                  label={t('密码')}
-                  placeholder={t('留空则不修改')}
-                  mode='password'
-                  showClear
-                />
-                <Form.Input
-                  field='display_name'
-                  label={t('显示名称')}
-                  placeholder={t('可选')}
-                  showClear
-                />
-                <Form.Input
-                  field='remark'
-                  label={t('备注')}
-                  placeholder={t('仅管理员可见')}
-                  showClear
-                />
+            <>
+              <Form.Input
+                field='username'
+                label={t('用户名')}
+                placeholder={t('登录名')}
+                rules={[{ required: true, message: t('请输入用户名') }]}
+                showClear
+              />
+              <Form.Input
+                field='password'
+                label={t('密码')}
+                placeholder={t('留空则不修改')}
+                mode='password'
+                showClear
+              />
+              <Form.Input
+                field='display_name'
+                label={t('显示名称')}
+                placeholder={t('可选')}
+                showClear
+              />
+              <Form.Input
+                field='remark'
+                label={t('备注')}
+                placeholder={t('仅管理员可见')}
+                showClear
+              />
 
-                {userId && (
-                  <div className='semi-form-field' style={{ width: '100%' }}>
-                    <label className='text-[14px] text-[var(--semi-color-text-0)] mb-2 block'>
-                      {t('余额')}
-                    </label>
-                    <div className='flex items-center gap-2'>
-                      <div className='quota-display'>
-                        <span className='quota-display-symbol'>
-                          {getCurrencyConfig().symbol}
-                        </span>
-                        <span className='quota-display-value'>
-                          {Number(quotaDisplay || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <Button size='small' onClick={() => setIsModalOpen(true)}>
-                        {t('调整')}
-                      </Button>
+              {userId && (
+                <div className='semi-form-field' style={{ width: '100%' }}>
+                  <label className='text-[14px] text-[var(--semi-color-text-0)] mb-2 block'>
+                    {t('余额')}
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <div className='quota-display'>
+                      <span className='quota-display-symbol'>
+                        {getCurrencyConfig().symbol}
+                      </span>
+                      <span className='quota-display-value'>
+                        {Number(quotaDisplay || 0).toFixed(2)}
+                      </span>
                     </div>
+                    <Button size='small' onClick={() => setIsModalOpen(true)}>
+                      {t('调整')}
+                    </Button>
                   </div>
-                )}
+                </div>
+              )}
 
-                {userId && isAdmin() && (
-                  <>
-                    <div className='compact-switch-row'>
-                      <div>
-                        <div className='text-[13px] text-[#1A1A1A]'>{t('记录请求输出')}</div>
-                        <p className='compact-hint' style={{ margin: '4px 0 0' }}>
-                          {t('把完整请求/响应写入磁盘排障，会持续占用存储，默认关闭')}
-                        </p>
+              {userId && isAdmin() && (
+                <>
+                  <div className='compact-switch-row'>
+                    <div>
+                      <div className='text-[13px] text-[#1A1A1A]'>
+                        {t('记录请求输出')}
                       </div>
-                      <Form.Switch
-                        noLabel
-                        checked={requestRecordEnabled}
-                        style={{ marginBottom: 0 }}
-                        onChange={(value) => setRequestRecordEnabled(value)}
-                      />
+                      <p className='compact-hint' style={{ margin: '4px 0 0' }}>
+                        {t(
+                          '把完整请求/响应写入磁盘排障，会持续占用存储，默认关闭',
+                        )}
+                      </p>
                     </div>
-                    <button
-                      type='button'
-                      className='compact-advanced-toggle'
-                      onClick={() => setAdvancedOpen((v) => !v)}
-                    >
-                      <span>{t('高级 · 分组倍率')}</span>
-                      <ChevronDown
-                        size={14}
-                        style={{
-                          transform: advancedOpen ? 'rotate(180deg)' : 'none',
-                          transition: 'transform 0.15s',
+                    <Switch
+                      checked={requestRecordEnabled}
+                      style={{ marginBottom: 0 }}
+                      onChange={(value) => setRequestRecordEnabled(value)}
+                    />
+                  </div>
+                  <button
+                    type='button'
+                    className='compact-advanced-toggle'
+                    onClick={() => setAdvancedOpen((v) => !v)}
+                  >
+                    <span>{t('高级 · 分组倍率')}</span>
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        transform: advancedOpen ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.15s',
+                      }}
+                    />
+                  </button>
+                  {advancedOpen && (
+                    <>
+                      <Select
+                        placeholder={t('添加分组')}
+                        value=''
+                        filter
+                        getPopupContainer={() => document.body}
+                        onChange={(value) => {
+                          if (value && !groupOverrides[value]) {
+                            setGroupList((prev) => [
+                              ...prev,
+                              {
+                                id: `channel-${value}`,
+                                name: value,
+                                ratio: 1.0,
+                                isNew: false,
+                              },
+                            ]);
+                            setGroupOverrides((prev) => ({
+                              ...prev,
+                              [value]: 1.0,
+                            }));
+                          }
                         }}
+                        optionList={availableGroups
+                          .filter((g) => !groupOverrides[g])
+                          .map((g) => ({ label: g, value: g }))}
+                        style={{ width: '100%', marginBottom: 8 }}
                       />
-                    </button>
-                    {advancedOpen && (
-                      <>
-                        <Select
-                          placeholder={t('添加分组')}
-                          value=''
-                          filter
-                          getPopupContainer={() => document.body}
-                          onChange={(value) => {
-                            if (value && !groupOverrides[value]) {
-                              setGroupList((prev) => [
-                                ...prev,
-                                { id: `channel-${value}`, name: value, ratio: 1.0, isNew: false },
-                              ]);
-                              setGroupOverrides((prev) => ({ ...prev, [value]: 1.0 }));
-                            }
-                          }}
-                          optionList={availableGroups
-                            .filter((g) => !groupOverrides[g])
-                            .map((g) => ({ label: g, value: g }))}
-                          style={{ width: '100%', marginBottom: 8 }}
-                        />
-                        {groupList.map((item, index) => (
-                          <div
-                            key={item.id || item.name}
-                            className='flex items-center gap-3 py-2'
-                          >
-                            <span className='text-[13px] font-medium min-w-[88px]'>
-                              {item.name}
-                            </span>
-                            <InputNumber
-                              min={0.01}
-                              max={1000}
-                              step={0.01}
-                              precision={2}
-                              value={item.ratio ?? 1}
-                              onChange={(v) => {
-                                const ratio = v == null ? 1 : Number(v.toFixed(2));
-                                setGroupList((prev) => {
-                                  const next = [...prev];
-                                  next[index] = { ...next[index], ratio };
+                      {groupList.map((item, index) => (
+                        <div
+                          key={item.id || item.name}
+                          className='flex items-center gap-3 py-2'
+                        >
+                          <span className='text-[13px] font-medium min-w-[88px]'>
+                            {item.name}
+                          </span>
+                          <InputNumber
+                            min={0.01}
+                            max={1000}
+                            step={0.01}
+                            precision={2}
+                            value={item.ratio ?? 1}
+                            onChange={(v) => {
+                              const ratio =
+                                v == null ? 1 : Number(v.toFixed(2));
+                              setGroupList((prev) => {
+                                const next = [...prev];
+                                next[index] = { ...next[index], ratio };
+                                return next;
+                              });
+                              if (item.name) {
+                                setGroupOverrides((prev) => ({
+                                  ...prev,
+                                  [item.name]: ratio,
+                                }));
+                              }
+                            }}
+                            style={{ width: 120 }}
+                          />
+                          <button
+                            type='button'
+                            className='text-[12px] text-[#999] bg-transparent border-0 cursor-pointer hover:text-[#1A1A1A] ml-auto'
+                            onClick={() => {
+                              setGroupList((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              if (item.name) {
+                                setGroupOverrides((prev) => {
+                                  const next = { ...prev };
+                                  delete next[item.name];
                                   return next;
                                 });
-                                if (item.name) {
-                                  setGroupOverrides((prev) => ({ ...prev, [item.name]: ratio }));
-                                }
-                              }}
-                              style={{ width: 120 }}
-                            />
-                            <button
-                              type='button'
-                              className='text-[12px] text-[#999] bg-transparent border-0 cursor-pointer hover:text-[#1A1A1A] ml-auto'
-                              onClick={() => {
-                                setGroupList((prev) => prev.filter((_, i) => i !== index));
-                                if (item.name) {
-                                  setGroupOverrides((prev) => {
-                                    const next = { ...prev };
-                                    delete next[item.name];
-                                    return next;
-                                  });
-                                }
-                              }}
-                            >
-                              {t('删除')}
-                            </button>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </>
-                )}
-              </>
+                              }
+                            }}
+                          >
+                            {t('删除')}
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </>
           </Form>
         </Spin>
       </Modal>
@@ -407,11 +467,15 @@ const EditUserModal = (props) => {
           const addVal = parseFloat(addAmountLocal) || 0;
           return (
             <p className='text-[13px] text-[#666] mb-3'>
-              {t('新额度：')}{getCurrencyConfig().symbol}{(Number(quotaDisplay) + addVal).toFixed(2)}
+              {t('新额度：')}
+              {getCurrencyConfig().symbol}
+              {(Number(quotaDisplay) + addVal).toFixed(2)}
             </p>
           );
         })()}
-        <p className='compact-hint'>{t('正数增加，负数减少。提交时按最新余额增减，不会覆盖期间消耗。')}</p>
+        <p className='compact-hint'>
+          {t('正数增加，负数减少。提交时按最新余额增减，不会覆盖期间消耗。')}
+        </p>
         <InputNumber
           min={-999999999}
           prefix={getCurrencyConfig().symbol}

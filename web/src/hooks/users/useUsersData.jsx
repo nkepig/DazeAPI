@@ -58,16 +58,16 @@ export const useUsersData = () => {
 
   // Set user format with key field
   const setUserFormat = (users) => {
-    for (let i = 0; i < users.length; i++) {
-      users[i].key = users[i].id;
-    }
-    setUsers(users);
+    setUsers(users.map((user) => ({ ...user, key: user.id })));
   };
 
   // Load users data
   const loadUsers = async (startIdx, pageSize) => {
     setLoading(true);
-    const res = await API.get(`/api/user/?p=${startIdx}&page_size=${pageSize}`);
+    const res = await API.get(
+      `/api/user/?p=${startIdx}&page_size=${pageSize}`,
+      { disableDuplicate: true },
+    );
     const { success, message, data } = res.data;
     if (success) {
       const newPageData = data.items;
@@ -81,11 +81,7 @@ export const useUsersData = () => {
   };
 
   // Search users with keyword
-  const searchUsers = async (
-    startIdx,
-    pageSize,
-    searchKeyword = null,
-  ) => {
+  const searchUsers = async (startIdx, pageSize, searchKeyword = null) => {
     // If no parameters passed, get values from form
     if (searchKeyword === null) {
       const formValues = getFormValues();
@@ -100,6 +96,7 @@ export const useUsersData = () => {
     setSearching(true);
     const res = await API.get(
       `/api/user/search?keyword=${searchKeyword}&p=${startIdx}&page_size=${pageSize}`,
+      { disableDuplicate: true },
     );
     const { success, message, data } = res.data;
     if (success) {
@@ -212,6 +209,18 @@ export const useUsersData = () => {
     }
   };
 
+  // Apply a successful edit immediately while the authoritative refresh is in flight.
+  const updateUserInList = (updatedUser) => {
+    if (!updatedUser?.id) return;
+    setUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.id === updatedUser.id
+          ? { ...user, ...updatedUser, key: user.key || user.id }
+          : user,
+      ),
+    );
+  };
+
   // Modal control functions
   const closeAddUser = () => {
     setShowAddUser(false);
@@ -267,6 +276,7 @@ export const useUsersData = () => {
     handlePageSizeChange,
     handleRow,
     refresh,
+    updateUserInList,
     closeAddUser,
     closeEditUser,
     getFormValues,

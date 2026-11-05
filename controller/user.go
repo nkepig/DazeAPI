@@ -179,14 +179,14 @@ func Register(c *gin.Context) {
 		}
 		// 生成默认令牌
 		token := model.Token{
-			UserId:             insertedUser.Id, // 使用插入后的用户ID
-			Name:               cleanUser.Username + "的初始令牌",
-			Key:                key,
-			CreatedTime:        common.GetTimestamp(),
-			AccessedTime:       common.GetTimestamp(),
+			UserId:       insertedUser.Id, // 使用插入后的用户ID
+			Name:         cleanUser.Username + "的初始令牌",
+			Key:          key,
+			CreatedTime:  common.GetTimestamp(),
+			AccessedTime: common.GetTimestamp(),
 
-			RemainQuota:        500000, // 示例额度
-			UnlimitedQuota:     true,
+			RemainQuota:    500000, // 示例额度
+			UnlimitedQuota: true,
 		}
 		if setting.DefaultUseAutoGroup {
 			token.Group = "auto"
@@ -212,6 +212,9 @@ func GetAllUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	for _, user := range users {
+		user.RequestRecordEnabled = user.GetSetting().RequestRecordEnabled
+	}
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)
@@ -229,6 +232,9 @@ func SearchUsers(c *gin.Context) {
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	for _, user := range users {
+		user.RequestRecordEnabled = user.GetSetting().RequestRecordEnabled
 	}
 
 	pageInfo.SetTotal(int(total))
@@ -353,30 +359,31 @@ func GetSelf(c *gin.Context) {
 func buildUserResponseData(user *model.User, includeRemark bool) gin.H {
 	setting := user.GetSetting()
 	responseData := gin.H{
-		"id":                user.Id,
-		"username":          user.Username,
-		"display_name":      user.DisplayName,
-		"role":              user.Role,
-		"status":            user.Status,
-		"email":             user.Email,
-		"github_id":         user.GitHubId,
-		"discord_id":        user.DiscordId,
-		"oidc_id":           user.OidcId,
-		"wechat_id":         user.WeChatId,
-		"telegram_id":       user.TelegramId,
-		"group":             user.Group,
-		"group_ratio":       user.GroupRatio,
-		"quota":             user.Quota,
-		"used_quota":        user.UsedQuota,
-		"request_count":     user.RequestCount,
-		"aff_code":          user.AffCode,
-		"aff_count":         user.AffCount,
-		"aff_quota":         user.AffQuota,
-		"aff_history_quota": user.AffHistoryQuota,
-		"inviter_id":        user.InviterId,
-		"linux_do_id":       user.LinuxDOId,
-		"setting":           setting,
-		"stripe_customer":   user.StripeCustomer,
+		"id":                     user.Id,
+		"username":               user.Username,
+		"display_name":           user.DisplayName,
+		"role":                   user.Role,
+		"status":                 user.Status,
+		"email":                  user.Email,
+		"github_id":              user.GitHubId,
+		"discord_id":             user.DiscordId,
+		"oidc_id":                user.OidcId,
+		"wechat_id":              user.WeChatId,
+		"telegram_id":            user.TelegramId,
+		"group":                  user.Group,
+		"group_ratio":            user.GroupRatio,
+		"quota":                  user.Quota,
+		"used_quota":             user.UsedQuota,
+		"request_count":          user.RequestCount,
+		"aff_code":               user.AffCode,
+		"aff_count":              user.AffCount,
+		"aff_quota":              user.AffQuota,
+		"aff_history_quota":      user.AffHistoryQuota,
+		"inviter_id":             user.InviterId,
+		"linux_do_id":            user.LinuxDOId,
+		"setting":                setting,
+		"request_record_enabled": setting.RequestRecordEnabled,
+		"stripe_customer":        user.StripeCustomer,
 	}
 	if includeRemark {
 		responseData["remark"] = user.Remark
@@ -465,11 +472,11 @@ func calculateAdminFineGrainedPermissions(user *model.User) map[string]interface
 	if user.Role != common.RoleAdminUser {
 		// non-admins get no admin permissions
 		return map[string]interface{}{
-			"view_usage_logs":               false,
-			"manage_users":                  "none",
-			"manage_channels":               "none",
-			"view_group_success_rate":       false,
-			"configure_operation_settings":  false,
+			"view_usage_logs":              false,
+			"manage_users":                 "none",
+			"manage_channels":              "none",
+			"view_group_success_rate":      false,
+			"configure_operation_settings": false,
 		}
 	}
 	p := common.ParseAdminPermission(user.AdminPermission)
@@ -566,15 +573,7 @@ func UpdateUser(c *gin.Context) {
 		model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员将用户额度从 %s修改为 %s", logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
 	}
 	if req.RequestRecordEnabled != nil {
-		fresh, settingErr := model.GetUserById(updatedUser.Id, false)
-		if settingErr != nil {
-			common.ApiError(c, settingErr)
-			return
-		}
-		setting := fresh.GetSetting()
-		setting.RequestRecordEnabled = *req.RequestRecordEnabled
-		fresh.SetSetting(setting)
-		if err := fresh.Update(false); err != nil {
+		if err := model.UpdateUserRequestRecordEnabled(updatedUser.Id, *req.RequestRecordEnabled); err != nil {
 			common.ApiError(c, err)
 			return
 		}
@@ -973,8 +972,6 @@ func ManageUser(c *gin.Context) {
 	})
 	return
 }
-
-
 
 type UpdateUserSettingRequest struct {
 	QuotaWarningType                 string  `json:"notify_type"`

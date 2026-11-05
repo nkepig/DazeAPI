@@ -933,20 +933,23 @@ func (r *OpenAIResponsesRequest) GetToolsMap() []map[string]any {
 }
 
 type Reasoning struct {
+	Enabled *bool  `json:"enabled,omitempty"`
 	Effort  string `json:"effort,omitempty"`
 	Summary string `json:"summary,omitempty"`
 }
 
-// UnmarshalJSON accepts null summary/effort. Codex responses send
-// "summary": null, and a plain string field fails the whole response.
+// UnmarshalJSON accepts null summary/effort/enabled. Codex responses send
+// nullable reasoning fields, and a plain string field fails the whole response.
 func (r *Reasoning) UnmarshalJSON(data []byte) error {
 	var aux struct {
+		Enabled *bool           `json:"enabled"`
 		Effort  json.RawMessage `json:"effort"`
 		Summary json.RawMessage `json:"summary"`
 	}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	r.Enabled = aux.Enabled
 	r.Effort = jsonText(aux.Effort)
 	r.Summary = jsonText(aux.Summary)
 	return nil

@@ -2,12 +2,14 @@ package relay
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
 	openaichannel "github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -16,7 +18,28 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/sjson"
 )
+
+func reasoningIsExplicitlyDisabled(request *dto.GeneralOpenAIRequest) bool {
+	if request == nil || len(request.Reasoning) == 0 {
+		return false
+	}
+	var reasoning struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := common.Unmarshal(request.Reasoning, &reasoning); err != nil {
+		return false
+	}
+	return reasoning.Enabled != nil && !*reasoning.Enabled
+}
+
+func preserveExplicitReasoningDisabled(request *dto.GeneralOpenAIRequest, body []byte) ([]byte, error) {
+	if !reasoningIsExplicitlyDisabled(request) {
+		return body, nil
+	}
+	return sjson.SetBytes(body, "reasoning.enabled", false)
+}
 
 func applySystemPromptIfNeeded(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) {
 	if info == nil || request == nil {
@@ -123,6 +146,19 @@ func chatCompletionsViaResponses(c *gin.Context, info *relaycommon.RelayInfo, ad
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
+
+	// Keep an explicit reasoning.enabled=false authoritative after adaptor conversion.
+	// Some model adapters add effort or rebuild reasoning while normalizing the model.
+	if reasoningIsExplicitlyDisabled(&overriddenChatReq) {
+		jsonData, err = preserveExplicitReasoningDisabled(&overriddenChatReq, jsonData)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+	}
+	if info.UserSetting.RequestRecordEnabled {
+		info.UpstreamRequestBody = string(jsonData)
+	}
+	logger.LogDebug(c, fmt.Sprintf("responses request body: %s", string(jsonData)))
 
 	var httpResp *http.Response
 	resp, err := adaptor.DoRequest(c, info, bytes.NewBuffer(jsonData))
