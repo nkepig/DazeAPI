@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState, useMemo, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Copy } from 'lucide-react';
-import { API, showError, showSuccess, copy, getLobeHubIcon } from '../../helpers';
+import { API, showError, showSuccess, copy, getLobeHubIcon, cacheWriteDisplayEntries } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 import {
   applyTierToRecord,
@@ -393,7 +393,12 @@ const Models = () => {
       { key: 'input', label: t('输入价格'), value: optionalTokenPrice(pricedModel.prompt_price), suffix: '/ 1M' },
       { key: 'output', label: t('输出价格'), value: optionalTokenPrice(pricedModel.completion_price), suffix: '/ 1M' },
       { key: 'cache-read', label: t('缓存读取价格'), value: optionalTokenPrice(pricedModel.cache_read_price), suffix: '/ 1M' },
-      { key: 'cache-write', label: t('缓存创建价格'), value: optionalTokenPrice(pricedModel.cache_write_price), suffix: '/ 1M' },
+      ...cacheWriteDisplayEntries(pricedModel.model_name).map((entry) => ({
+        key: entry.key,
+        label: entry.key === 'cache-write' ? t('缓存创建价格') : t(entry.labelKey),
+        value: optionalTokenPrice(Number(pricedModel.cache_write_price) * entry.multiplier),
+        suffix: '/ 1M',
+      })),
       { key: 'image', label: t('图片输入价格'), value: optionalTokenPrice(pricedModel.image_price), suffix: '/ 1M' },
       { key: 'audio-input', label: t('音频输入价格'), value: optionalTokenPrice(pricedModel.audio_input_price), suffix: '/ 1M' },
       { key: 'audio-output', label: t('音频输出价格'), value: optionalTokenPrice(pricedModel.audio_output_price), suffix: '/ 1M' },

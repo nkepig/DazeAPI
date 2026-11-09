@@ -543,9 +543,38 @@ type InputTokenDetails struct {
 	// Responses: usage.input_tokens_details.cache_write_tokens
 	// Chat Completions: usage.prompt_tokens_details.cache_write_tokens
 	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
-	TextTokens       int `json:"text_tokens"`
-	AudioTokens      int `json:"audio_tokens"`
-	ImageTokens      int `json:"image_tokens"`
+	// CacheWriteTokensDetails splits CacheWriteTokens by cache lifetime.
+	CacheWriteTokensDetails *CacheWriteTokenDetails `json:"cache_write_tokens_details,omitempty"`
+	TextTokens              int                     `json:"text_tokens"`
+	AudioTokens             int                     `json:"audio_tokens"`
+	ImageTokens             int                     `json:"image_tokens"`
+}
+
+// CacheWriteTokenDetails is OpenAI's split of cache writes by lifetime.
+// The two counts do not overlap and sum to cache_write_tokens.
+type CacheWriteTokenDetails struct {
+	TTL30mTokens int `json:"ttl_30m_tokens"`
+	TTL12hTokens int `json:"ttl_12h_tokens"`
+}
+
+func (d InputTokenDetails) cacheCreationTokensTotal() int {
+	if d.CacheWriteTokens > d.CachedCreationTokens {
+		return d.CacheWriteTokens
+	}
+	return d.CachedCreationTokens
+}
+
+// CacheWrite12hTokens returns the 12-hour subset of the cache writes, bounded
+// by the reported write total so it never bills more writes than upstream sent.
+func (d InputTokenDetails) CacheWrite12hTokens() int {
+	if d.CacheWriteTokensDetails == nil || d.CacheWriteTokensDetails.TTL12hTokens <= 0 {
+		return 0
+	}
+	total := d.cacheCreationTokensTotal()
+	if d.CacheWriteTokensDetails.TTL12hTokens > total {
+		return total
+	}
+	return d.CacheWriteTokensDetails.TTL12hTokens
 }
 
 func (d *InputTokenDetails) normalizeCacheWrite() {
@@ -580,6 +609,10 @@ func (u *Usage) NormalizeInputTokenDetails() {
 	}
 	if u.PromptTokensDetails.CacheWriteTokens == 0 {
 		u.PromptTokensDetails.CacheWriteTokens = src.CacheWriteTokens
+	}
+	if u.PromptTokensDetails.CacheWriteTokensDetails == nil && src.CacheWriteTokensDetails != nil {
+		copied := *src.CacheWriteTokensDetails
+		u.PromptTokensDetails.CacheWriteTokensDetails = &copied
 	}
 	if u.PromptTokensDetails.ImageTokens == 0 {
 		u.PromptTokensDetails.ImageTokens = src.ImageTokens

@@ -374,10 +374,51 @@ func TestCalculateTextQuotaSummaryOpenAIResponsesCacheWriteTokens(t *testing.T) 
 	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
 	require.Equal(t, 81243, summary.CacheTokens)
 	require.Equal(t, 8661, summary.CacheCreationTokens)
+	require.Equal(t, 0, summary.CacheCreationTokens12h)
 	// uncached prompt = 89907 - 81243 - 8661 = 3
 	// quota = 3*5 + 81243*0.5 + 8661*6.25 + 1413*30
 	//       = 15 + 40621.5 + 54131.25 + 42390 = 137157.75 => 137158
 	require.Equal(t, int64(137158), summary.QuotaMicrodollars)
+}
+
+func TestCalculateTextQuotaSummarySplitsOpenAI30mAnd12hCacheWrites(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		RelayFormat:     types.RelayFormatOpenAIResponses,
+		OriginModelName: "gpt-6-astra",
+		PriceData: types.PriceData{
+			PromptPrice:     10,
+			CompletionPrice: 50,
+			CacheReadPrice:  1,
+			CacheWritePrice: 12.5,
+			GroupDiscountInfo: types.GroupDiscountInfo{
+				GroupDiscount: 1,
+			},
+		},
+		StartTime: time.Now(),
+	}
+
+	usage := &dto.Usage{
+		PromptTokens: 12000,
+		InputTokensDetails: &dto.InputTokenDetails{
+			CachedTokens:     4000,
+			CacheWriteTokens: 7000,
+			CacheWriteTokensDetails: &dto.CacheWriteTokenDetails{
+				TTL30mTokens: 3000,
+				TTL12hTokens: 4000,
+			},
+		},
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	require.Equal(t, 7000, summary.CacheCreationTokens)
+	require.Equal(t, 4000, summary.CacheCreationTokens12h)
+	require.Equal(t, 25.0, summary.CacheWrite12hPrice)
+	// 1000*10 + 4000*1 + 3000*12.5 + 4000*25 = 151500
+	require.Equal(t, int64(151500), summary.QuotaMicrodollars)
 }
 
 func TestCalculateTextQuotaSummaryBillsExtractedChatCompletionUsage(t *testing.T) {

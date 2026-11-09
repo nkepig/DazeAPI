@@ -28,6 +28,7 @@ type textQuotaSummary struct {
 	CacheCreationTokens      int
 	CacheCreationTokens5m    int
 	CacheCreationTokens1h    int
+	CacheCreationTokens12h   int
 	ImageTokens              int
 	ImageBilledTokens        int
 	ImageOutputTokens        int
@@ -41,6 +42,7 @@ type textQuotaSummary struct {
 	CacheWritePrice          float64
 	CacheWrite5mPrice        float64
 	CacheWrite1hPrice        float64
+	CacheWrite12hPrice       float64
 	ImagePrice               float64
 	ImageOutputPrice         float64
 	AudioInputPrice          float64
@@ -146,21 +148,22 @@ func toolSurchargeQuota(items []ToolSurchargeItem, groupDiscount decimal.Decimal
 func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) textQuotaSummary {
 	priceData := relayInfo.PriceData
 	summary := textQuotaSummary{
-		ModelName:         relayInfo.OriginModelName,
-		TokenName:         ctx.GetString("token_name"),
-		UseTimeSeconds:    time.Now().Unix() - relayInfo.StartTime.Unix(),
-		PromptPrice:       priceData.PromptPrice,
-		CompletionPrice:   priceData.CompletionPrice,
-		CacheReadPrice:    priceData.CacheReadPrice,
-		CacheWritePrice:   priceData.CacheWritePrice,
-		CacheWrite5mPrice: priceData.CacheWrite5mPrice,
-		CacheWrite1hPrice: priceData.CacheWrite1hPrice,
-		ImagePrice:        priceData.ImagePrice,
-		AudioInputPrice:   priceData.AudioInputPrice,
-		GroupDiscount:     priceData.GroupDiscountInfo.GroupDiscount,
-		PerCallPrice:      priceData.PerCallPrice,
-		UsePerCallPricing: priceData.UsePerCallPricing,
-		UsageSemantic:     usageSemanticFromUsage(relayInfo, usage),
+		ModelName:          relayInfo.OriginModelName,
+		TokenName:          ctx.GetString("token_name"),
+		UseTimeSeconds:     time.Now().Unix() - relayInfo.StartTime.Unix(),
+		PromptPrice:        priceData.PromptPrice,
+		CompletionPrice:    priceData.CompletionPrice,
+		CacheReadPrice:     priceData.CacheReadPrice,
+		CacheWritePrice:    priceData.CacheWritePrice,
+		CacheWrite5mPrice:  priceData.CacheWrite5mPrice,
+		CacheWrite1hPrice:  priceData.CacheWrite1hPrice,
+		CacheWrite12hPrice: priceData.CacheWrite12hPrice,
+		ImagePrice:         priceData.ImagePrice,
+		AudioInputPrice:    priceData.AudioInputPrice,
+		GroupDiscount:      priceData.GroupDiscountInfo.GroupDiscount,
+		PerCallPrice:       priceData.PerCallPrice,
+		UsePerCallPricing:  priceData.UsePerCallPricing,
+		UsageSemantic:      usageSemanticFromUsage(relayInfo, usage),
 	}
 	summary.IsClaudeUsageSemantic = summary.UsageSemantic == "anthropic"
 
@@ -180,6 +183,9 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	summary.CacheCreationTokens = usage.PromptTokensDetails.CachedCreationTokens
 	summary.CacheCreationTokens5m = usage.ClaudeCacheCreation5mTokens
 	summary.CacheCreationTokens1h = usage.ClaudeCacheCreation1hTokens
+	if !summary.IsClaudeUsageSemantic {
+		summary.CacheCreationTokens12h = usage.PromptTokensDetails.CacheWrite12hTokens()
+	}
 	summary.ImageTokens = usage.PromptTokensDetails.ImageTokens
 	summary.ImageBilledTokens = summary.ImageTokens
 	summary.ImageOutputTokens = usage.CompletionTokenDetails.ImageTokens
@@ -202,9 +208,10 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 				summary.CompletionPrice = tier.CompletionPrice
 				summary.CacheReadPrice = tier.CacheReadPrice
 				summary.CacheWritePrice = tier.CacheWritePrice
-				// 5m/1h 缓存创建仍按档位缓存创建价派生（与非阶梯路径一致）
+				// 短时写入用档位缓存创建价；Claude 1h 与 OpenAI 12h 按固定倍数派生。
 				summary.CacheWrite5mPrice = tier.CacheWritePrice
-				summary.CacheWrite1hPrice = tier.CacheWritePrice * (6.0 / 3.75)
+				summary.CacheWrite1hPrice = tier.CacheWritePrice * types.ClaudeCacheCreation1hMultiplier
+				summary.CacheWrite12hPrice = tier.CacheWritePrice * types.OpenAICacheCreation12hMultiplier
 				matched := tier.Label()
 				relayInfo.PriceData.MatchedTier = matched
 				relayInfo.PriceData.PromptPrice = tier.PromptPrice
@@ -213,6 +220,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 				relayInfo.PriceData.CacheWritePrice = tier.CacheWritePrice
 				relayInfo.PriceData.CacheWrite5mPrice = summary.CacheWrite5mPrice
 				relayInfo.PriceData.CacheWrite1hPrice = summary.CacheWrite1hPrice
+				relayInfo.PriceData.CacheWrite12hPrice = summary.CacheWrite12hPrice
 			}
 		}
 	}
@@ -310,6 +318,10 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		dCacheWritePrice := decimal.NewFromFloat(summary.CacheWritePrice)
 		dCacheWrite5mPrice := decimal.NewFromFloat(summary.CacheWrite5mPrice)
 		dCacheWrite1hPrice := decimal.NewFromFloat(summary.CacheWrite1hPrice)
+		if summary.CacheWrite12hPrice == 0 && summary.CacheWritePrice != 0 {
+			summary.CacheWrite12hPrice = summary.CacheWritePrice * types.OpenAICacheCreation12hMultiplier
+		}
+		dCacheWrite12hPrice := decimal.NewFromFloat(summary.CacheWrite12hPrice)
 		dImagePrice := decimal.NewFromFloat(summary.ImagePrice)
 		dImageOutputPrice := decimal.NewFromFloat(summary.ImageOutputPrice)
 		dAudioInputPrice := decimal.NewFromFloat(summary.AudioInputPrice)
@@ -329,7 +341,15 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		if !dCachedCreationTokens.IsZero() || hasSplitCacheCreationTokens {
 			if !summary.IsClaudeUsageSemantic && !legacyClaudeDerived {
 				baseTokens = baseTokens.Sub(dCachedCreationTokens)
-				cacheWriteCost = dCachedCreationTokens.Mul(dCacheWritePrice)
+				// OpenAI cache_write_tokens includes 30m and 12h writes.
+				// 12h writes cost twice the 30m write price.
+				write12h := summary.CacheCreationTokens12h
+				if write12h > summary.CacheCreationTokens {
+					write12h = summary.CacheCreationTokens
+				}
+				write30m := summary.CacheCreationTokens - write12h
+				cacheWriteCost = decimal.NewFromInt(int64(write30m)).Mul(dCacheWritePrice)
+				cacheWriteCost = cacheWriteCost.Add(decimal.NewFromInt(int64(write12h)).Mul(dCacheWrite12hPrice))
 			} else {
 				remaining := summary.CacheCreationTokens - summary.CacheCreationTokens5m - summary.CacheCreationTokens1h
 				if remaining < 0 {
@@ -554,6 +574,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	if summary.CacheCreationTokens1h > 0 {
 		other["cache_creation_tokens_1h"] = summary.CacheCreationTokens1h
 		other["cache_write_1h_price"] = summary.CacheWrite1hPrice
+	}
+	if summary.CacheCreationTokens12h > 0 {
+		other["cache_creation_tokens_12h"] = summary.CacheCreationTokens12h
+		other["cache_write_12h_price"] = summary.CacheWrite12hPrice
 	}
 	cacheWriteTokens := cacheWriteTokensTotal(summary)
 	if cacheWriteTokens > 0 {

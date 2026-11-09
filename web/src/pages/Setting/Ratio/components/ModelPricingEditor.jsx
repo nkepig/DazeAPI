@@ -606,7 +606,7 @@ export default function ModelPricingEditor({
                             value={selectedModel.cacheWritePrice}
                             placeholder={t('输入 $/1M tokens')}
                             onChange={(value) => handleNumericFieldChange('cacheWritePrice', value)}
-                            extraText={t('按缓存创建计费')}
+                            extraText={t('Claude 的 5 分钟写入和 OpenAI 的 30 分钟写入按此价格计；Claude 1 小时按 1.6 倍，OpenAI 12 小时按 2 倍。')}
                           />
                           <PriceInput
                             label={t('图片输入价格')}

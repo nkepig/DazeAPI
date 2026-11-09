@@ -488,11 +488,17 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		c.Status(resp.StatusCode)
 
 		reader := bufio.NewReader(resp.Body)
+		var streamUsage *dto.Usage
 		for {
 			line, readErr := reader.ReadString('\n')
 			if len(line) > 0 {
 				if _, err := io.WriteString(c.Writer, line); err != nil {
 					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
+				}
+				if strings.HasPrefix(line, "data:") {
+					if usage := parseImageGenerationSSEUsage(line, info); usage != nil {
+						streamUsage = usage
+					}
 				}
 				if line == "\n" || line == "\r\n" {
 					c.Writer.Flush()
@@ -506,7 +512,10 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 			}
 		}
 		c.Writer.Flush()
-		return &dto.Usage{}, nil
+		if streamUsage == nil {
+			streamUsage = &dto.Usage{}
+		}
+		return streamUsage, nil
 	}
 
 	responseBody, err := io.ReadAll(resp.Body)
@@ -525,6 +534,22 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 	return &usageResp.Usage, nil
+}
+
+func parseImageGenerationSSEUsage(line string, info *relaycommon.RelayInfo) *dto.Usage {
+	data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+	if data == "" || data == "[DONE]" {
+		return nil
+	}
+
+	var event struct {
+		Usage *dto.Usage `json:"usage"`
+	}
+	if err := common.Unmarshal([]byte(data), &event); err != nil || event.Usage == nil {
+		return nil
+	}
+	applyUsagePostProcessing(info, event.Usage, []byte(data))
+	return event.Usage
 }
 
 func applyUsagePostProcessing(info *relaycommon.RelayInfo, usage *dto.Usage, responseBody []byte) {

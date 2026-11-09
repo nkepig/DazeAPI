@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const claudeCacheCreation1hMultiplier = 6.0 / 3.75
+const openAICacheCreation12hMultiplier = types.OpenAICacheCreation12hMultiplier
 
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupDiscountInfo {
 	groupDiscountInfo := types.GroupDiscountInfo{
@@ -112,26 +112,28 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	cacheWrite5m := modelPricing.CacheWritePrice
-	cacheWrite1h := modelPricing.CacheWritePrice * claudeCacheCreation1hMultiplier
+	cacheWrite1h := modelPricing.CacheWritePrice * types.ClaudeCacheCreation1hMultiplier
+	cacheWrite12h := modelPricing.CacheWritePrice * openAICacheCreation12hMultiplier
 
 	priceData := types.PriceData{
-		FreeModel:         freeModel,
-		PromptPrice:       modelPricing.PromptPrice,
-		CompletionPrice:   modelPricing.CompletionPrice,
-		CacheReadPrice:    modelPricing.CacheReadPrice,
-		CacheWritePrice:   modelPricing.CacheWritePrice,
-		CacheWrite5mPrice: cacheWrite5m,
-		CacheWrite1hPrice: cacheWrite1h,
-		ImagePrice:        modelPricing.ImagePrice,
-		AudioInputPrice:   modelPricing.AudioInputPrice,
-		AudioOutputPrice:  modelPricing.AudioOutputPrice,
-		PerCallPrice:      modelPricing.PerCallPrice,
-		UsePerCallPricing: modelPricing.UsePerCallPricing,
-		FixedPriceUnit:    modelPricing.FixedPriceUnit,
-		UseTieredPricing:  useTiered,
-		MatchedTier:       matchedTier,
-		GroupDiscountInfo: groupDiscountInfo,
-		QuotaToPreConsume: preConsumedQuota,
+		FreeModel:          freeModel,
+		PromptPrice:        modelPricing.PromptPrice,
+		CompletionPrice:    modelPricing.CompletionPrice,
+		CacheReadPrice:     modelPricing.CacheReadPrice,
+		CacheWritePrice:    modelPricing.CacheWritePrice,
+		CacheWrite5mPrice:  cacheWrite5m,
+		CacheWrite1hPrice:  cacheWrite1h,
+		CacheWrite12hPrice: cacheWrite12h,
+		ImagePrice:         modelPricing.ImagePrice,
+		AudioInputPrice:    modelPricing.AudioInputPrice,
+		AudioOutputPrice:   modelPricing.AudioOutputPrice,
+		PerCallPrice:       modelPricing.PerCallPrice,
+		UsePerCallPricing:  modelPricing.UsePerCallPricing,
+		FixedPriceUnit:     modelPricing.FixedPriceUnit,
+		UseTieredPricing:   useTiered,
+		MatchedTier:        matchedTier,
+		GroupDiscountInfo:  groupDiscountInfo,
+		QuotaToPreConsume:  preConsumedQuota,
 	}
 
 	if common.DebugEnabled {

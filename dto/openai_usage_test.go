@@ -56,6 +56,48 @@ func TestNormalizeInputTokenDetailsFromChatCompletionsCacheWrite(t *testing.T) {
 	}
 }
 
+func TestNormalizeInputTokenDetailsSplitsOpenAICacheWriteTTL(t *testing.T) {
+	var usage Usage
+	raw := []byte(`{
+		"input_tokens": 12000,
+		"output_tokens": 0,
+		"input_tokens_details": {
+			"cached_tokens": 4000,
+			"cache_write_tokens": 7000,
+			"cache_write_tokens_details": {
+				"ttl_30m_tokens": 3000,
+				"ttl_12h_tokens": 4000
+			}
+		}
+	}`)
+	if err := common.Unmarshal(raw, &usage); err != nil {
+		t.Fatal(err)
+	}
+	usage.NormalizeInputTokenDetails()
+	if usage.PromptTokensDetails.CachedCreationTokens != 7000 {
+		t.Fatalf("cached_creation_tokens=%d want 7000", usage.PromptTokensDetails.CachedCreationTokens)
+	}
+	if usage.PromptTokensDetails.CacheWrite12hTokens() != 4000 {
+		t.Fatalf("12h tokens=%d want 4000", usage.PromptTokensDetails.CacheWrite12hTokens())
+	}
+	if usage.PromptTokensDetails.CacheWriteTokensDetails == nil || usage.PromptTokensDetails.CacheWriteTokensDetails.TTL30mTokens != 3000 {
+		t.Fatalf("30m details = %#v", usage.PromptTokensDetails.CacheWriteTokensDetails)
+	}
+}
+
+func TestCacheWrite12hTokensBoundedByWriteTotal(t *testing.T) {
+	details := InputTokenDetails{
+		CacheWriteTokens: 7000,
+		CacheWriteTokensDetails: &CacheWriteTokenDetails{
+			TTL30mTokens: 3000,
+			TTL12hTokens: 9000,
+		},
+	}
+	if details.CacheWrite12hTokens() != 7000 {
+		t.Fatalf("12h tokens=%d want 7000", details.CacheWrite12hTokens())
+	}
+}
+
 func TestNormalizeInputTokenDetailsKeepsCachedCreationAlias(t *testing.T) {
 	usage := Usage{
 		PromptTokensDetails: InputTokenDetails{

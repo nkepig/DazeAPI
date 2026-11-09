@@ -516,6 +516,48 @@ export const selectFilter = (input, option) => {
   return valueText.includes(keyword) || labelText.includes(keyword);
 };
 
+export const CLAUDE_CACHE_WRITE_1H_MULTIPLIER = 6 / 3.75;
+export const OPENAI_CACHE_WRITE_12H_MULTIPLIER = 2;
+
+// cacheWriteDisplayEntries picks the cache-write durations for a model.
+// Claude bills 5-minute and 1-hour writes. OpenAI bills 30-minute and 12-hour writes.
+export function cacheWriteDisplayEntries(modelName) {
+  const name = String(modelName || '').toLowerCase();
+  if (name.includes('claude')) {
+    return [
+      { key: 'cache-write-5m', labelKey: '缓存写入 (5m)', ratioLabelKey: '缓存写入 (5m) 参考', multiplier: 1 },
+      { key: 'cache-write-1h', labelKey: '缓存写入 (1h)', ratioLabelKey: '缓存写入 (1h) 参考', multiplier: CLAUDE_CACHE_WRITE_1H_MULTIPLIER },
+    ];
+  }
+  if (name.includes('gpt')) {
+    return [
+      { key: 'cache-write-30m', labelKey: '缓存写入 (30m)', ratioLabelKey: '缓存写入 (30m) 参考', multiplier: 1 },
+      { key: 'cache-write-12h', labelKey: '缓存写入 (12h)', ratioLabelKey: '缓存写入 (12h) 参考', multiplier: OPENAI_CACHE_WRITE_12H_MULTIPLIER },
+    ];
+  }
+  return [
+    { key: 'cache-write', labelKey: '缓存写入价格', ratioLabelKey: '缓存写入价格参考', multiplier: 1 },
+  ];
+}
+
+function buildCacheWriteItems(modelName, cacheWritePrice, promptPrice, formatValue, ratioMode) {
+  return cacheWriteDisplayEntries(modelName).map((entry) => {
+    let value = null;
+    if (ratioMode) {
+      value = promptPrice !== 0 && Number.isFinite(Number(cacheWritePrice))
+        ? formatValue((Number(cacheWritePrice) / promptPrice) * entry.multiplier)
+        : null;
+    } else if (cacheWritePrice !== undefined && cacheWritePrice !== null && cacheWritePrice !== 0 && Number.isFinite(Number(cacheWritePrice))) {
+      value = formatValue(Number(cacheWritePrice) * entry.multiplier);
+    }
+    return {
+      key: entry.key,
+      labelKey: ratioMode ? entry.ratioLabelKey : entry.labelKey,
+      value,
+    };
+  });
+}
+
 // -------------------------------
 // 模型定价计算工具函数
 export const calculateModelPrice = ({
@@ -612,6 +654,7 @@ export const calculateModelPrice = ({
         completionPriceReference: completionPriceReference,
         cachePriceReference: cachePriceReference,
         createCachePriceReference: createCachePriceReference,
+        cacheWriteItems: buildCacheWriteItems(record.model_name, cacheWritePrice, promptPrice, formatRatio, true),
         imagePriceReference: imagePriceReference,
         audioInputPriceReference: audioInputPriceReference,
         audioOutputPriceReference: audioOutputPriceReference,
@@ -657,6 +700,13 @@ export const calculateModelPrice = ({
       createCachePrice: hasValue(cacheWritePrice)
         ? formatTokenPrice(cacheWritePrice)
         : null,
+      cacheWriteItems: buildCacheWriteItems(
+        record.model_name,
+        cacheWritePrice,
+        promptPrice,
+        formatTokenPrice,
+        false,
+      ),
       imagePrice: hasValue(imagePrice)
         ? formatTokenPrice(imagePrice)
         : null,
@@ -736,12 +786,18 @@ export const getModelPriceItems = (
           value: priceData.cachePriceReference,
           suffix: 'x',
         },
-        {
-          key: 'create-cache-ratio',
-          label: t('缓存写入价格参考'),
-          value: priceData.createCachePriceReference,
+        ...(priceData.cacheWriteItems || [
+          {
+            key: 'create-cache-ratio',
+            labelKey: '缓存写入价格参考',
+            value: priceData.createCachePriceReference,
+          },
+        ]).map((item) => ({
+          key: item.key,
+          label: t(item.labelKey),
+          value: item.value,
           suffix: 'x',
-        },
+        })),
         {
           key: 'image-ratio',
           label: t('图片价格参考'),
@@ -783,12 +839,18 @@ export const getModelPriceItems = (
         value: priceData.cachePrice,
         suffix: unitSuffix,
       },
-      {
-        key: 'create-cache',
-        label: t('缓存写入价格'),
-        value: priceData.createCachePrice,
+      ...(priceData.cacheWriteItems || [
+        {
+          key: 'create-cache',
+          labelKey: '缓存写入价格',
+          value: priceData.createCachePrice,
+        },
+      ]).map((item) => ({
+        key: item.key,
+        label: t(item.labelKey),
+        value: item.value,
         suffix: unitSuffix,
-      },
+      })),
       {
         key: 'image',
         label: t('图片价格'),

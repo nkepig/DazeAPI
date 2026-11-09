@@ -945,6 +945,44 @@ function collectToolSurchargeTerms(pricingData, groupRatio, symbol, rate) {
   return { terms, amount };
 }
 
+const CLAUDE_CACHE_WRITE_1H_MULTIPLIER = 6 / 3.75;
+const OPENAI_CACHE_WRITE_12H_MULTIPLIER = 2;
+
+function collectCacheWriteParts(pricingData) {
+  const baseTokens = Math.max(Number(pricingData?.cache_creation_tokens) || 0, 0);
+  const tokens5m = Math.max(Number(pricingData?.cache_creation_tokens_5m) || 0, 0);
+  const tokens1h = Math.max(Number(pricingData?.cache_creation_tokens_1h) || 0, 0);
+  const tokens12h = Math.max(Number(pricingData?.cache_creation_tokens_12h) || 0, 0);
+  const writePrice = Number(pricingData?.cache_write_price) || 0;
+  const price5m = Number(pricingData?.cache_write_5m_price) || writePrice;
+  let price1h = Number(pricingData?.cache_write_1h_price);
+  if (!(price1h > 0) || price1h === writePrice) {
+    price1h = writePrice * CLAUDE_CACHE_WRITE_1H_MULTIPLIER;
+  }
+  const explicit12h = Number(pricingData?.cache_write_12h_price);
+  const price12h = explicit12h > 0 ? explicit12h : writePrice * OPENAI_CACHE_WRITE_12H_MULTIPLIER;
+
+  if (tokens5m > 0 || tokens1h > 0) {
+    const parts = [];
+    const remaining = Math.max(baseTokens - tokens5m - tokens1h, 0);
+    if (remaining > 0) parts.push({ label: '缓存写', tokens: remaining, price: writePrice });
+    if (tokens5m > 0) parts.push({ label: '缓存写(5m)', tokens: tokens5m, price: price5m });
+    if (tokens1h > 0) parts.push({ label: '缓存写(1h)', tokens: tokens1h, price: price1h });
+    return parts;
+  }
+  if (tokens12h > 0) {
+    const parts = [];
+    const tokens30m = Math.max(baseTokens - tokens12h, 0);
+    if (tokens30m > 0) parts.push({ label: '缓存写(30m)', tokens: tokens30m, price: writePrice });
+    parts.push({ label: '缓存写(12h)', tokens: tokens12h, price: price12h });
+    return parts;
+  }
+  if (baseTokens > 0) {
+    return [{ label: '缓存写', tokens: baseTokens, price: writePrice }];
+  }
+  return [];
+}
+
 export function renderModelPrice(
   inputTokens,
   completionTokens,
@@ -983,9 +1021,7 @@ export function renderModelPrice(
   const legacyImageTokens = completionImageTokens > 0 ? 0 : imageOutputTokens;
   const imageOutputPrice = Number(pricingData?.image_output_price || 0) || imageInputPrice || promptPrice;
   const perCallPrice = pricingData?.per_call_price;
-  const cacheWritePrice = pricingData?.cache_write_price ?? 0;
-  const cacheWrite5mPrice = pricingData?.cache_write_5m_price ?? cacheWritePrice;
-  const cacheWrite1hPrice = pricingData?.cache_write_1h_price ?? cacheWritePrice;
+  const cacheWriteParts = collectCacheWriteParts(pricingData);
 
   if (perCallPrice !== undefined && perCallPrice > 0) {
     const perCallAmount = perCallPrice * groupRatio;
@@ -1013,13 +1049,10 @@ export function renderModelPrice(
   const imageInputTokens = explicitImageInput > 0
     ? explicitImageInput
     : (image && legacyImageTokens > 0 ? legacyImageTokens : 0);
+  const cacheWriteTokenTotal = cacheWriteParts.reduce((sum, part) => sum + part.tokens, 0);
   const normalInputTokens = isAnthropicSemantic
     ? Math.max(inputTokens - audioInputTokens - imageInputTokens, 0)
-    : Math.max(inputTokens - cacheTokens - audioInputTokens - imageInputTokens, 0);
-  const cacheWriteBaseTokens = Math.max(pricingData?.cache_creation_tokens || 0, 0);
-  const cacheWrite5mTokens = Math.max(pricingData?.cache_creation_tokens_5m || 0, 0);
-  const cacheWrite1hTokens = Math.max(pricingData?.cache_creation_tokens_1h || 0, 0);
-  const cacheWriteTokens = cacheWriteBaseTokens + cacheWrite5mTokens + cacheWrite1hTokens;
+    : Math.max(inputTokens - cacheTokens - cacheWriteTokenTotal - audioInputTokens - imageInputTokens, 0);
   const imageInsideCompletion = completionImageTokens > 0 && completionTokens >= completionImageTokens;
   const audioPromptTokens = Math.max(audioInputTokens, 0);
   const textOutputTokens = imageInsideCompletion
@@ -1033,12 +1066,14 @@ export function renderModelPrice(
   const imageOutputAmount = (completionImageTokens / 1000000) * imageOutputPrice * groupRatio;
   const toolSurcharge = collectToolSurchargeTerms(pricingData, groupRatio, symbol, rate);
 
+  const cacheWriteAmount = cacheWriteParts.reduce(
+    (sum, part) => sum + (part.tokens / 1000000) * part.price * groupRatio,
+    0,
+  );
   const inputAmount =
     (normalInputTokens / 1000000) * promptPrice * groupRatio +
     (cacheInputTokens / 1000000) * cacheReadPrice * groupRatio +
-    (cacheWriteBaseTokens / 1000000) * cacheWritePrice * groupRatio +
-    (cacheWrite5mTokens / 1000000) * cacheWrite5mPrice * groupRatio +
-    (cacheWrite1hTokens / 1000000) * cacheWrite1hPrice * groupRatio +
+    cacheWriteAmount +
     (imageInputTokens / 1000000) * imageInputPrice * groupRatio +
     (audioPromptTokens / 1000000) * (audioInputPrice || promptPrice) * groupRatio;
 
@@ -1054,15 +1089,11 @@ export function renderModelPrice(
 
   const inputTerms = [];
   const cacheInputTerms = [];
-  const cacheWriteTerms = [];
   const imageInputTerms = [];
   const audioInputTerms = [];
   const inputLabel = imageInputTokens > 0 && normalInputTokens > 0 ? '文本输入' : '输入';
   if (normalInputTokens > 0 && promptPrice > 0) inputTerms.push(String(normalInputTokens) + ' × ' + symbol + formatBillingDisplayPrice(promptPrice, rate, 8) + '/m');
   if (cacheInputTokens > 0 && cacheReadPrice > 0) cacheInputTerms.push(String(cacheInputTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheReadPrice, rate, 8) + '/m');
-  if (cacheWriteTokens > 0 && cacheWritePrice > 0) cacheWriteTerms.push(String(cacheWriteTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheWritePrice, rate, 8) + '/m');
-  if (cacheWrite5mTokens > 0 && cacheWrite5mPrice > 0 && cacheWrite5mPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite5mTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheWrite5mPrice, rate, 8) + '/m');
-  if (cacheWrite1hTokens > 0 && cacheWrite1hPrice > 0 && cacheWrite1hPrice !== cacheWritePrice) cacheWriteTerms.push(String(cacheWrite1hTokens) + ' × ' + symbol + formatBillingDisplayPrice(cacheWrite1hPrice, rate, 8) + '/m');
   const imageLabel = imageInputTokens > 0 && normalInputTokens > 0 ? '图像输入' : '图片输入';
   if (imageInputTokens > 0 && imageInputPrice > 0) imageInputTerms.push(String(imageInputTokens) + ' × ' + symbol + formatBillingDisplayPrice(imageInputPrice, rate, 8) + '/m');
   if (audioPromptTokens > 0 && (audioInputPrice > 0 || promptPrice > 0)) audioInputTerms.push(String(audioPromptTokens) + ' × ' + symbol + formatBillingDisplayPrice(audioInputPrice || promptPrice, rate, 8) + '/m');
@@ -1076,7 +1107,12 @@ export function renderModelPrice(
   const lines = [];
   if (inputTerms.length > 0) lines.push(inputLabel + ': ' + inputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((normalInputTokens / 1000000) * promptPrice * groupRatio));
   if (cacheInputTerms.length > 0) lines.push('缓存读: ' + cacheInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheInputTokens / 1000000) * cacheReadPrice * groupRatio));
-  if (cacheWriteTerms.length > 0) lines.push('缓存写: ' + cacheWriteTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((cacheWriteBaseTokens / 1000000) * cacheWritePrice * groupRatio + (cacheWrite5mTokens / 1000000) * cacheWrite5mPrice * groupRatio + (cacheWrite1hTokens / 1000000) * cacheWrite1hPrice * groupRatio));
+  cacheWriteParts.forEach((part) => {
+    if (part.tokens > 0 && part.price > 0) {
+      const partAmount = (part.tokens / 1000000) * part.price * groupRatio;
+      lines.push(part.label + ': ' + part.tokens + ' × ' + symbol + formatBillingDisplayPrice(part.price, rate, 8) + '/m × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(partAmount));
+    }
+  });
   if (imageInputTerms.length > 0) lines.push(imageLabel + ': ' + imageInputTerms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd((imageInputTokens / 1000000) * imageInputPrice * groupRatio));
   if (completionImageTokens > 0 && imageOutputPrice > 0) lines.push('图片输出: ' + completionImageTokens + ' × ' + symbol + formatBillingDisplayPrice(imageOutputPrice, rate, 8) + '/m × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(imageOutputAmount));
   if (toolSurcharge.terms.length > 0) lines.push('工具  : ' + toolSurcharge.terms.join(' + ') + ' × (' + groupRatio + ') = ' + renderDisplayAmountFromUsd(toolSurcharge.amount));

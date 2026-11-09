@@ -2,6 +2,14 @@ package types
 
 import "fmt"
 
+const (
+	// https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
+	ClaudeCacheCreation1hMultiplier = 6.0 / 3.75
+	// https://developers.openai.com/api/docs/guides/prompt-caching
+	// A 12-hour write costs twice the 30-minute write.
+	OpenAICacheCreation12hMultiplier = 2
+)
+
 type ProviderRatioInfo struct {
 	ProviderRatio float64
 }
@@ -17,24 +25,25 @@ type GroupRatioInfo struct {
 type GroupDiscountInfo struct {
 	GroupDiscount     float64 // base group discount
 	GroupSpecialRatio float64 // per-model override (negative = not set)
-	HasSpecialRatio  bool
+	HasSpecialRatio   bool
 }
 
 type PriceData struct {
 	FreeModel bool
 
 	// Dollar-based pricing fields ($/1M tokens)
-	PromptPrice       float64
-	CompletionPrice   float64
-	CacheReadPrice    float64
-	CacheWritePrice   float64
-	CacheWrite5mPrice float64
-	CacheWrite1hPrice float64
+	PromptPrice        float64
+	CompletionPrice    float64
+	CacheReadPrice     float64
+	CacheWritePrice    float64
+	CacheWrite5mPrice  float64
+	CacheWrite1hPrice  float64
+	CacheWrite12hPrice float64
 	ImagePrice         float64
-	AudioInputPrice   float64
-	AudioOutputPrice  float64
-	PerCallPrice      float64
-	UsePerCallPricing bool
+	AudioInputPrice    float64
+	AudioOutputPrice   float64
+	PerCallPrice       float64
+	UsePerCallPricing  bool
 	// FixedPriceUnit: "" / "call" = per request; "second" = per second (video duration).
 	FixedPriceUnit string
 

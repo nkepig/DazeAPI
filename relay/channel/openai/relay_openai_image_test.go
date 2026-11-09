@@ -31,7 +31,7 @@ func TestImageRequestPreservesStream(t *testing.T) {
 
 func TestOpenaiHandlerWithUsagePassesThroughImageSSE(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	const eventStream = "event: image_generation.completed\ndata: {\"created_at\":1793873414,\"type\":\"image_generation.completed\",\"b64_json\":\"abc\"}\n\n"
+	const eventStream = "event: image_generation.completed\ndata: {\"created_at\":1793873414,\"type\":\"image_generation.completed\",\"b64_json\":\"abc\",\"usage\":{\"input_tokens\":19,\"input_tokens_details\":{\"image_tokens\":0,\"text_tokens\":19},\"output_tokens\":824,\"output_tokens_details\":{\"image_tokens\":824,\"text_tokens\":0},\"total_tokens\":843}}\n\n"
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
@@ -47,6 +47,12 @@ func TestOpenaiHandlerWithUsagePassesThroughImageSSE(t *testing.T) {
 	}
 	if usage == nil {
 		t.Fatal("expected usage object")
+	}
+	if usage.PromptTokens != 19 || usage.CompletionTokens != 824 || usage.TotalTokens != 843 {
+		t.Fatalf("usage tokens=(%d, %d, %d), want (19, 824, 843)", usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens)
+	}
+	if usage.PromptTokensDetails.TextTokens != 19 || usage.CompletionTokenDetails.ImageTokens != 824 {
+		t.Fatalf("usage details input text=%d output image=%d, want 19 and 824", usage.PromptTokensDetails.TextTokens, usage.CompletionTokenDetails.ImageTokens)
 	}
 	if got := recorder.Body.String(); got != eventStream {
 		t.Fatalf("stream body mismatch\n got: %q\nwant: %q", got, eventStream)

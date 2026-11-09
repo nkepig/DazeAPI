@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { API, showError, showSuccess } from '../../../../helpers';
+import { API, cacheWriteDisplayEntries, showError, showSuccess } from '../../../../helpers';
 
 export const PAGE_SIZE = 10;
 export const PRICE_SUFFIX = '$/1M tokens';
@@ -203,6 +203,18 @@ export const buildSummaryText = (model, t) => {
   return t('未设置价格');
 };
 
+const cacheWritePreviewValue = (modelName, cacheWritePrice, t) => {
+  const price = Number(cacheWritePrice);
+  if (!Number.isFinite(price)) return String(cacheWritePrice);
+  return cacheWriteDisplayEntries(modelName)
+    .map((entry) => {
+      const amount = price * entry.multiplier;
+      const shown = Number.isInteger(amount) ? String(amount) : String(Math.round(amount * 10000) / 10000);
+      return `${t(entry.labelKey)} $${shown}`;
+    })
+    .join('，');
+};
+
 export const buildPreviewRows = (model, t) => {
   if (!model) return [];
 
@@ -248,7 +260,9 @@ export const buildPreviewRows = (model, t) => {
     {
       key: 'CacheWritePrice',
       label: t('缓存创建价格'),
-      value: hasValue(model.cacheWritePrice) ? `${model.cacheWritePrice}` : t('空'),
+      value: hasValue(model.cacheWritePrice)
+        ? cacheWritePreviewValue(model.name, model.cacheWritePrice, t)
+        : t('空'),
     },
     {
       key: 'ImagePrice',
