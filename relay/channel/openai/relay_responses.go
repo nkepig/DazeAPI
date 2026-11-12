@@ -92,9 +92,11 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	defer service.CloseResponseBodyGracefully(resp)
 
 	var usage = &dto.Usage{}
+	var accumulator responsesStreamUsageAccumulator
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
 		captureOpenAIResponsesStreamUsage(usage, data)
+		accumulator.Touch()
 
 		// 检查当前数据是否包含 completed 状态和 usage 信息
 		var streamResponse dto.ResponsesStreamResponse
@@ -108,6 +110,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			return true
 		}
 		sendResponsesStreamData(c, streamResponse, data)
+		accumulator.Observe(&streamResponse)
 		switch streamResponse.Type {
 		case "response.completed", "response.incomplete", "response.done", "response.failed", "response.error":
 			if parsed, kind := dto.ParseModelUsage([]byte(data)); parsed != nil && kind == "responses" {
@@ -136,7 +139,9 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		return true
 	})
 
-	return usage, nil
+	// 流以 failed / EOF 断流 / 超时 / 客户端断开等任何方式结束，都按已拿到的事实补全 usage，
+	// 避免上游已计费而下游空账。
+	return accumulator.Finish(c, info, usage), nil
 }
 
 func forwardRawResponsesEvent(c *gin.Context, data string) {

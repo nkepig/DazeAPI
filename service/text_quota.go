@@ -480,6 +480,9 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, fmt.Sprintf("%s 调用 %d 次，调用花费 %s", item.Name, item.Count, pricing.FormatDollars(cost.IntPart())))
 	}
 
+	if !missingUpstreamUsage && ctx.GetBool(ContextKeyStreamFailureEstimatedUsage) {
+		extraContent = append(extraContent, "上游流异常结束且未返回完整计费信息，按已输出内容估算用量计费")
+	}
 	if missingUpstreamUsage {
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
 		logger.LogError(ctx, fmt.Sprintf("upstream usage missing, skip downstream billing, userId %d, channelId %d, tokenId %d, model %s, estimated prompt tokens %d, pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.GetEstimatePromptTokens(), relayInfo.FinalPreConsumedQuota))

@@ -84,6 +84,8 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		sentStop    bool
 		sawToolCall bool
 		streamErr   *types.NewAPIError
+
+		accumulator responsesStreamUsageAccumulator
 	)
 
 	toolCallIndexByID := make(map[string]int)
@@ -265,7 +267,13 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
 		captureOpenAIResponsesStreamUsage(usage, data)
+		accumulator.Touch()
 		if streamErr != nil {
+			// 下游已写失败（如客户端断开）时仍继续读上游，保证后续输出和终止事件计入计费。
+			var skipped dto.ResponsesStreamResponse
+			if err := common.UnmarshalJsonStr(data, &skipped); err == nil {
+				accumulator.Observe(&skipped)
+			}
 			return false
 		}
 
@@ -277,6 +285,8 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			logger.LogError(c, "failed to unmarshal responses stream event: "+err.Error())
 			return true
 		}
+
+		accumulator.Observe(&streamResp)
 
 		switch streamResp.Type {
 		case "response.created":
@@ -456,6 +466,9 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 
 		return true
 	})
+
+	// 任何方式结束（failed / EOF 断流 / 超时 / 客户端断开）都按已拿到的事实补全 usage。
+	usage = accumulator.Finish(c, info, usage)
 
 	if streamErr != nil {
 		// 保留已收到的上游用量，即使输出 token 为 0；结算层仍会按实际字段决定计费。

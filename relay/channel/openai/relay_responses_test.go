@@ -176,3 +176,122 @@ func TestApplyOpenAIResponsesUsagePreservesOriginalUsageJSON(t *testing.T) {
 		t.Fatalf("tokens=%d/%d want 4406/0", dst.PromptTokens, dst.CompletionTokens)
 	}
 }
+
+type responsesStreamHandlerFunc func(*gin.Context, *relaycommon.RelayInfo, *http.Response) (*dto.Usage, *types.NewAPIError)
+
+func runResponsesStreamForBilling(t *testing.T, run responsesStreamHandlerFunc, events string) (*dto.Usage, *types.NewAPIError, *gin.Context) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	info := &relaycommon.RelayInfo{
+		ChannelMeta:     &relaycommon.ChannelMeta{UpstreamModelName: "gpt-4o"},
+		OriginModelName: "gpt-4o",
+		RelayFormat:     types.RelayFormatOpenAI,
+		DisablePing:     true,
+	}
+	info.SetEstimatePromptTokens(217)
+	usage, apiErr := run(context, info, &http.Response{Body: io.NopCloser(strings.NewReader(events))})
+	return usage, apiErr, context
+}
+
+var responsesStreamHandlersUnderTest = []struct {
+	name string
+	run  responsesStreamHandlerFunc
+}{
+	{name: "responses", run: OaiResponsesStreamHandler},
+	{name: "responses to chat", run: OaiResponsesToChatStreamHandler},
+}
+
+func TestResponsesStreamBillingFallback(t *testing.T) {
+	const delta = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello world, this is a partial answer\"}\n\n"
+	cases := []struct {
+		name         string
+		events       string
+		wantBilled   bool
+		wantPrompt   int
+		wantComplete func(int) bool
+	}{
+		{
+			name:         "failed without usage after output",
+			events:       delta + "data: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\",\"usage\":null}}\n\n",
+			wantBilled:   true,
+			wantPrompt:   217,
+			wantComplete: func(n int) bool { return n > 0 },
+		},
+		{
+			name:         "eof without terminal event after output",
+			events:       delta,
+			wantBilled:   true,
+			wantPrompt:   217,
+			wantComplete: func(n int) bool { return n > 0 },
+		},
+		{
+			name:         "completed without usage",
+			events:       delta + "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n",
+			wantBilled:   true,
+			wantPrompt:   217,
+			wantComplete: func(n int) bool { return n > 0 },
+		},
+		{
+			name:         "output only on terminal event",
+			events:       "data: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"terminal only text\"}]}]}}\n\n",
+			wantBilled:   true,
+			wantPrompt:   217,
+			wantComplete: func(n int) bool { return n > 0 },
+		},
+		{
+			name:         "reported prompt only keeps prompt and estimates output",
+			events:       delta + "data: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\",\"usage\":{\"input_tokens\":300,\"output_tokens\":0}}}\n\n",
+			wantBilled:   true,
+			wantPrompt:   300,
+			wantComplete: func(n int) bool { return n > 0 },
+		},
+		{
+			name:         "started without failure bills prompt",
+			events:       "data: {\"type\":\"response.created\",\"response\":{\"status\":\"in_progress\"}}\n\n",
+			wantBilled:   true,
+			wantPrompt:   217,
+			wantComplete: func(n int) bool { return n == 0 },
+		},
+		{
+			name:       "failed immediately without output stays unbilled",
+			events:     "data: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\"}}\n\n",
+			wantBilled: false,
+		},
+		{
+			name:       "no events stays unbilled",
+			events:     "",
+			wantBilled: false,
+		},
+	}
+	for _, handler := range responsesStreamHandlersUnderTest {
+		for _, tc := range cases {
+			t.Run(handler.name+"/"+tc.name, func(t *testing.T) {
+				usage, apiErr, ctx := runResponsesStreamForBilling(t, handler.run, tc.events)
+				if !tc.wantBilled {
+					if service.ValidUsage(usage) {
+						t.Fatalf("usage=%+v, want unbilled", usage)
+					}
+					return
+				}
+				if apiErr != nil {
+					t.Fatalf("handler error: %v", apiErr)
+				}
+				if !service.ValidUsage(usage) || usage.PromptTokens != tc.wantPrompt || !tc.wantComplete(usage.CompletionTokens) {
+					t.Fatalf("usage=%+v, want prompt=%d", usage, tc.wantPrompt)
+				}
+				if usage.TotalTokens != usage.PromptTokens+usage.CompletionTokens {
+					t.Fatalf("total=%d want %d", usage.TotalTokens, usage.PromptTokens+usage.CompletionTokens)
+				}
+				if !ctx.GetBool(service.ContextKeyStreamFailureEstimatedUsage) {
+					t.Fatal("estimated usage flag not set")
+				}
+			})
+		}
+	}
+}
