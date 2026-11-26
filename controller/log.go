@@ -14,6 +14,39 @@ import (
 	"gorm.io/gorm"
 )
 
+func adminLogListScope(c *gin.Context) model.LogListScope {
+	if c.GetInt("role") == common.RoleRootUser {
+		return model.LogListScope{}
+	}
+	channelWl := adminChannelWhitelistFor(c)
+	if channelWl != nil {
+		return model.LogListScope{
+			ChannelWhitelist: channelWl,
+			MaskUsername:     true,
+		}
+	}
+	return model.LogListScope{
+		UserWhitelist: adminUserWhitelistFor(c),
+	}
+}
+
+func assertLogChannelFilterAllowed(c *gin.Context, channelId int) bool {
+	channelWl := adminChannelWhitelistFor(c)
+	if channelWl == nil || channelId == 0 {
+		return true
+	}
+	for _, id := range channelWl {
+		if id == channelId {
+			return true
+		}
+	}
+	c.JSON(http.StatusForbidden, gin.H{
+		"success": false,
+		"message": "无权查看该渠道日志",
+	})
+	return false
+}
+
 func GetAllLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	logType, _ := strconv.Atoi(c.Query("type"))
@@ -25,14 +58,11 @@ func GetAllLogs(c *gin.Context) {
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
 	requestId := c.Query("request_id")
-	// 管理员细粒度权限：非 root 只能看 manage_users 白名单内用户的日志；
-	// 当管理员有 manage_channels 白名单时，不返回 channel_name（只显示 channel id），
-	// 防止通过日志接口响应泄露未授权的渠道名称。manage_channels=all 的管理员不受影响。
-	callerRole := c.GetInt("role")
-	userWhitelist := adminUserWhitelistFor(c)
-	// 仅当该管理员存在渠道白名单限制时才遮盖渠道名；root 与 manage_channels=all 不遮盖
-	maskChannelName := callerRole != common.RoleRootUser && adminChannelWhitelistFor(c) != nil
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, userWhitelist, maskChannelName)
+	if !assertLogChannelFilterAllowed(c, channel) {
+		return
+	}
+	scope := adminLogListScope(c)
+	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, scope)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -87,10 +117,12 @@ func GetLogUsage(c *gin.Context) {
 		common.ApiErrorMsg(c, "id or request_id is required")
 		return
 	}
+	scope := adminLogListScope(c)
 	usage, err := model.GetConsumeLogUsage(model.ConsumeLogUsageQuery{
-		ID:            id,
-		RequestId:     requestId,
-		UserWhitelist: adminUserWhitelistFor(c),
+		ID:               id,
+		RequestId:        requestId,
+		UserWhitelist:    scope.UserWhitelist,
+		ChannelWhitelist: scope.ChannelWhitelist,
 	})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -157,8 +189,11 @@ func GetLogsStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	userWhitelist := adminUserWhitelistFor(c)
-	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, userWhitelist)
+	if !assertLogChannelFilterAllowed(c, channel) {
+		return
+	}
+	scope := adminLogListScope(c)
+	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, scope)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -186,7 +221,7 @@ func GetLogsSelfStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, nil)
+	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, model.LogListScope{})
 	if err != nil {
 		common.ApiError(c, err)
 		return

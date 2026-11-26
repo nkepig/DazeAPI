@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type OpenAIModel struct {
@@ -89,6 +90,41 @@ func assertChannelAllowed(c *gin.Context, channelId int) bool {
 		"message": "无权访问该渠道：不在白名单内",
 	})
 	return false
+}
+
+func insertChannelsWithAdminWhitelist(c *gin.Context, channels []model.Channel) (needWhitelistExtend bool, err error) {
+	callerId := c.GetInt("id")
+	needWhitelistExtend = c.GetInt("role") == common.RoleAdminUser && callerId != 0
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := model.BatchInsertChannelsInTx(tx, channels); err != nil {
+			return err
+		}
+		if !needWhitelistExtend {
+			return nil
+		}
+		for i := range channels {
+			if channels[i].Id == 0 {
+				return fmt.Errorf("channel id not assigned after insert (index %d)", i)
+			}
+			if err := model.AppendChannelToManageWhitelist(tx, callerId, channels[i].Id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return needWhitelistExtend, err
+}
+
+func callerAdminPermissionsForResponse(c *gin.Context) map[string]interface{} {
+	callerId := c.GetInt("id")
+	if c.GetInt("role") != common.RoleAdminUser || callerId == 0 {
+		return nil
+	}
+	caller, err := model.GetUserById(callerId, false)
+	if err != nil {
+		return nil
+	}
+	return common.ParseAdminPermission(caller.AdminPermission).AsMap()
 }
 
 func GetAllChannels(c *gin.Context) {
@@ -723,17 +759,37 @@ func AddChannel(c *gin.Context) {
 			channels = append(channels, *localChannel)
 		}
 	}
-	err = model.BatchInsertChannels(channels)
+	needWhitelistExtend, err := insertChannelsWithAdminWhitelist(c, channels)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	callerId := c.GetInt("id")
+	if needWhitelistExtend {
+		idParts := make([]string, 0, len(channels))
+		for _, ch := range channels {
+			if ch.Id != 0 {
+				idParts = append(idParts, "#"+strconv.Itoa(ch.Id))
+			}
+		}
+		if len(idParts) > 0 {
+			model.RecordLog(callerId, model.LogTypeManage,
+				fmt.Sprintf("创建渠道 %s 并自动纳入管理白名单", strings.Join(idParts, ", ")))
+		}
+	}
 	model.InitChannelCache()
 	service.ResetProxyClientCache()
 	go model.RefreshPricing()
+	respData := gin.H{}
+	if needWhitelistExtend {
+		if perms := callerAdminPermissionsForResponse(c); perms != nil {
+			respData["admin_permissions"] = perms
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
+		"data":    respData,
 	})
 	return
 }
@@ -1262,16 +1318,30 @@ func CopyChannel(c *gin.Context) {
 		clone.UsedQuota = 0
 	}
 
-	// insert
-	if err := model.BatchInsertChannels([]model.Channel{clone}); err != nil {
+	clones := []model.Channel{clone}
+	needWhitelistExtend, err := insertChannelsWithAdminWhitelist(c, clones)
+	if err != nil {
 		common.SysError("failed to clone channel: " + err.Error())
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "复制渠道失败，请稍后重试"})
 		return
 	}
+	newChannelId := clones[0].Id
+	callerId := c.GetInt("id")
+
+	if needWhitelistExtend {
+		model.RecordLog(callerId, model.LogTypeManage,
+			fmt.Sprintf("复制渠道 #%d 为 #%d 并自动纳入管理白名单", id, newChannelId))
+	}
+
 	model.InitChannelCache()
 	go model.RefreshPricing()
-	// success
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": gin.H{"id": clone.Id}})
+	respData := gin.H{"id": newChannelId}
+	if needWhitelistExtend {
+		if perms := callerAdminPermissionsForResponse(c); perms != nil {
+			respData["admin_permissions"] = perms
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": respData})
 }
 
 // MultiKeyManageRequest represents the request for multi-key management operations

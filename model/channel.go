@@ -350,12 +350,29 @@ func GetChannelById(id int, selectAll bool) (*Channel, error) {
 	return channel, nil
 }
 
-func BatchInsertChannels(channels []Channel) error {
+func batchInsertChannelsInTx(tx *gorm.DB, channels []Channel) error {
 	if len(channels) == 0 {
 		return nil
 	}
 	for i := range channels {
 		channels[i].Group = NormalizeGroupField(channels[i].Group)
+	}
+	// Insert one row at a time so primary keys are always written back into channels[].
+	// Batch Create does not reliably populate Ids (needed for manage_channels whitelist extension).
+	for i := range channels {
+		if err := tx.Create(&channels[i]).Error; err != nil {
+			return err
+		}
+		if err := channels[i].AddAbilities(tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func BatchInsertChannels(channels []Channel) error {
+	if len(channels) == 0 {
+		return nil
 	}
 	tx := DB.Begin()
 	if tx.Error != nil {
@@ -367,19 +384,16 @@ func BatchInsertChannels(channels []Channel) error {
 		}
 	}()
 
-	for _, chunk := range lo.Chunk(channels, 50) {
-		if err := tx.Create(&chunk).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-		for _, channel_ := range chunk {
-			if err := channel_.AddAbilities(tx); err != nil {
-				tx.Rollback()
-				return err
-			}
-		}
+	if err := batchInsertChannelsInTx(tx, channels); err != nil {
+		tx.Rollback()
+		return err
 	}
 	return tx.Commit().Error
+}
+
+// BatchInsertChannelsInTx inserts channels and abilities within an existing transaction.
+func BatchInsertChannelsInTx(tx *gorm.DB, channels []Channel) error {
+	return batchInsertChannelsInTx(tx, channels)
 }
 
 func BatchDeleteChannels(ids []int) error {

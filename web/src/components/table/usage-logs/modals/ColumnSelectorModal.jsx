@@ -33,6 +33,7 @@ const ColumnSelectorModal = ({
   setBillingDisplayMode,
   COLUMN_KEYS,
   isAdminUser,
+  channelScopedLogs,
   copyText,
   showUserInfoFunc,
   t,
@@ -110,6 +111,12 @@ const ColumnSelectorModal = ({
             (column.key === COLUMN_KEYS.CHANNEL ||
               column.key === COLUMN_KEYS.USERNAME ||
               column.key === COLUMN_KEYS.RETRY)
+          ) {
+            return null;
+          }
+          if (
+            channelScopedLogs &&
+            column.key === COLUMN_KEYS.USERNAME
           ) {
             return null;
           }

@@ -1013,6 +1013,36 @@ func AppendUserToManageWhitelist(tx *gorm.DB, adminId, newUserId int) error {
 		Update("admin_permission", newJSON).Error
 }
 
+// AppendChannelToManageWhitelist reads the admin's admin_permission within the given
+// transaction, appends newChannelId to the manage_channels whitelist when it is a
+// restricted id list, and writes it back. No-op when manage_channels is "all".
+func AppendChannelToManageWhitelist(tx *gorm.DB, adminId, newChannelId int) error {
+	if adminId == 0 || newChannelId == 0 {
+		return nil
+	}
+	var admin User
+	if err := tx.Select("admin_permission").First(&admin, adminId).Error; err != nil {
+		return err
+	}
+	p := common.ParseAdminPermission(admin.AdminPermission)
+	ids, restricted := p.ManageChannelsWhitelist()
+	if !restricted {
+		return nil
+	}
+	for _, id := range ids {
+		if id == newChannelId {
+			return nil
+		}
+	}
+	p.ManageChannels = append(ids, newChannelId)
+	newJSON, err := common.SerializeAdminPermission(p)
+	if err != nil {
+		return err
+	}
+	return tx.Model(&User{}).Where("id = ?", adminId).
+		Update("admin_permission", newJSON).Error
+}
+
 func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {
 	err := DB.Model(&User{}).Where("id = ?", id).Updates(
 		map[string]interface{}{

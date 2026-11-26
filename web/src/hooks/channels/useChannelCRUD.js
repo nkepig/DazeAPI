@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { API, showError, showSuccess, showInfo } from '../../helpers';
+import { API, showError, showSuccess, showInfo, setAdminPermissions } from '../../helpers';
 
 export const useChannelCRUD = ({ t, channels, refresh }) => {
   const manageChannel = async (id, action, record, value) => {
@@ -87,6 +87,9 @@ export const useChannelCRUD = ({ t, channels, refresh }) => {
     try {
       const res = await API.post(`/api/channel/copy/${record.id}`);
       if (res?.data?.success) {
+        if (res.data.data?.admin_permissions) {
+          setAdminPermissions(res.data.data.admin_permissions);
+        }
         showSuccess(t('渠道复制成功'));
         await refresh();
       } else {

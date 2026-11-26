@@ -81,6 +81,12 @@ export function getAdminPermissions() {
   }
 }
 
+// 渠道白名单管理员：使用日志按所管渠道展示，不暴露终端用户名。
+export function isAdminChannelScopedLogs() {
+  if (!isAdmin() || isRoot()) return false;
+  return Array.isArray(getAdminPermissions().manage_channels);
+}
+
 // 便捷判定：是否有某项布尔权限（仅对 admin 有意义；root 永远 true）
 export function hasPermission(key) {
   if (isRoot()) return true;

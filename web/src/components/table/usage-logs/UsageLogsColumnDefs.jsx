@@ -594,15 +594,23 @@ export const getLogsColumns = ({
       title: t('用户'),
       dataIndex: 'username',
       render: (text, record, index) => {
+        if (!text) {
+          return '—';
+        }
         return isAdminUser ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Avatar
               size='extra-small'
               color={stringToColor(text)}
-              style={{ marginRight: 4, cursor: 'pointer' }}
+              style={{
+                marginRight: 4,
+                cursor: record?.user_id ? 'pointer' : 'default',
+              }}
               onClick={(event) => {
                 event.stopPropagation();
-                showUserInfoFunc(record.user_id);
+                if (record?.user_id) {
+                  showUserInfoFunc(record.user_id);
+                }
               }}
             >
               {typeof text === 'string' && text.slice(0, 1)}

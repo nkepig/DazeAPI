@@ -24,6 +24,7 @@ import {
   API,
   getTodayStartTimestamp,
   isAdmin,
+  isAdminChannelScopedLogs,
   showError,
   showSuccess,
   timestamp2string,
@@ -119,9 +120,12 @@ export const useLogsData = () => {
 
   // User and admin
   const isAdminUser = isAdmin();
+  const channelScopedLogs = isAdminChannelScopedLogs();
   // Role-specific storage key to prevent different roles from overwriting each other
   const STORAGE_KEY = isAdminUser
-    ? 'logs-table-columns-admin'
+    ? channelScopedLogs
+      ? 'logs-table-columns-admin-channel-scope'
+      : 'logs-table-columns-admin'
     : 'logs-table-columns-user';
   const BILLING_DISPLAY_MODE_STORAGE_KEY = isAdminUser
     ? 'logs-billing-display-mode-admin'
@@ -170,7 +174,7 @@ export const useLogsData = () => {
     return {
       [COLUMN_KEYS.TIME]: true,
       [COLUMN_KEYS.CHANNEL]: isAdminUser,
-      [COLUMN_KEYS.USERNAME]: isAdminUser,
+      [COLUMN_KEYS.USERNAME]: isAdminUser && !channelScopedLogs,
       [COLUMN_KEYS.TOKEN]: true,
       [COLUMN_KEYS.TOKEN_NAME]: true,
       [COLUMN_KEYS.TYPE]: true,
@@ -201,6 +205,9 @@ export const useLogsData = () => {
         merged[COLUMN_KEYS.CHANNEL] = false;
         merged[COLUMN_KEYS.USERNAME] = false;
         merged[COLUMN_KEYS.RETRY] = false;
+      }
+      if (channelScopedLogs) {
+        merged[COLUMN_KEYS.USERNAME] = false;
       }
 
       return merged;
@@ -269,6 +276,8 @@ export const useLogsData = () => {
           key === COLUMN_KEYS.RETRY) &&
         !isAdminUser
       ) {
+        updatedColumns[key] = false;
+      } else if (key === COLUMN_KEYS.USERNAME && channelScopedLogs) {
         updatedColumns[key] = false;
       } else {
         updatedColumns[key] = checked;
@@ -787,6 +796,7 @@ export const useLogsData = () => {
     logType,
     stat,
     isAdminUser,
+    channelScopedLogs,
 
     // Form state
     formApi,

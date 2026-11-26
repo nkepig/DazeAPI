@@ -34,6 +34,7 @@ const LogsFilters = ({
   setLogType,
   loading,
   isAdminUser,
+  channelScopedLogs,
   groupFilter,
   groupOptions,
   t,
@@ -170,15 +171,17 @@ const LogsFilters = ({
                     pure
                   />
                 </div>
-                <div className='flex-1 min-w-[180px] max-w-xs'>
-                  <Form.Input
-                    field='username'
-                    prefix={<IconSearch />}
-                    placeholder={t('用户名称')}
-                    showClear
-                    pure
-                  />
-                </div>
+                {!channelScopedLogs && (
+                  <div className='flex-1 min-w-[180px] max-w-xs'>
+                    <Form.Input
+                      field='username'
+                      prefix={<IconSearch />}
+                      placeholder={t('用户名称')}
+                      showClear
+                      pure
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>

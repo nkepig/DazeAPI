@@ -26,6 +26,7 @@ import {
   showSuccess,
   verifyJSON,
   isRoot,
+  setAdminPermissions,
 } from '../../../../helpers';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import { CHANNEL_OPTIONS, MODEL_FETCHABLE_CHANNEL_TYPES } from '../../../../constants';
@@ -1144,8 +1145,11 @@ const EditChannelModal = (props) => {
         channel: localInputs,
       });
     }
-    const { success, message } = res.data;
+    const { success, message, data: respData } = res.data;
     if (success) {
+      if (respData?.admin_permissions) {
+        setAdminPermissions(respData.admin_permissions);
+      }
       if (isEdit) {
         showSuccess(t('渠道更新成功！'));
       } else {

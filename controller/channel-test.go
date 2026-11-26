@@ -46,6 +46,74 @@ type testResult struct {
 	statusCode      int
 }
 
+type channelTestRequestRecorder struct {
+	c           *gin.Context
+	info        *relaycommon.RelayInfo
+	channel     *model.Channel
+	requestPath string
+	isStream    bool
+	requestBody string
+	result      *testResult
+}
+
+func newChannelTestRequestRecorder(c *gin.Context, info *relaycommon.RelayInfo, channel *model.Channel, requestPath string, isStream bool) *channelTestRequestRecorder {
+	return &channelTestRequestRecorder{
+		c:           c,
+		info:        info,
+		channel:     channel,
+		requestPath: requestPath,
+		isStream:    isStream,
+	}
+}
+
+func returnChannelTestResult(rec *channelTestRequestRecorder, tr testResult) testResult {
+	if rec != nil {
+		rec.result = &tr
+	}
+	return tr
+}
+
+func (r *channelTestRequestRecorder) flush() {
+	if r == nil || r.result == nil {
+		return
+	}
+	tr := *r.result
+	statusCode := tr.statusCode
+	if statusCode == 0 && tr.context != nil {
+		statusCode = tr.context.Writer.Status()
+	}
+	if statusCode == 0 && tr.newAPIError != nil && tr.newAPIError.StatusCode > 0 {
+		statusCode = tr.newAPIError.StatusCode
+	}
+	errorMessage := ""
+	if tr.newAPIError != nil {
+		errorMessage = tr.newAPIError.ErrorWithStatusCode()
+	} else if tr.localErr != nil {
+		errorMessage = tr.localErr.Error()
+	}
+	username := common.GetContextKeyString(r.c, constant.ContextKeyUserName)
+	if username == "" {
+		username = fmt.Sprintf("user%d", r.info.UserId)
+	}
+	service.RecordChannelRequest(service.ChannelRequestRecord{
+		Time:         time.Now().Unix(),
+		RequestId:    r.info.RequestId,
+		Username:     username,
+		UserId:       r.info.UserId,
+		ChannelId:    r.channel.Id,
+		ChannelName:  r.channel.Name,
+		ModelName:    r.info.OriginModelName,
+		Path:         r.requestPath,
+		Method:       http.MethodPost,
+		StatusCode:   statusCode,
+		IsStream:     r.isStream,
+		RetryIndex:   0,
+		Error:        errorMessage,
+		RequestBody:  r.requestBody,
+		ResponseBody: string(tr.responseBody),
+	})
+}
+
 // channelTestPrompt 是渠道测试时统一发送给上游的用户消息内容。
 // 选用翻译指令而非无意义问候语，是为了让测试响应携带可观察的模型行为，
 // 便于人工核对渠道是否真的能产出预期输出。
@@ -150,6 +218,7 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		}
 	}
 	cache.WriteContext(c)
+	common.SetContextKey(c, constant.ContextKeyUserId, cache.Id)
 
 	//c.Request.Header.Set("Authorization", "Bearer "+channel.Key)
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -232,13 +301,19 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	info.IsChannelTest = true
 	info.InitChannelMeta(c)
 
+	var testReqRecorder *channelTestRequestRecorder
+	if info.UserSetting.RequestRecordEnabled {
+		testReqRecorder = newChannelTestRequestRecorder(c, info, channel, requestPath, isStream)
+		defer testReqRecorder.flush()
+	}
+
 	err = helper.ModelMappedHelper(c, info, request)
 	if err != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    err,
 			newAPIError: types.NewError(err, types.ErrorCodeChannelModelMappedError),
-		}
+		})
 	}
 
 	testModel = info.UpstreamModelName
@@ -249,19 +324,19 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	if info.RelayMode == relayconstant.RelayModeResponsesCompact &&
 		apiType != constant.APITypeOpenAI &&
 		apiType != constant.APITypeCodex {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    fmt.Errorf("responses compaction test only supports openai/codex channels, got api type %d", apiType),
 			newAPIError: types.NewError(fmt.Errorf("unsupported api type: %d", apiType), types.ErrorCodeInvalidApiType),
-		}
+		})
 	}
 	adaptor := relay.GetAdaptor(apiType)
 	if adaptor == nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    fmt.Errorf("invalid api type: %d, adaptor is nil", apiType),
 			newAPIError: types.NewError(fmt.Errorf("invalid api type: %d, adaptor is nil", apiType), types.ErrorCodeInvalidApiType),
-		}
+		})
 	}
 
 	//// 创建一个用于日志的 info 副本，移除 ApiKey
@@ -303,44 +378,44 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		if embeddingReq, ok := request.(*dto.EmbeddingRequest); ok {
 			convertedRequest, err = adaptor.ConvertEmbeddingRequest(c, info, *embeddingReq)
 		} else {
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    errors.New("invalid embedding request type"),
 				newAPIError: types.NewError(errors.New("invalid embedding request type"), types.ErrorCodeConvertRequestFailed),
-			}
+			})
 		}
 	case relayconstant.RelayModeImagesGenerations:
 		// 图像生成请求 - request 已经是正确的类型
 		if imageReq, ok := request.(*dto.ImageRequest); ok {
 			convertedRequest, err = adaptor.ConvertImageRequest(c, info, *imageReq)
 		} else {
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    errors.New("invalid image request type"),
 				newAPIError: types.NewError(errors.New("invalid image request type"), types.ErrorCodeConvertRequestFailed),
-			}
+			})
 		}
 	case relayconstant.RelayModeRerank:
 		// Rerank 请求 - request 已经是正确的类型
 		if rerankReq, ok := request.(*dto.RerankRequest); ok {
 			convertedRequest, err = adaptor.ConvertRerankRequest(c, info.RelayMode, *rerankReq)
 		} else {
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    errors.New("invalid rerank request type"),
 				newAPIError: types.NewError(errors.New("invalid rerank request type"), types.ErrorCodeConvertRequestFailed),
-			}
+			})
 		}
 	case relayconstant.RelayModeResponses:
 		// Response 请求 - request 已经是正确的类型
 		if responseReq, ok := request.(*dto.OpenAIResponsesRequest); ok {
 			convertedRequest, err = adaptor.ConvertOpenAIResponsesRequest(c, info, *responseReq)
 		} else {
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    errors.New("invalid response request type"),
 				newAPIError: types.NewError(errors.New("invalid response request type"), types.ErrorCodeConvertRequestFailed),
-			}
+			})
 		}
 	case relayconstant.RelayModeResponsesCompact:
 		// Response compaction request - convert to OpenAIResponsesRequest before adapting
@@ -355,65 +430,68 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		case *dto.OpenAIResponsesRequest:
 			convertedRequest, err = adaptor.ConvertOpenAIResponsesRequest(c, info, *req)
 		default:
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    errors.New("invalid response compaction request type"),
 				newAPIError: types.NewError(errors.New("invalid response compaction request type"), types.ErrorCodeConvertRequestFailed),
-			}
+			})
 		}
 	default:
 		// Chat/Completion 等其他请求类型
 		if generalReq, ok := request.(*dto.GeneralOpenAIRequest); ok {
 			convertedRequest, err = adaptor.ConvertOpenAIRequest(c, info, generalReq)
 		} else {
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    errors.New("invalid general request type"),
 				newAPIError: types.NewError(errors.New("invalid general request type"), types.ErrorCodeConvertRequestFailed),
-			}
+			})
 		}
 	}
 
 	if err != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    err,
 			newAPIError: types.NewError(err, types.ErrorCodeConvertRequestFailed),
-		}
+		})
 	}
 	jsonData, err := common.Marshal(convertedRequest)
 	if err != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    err,
 			newAPIError: types.NewError(err, types.ErrorCodeJsonMarshalFailed),
-		}
+		})
+	}
+	if testReqRecorder != nil {
+		testReqRecorder.requestBody = string(jsonData)
 	}
 
 	//jsonData, err = relaycommon.RemoveDisabledFields(jsonData, info.ChannelOtherSettings)
 	//if err != nil {
-	//	return testResult{
+	//	return returnChannelTestResult(testReqRecorder, testResult{
 	//		context:     c,
 	//		localErr:    err,
 	//		newAPIError: types.NewError(err, types.ErrorCodeConvertRequestFailed),
-	//	}
+	//	})
 	//}
 
 	if len(info.ParamOverride) > 0 {
 		jsonData, err = relaycommon.ApplyParamOverrideWithRelayInfo(jsonData, info)
 		if err != nil {
 			if fixedErr, ok := relaycommon.AsParamOverrideReturnError(err); ok {
-				return testResult{
+				return returnChannelTestResult(testReqRecorder, testResult{
 					context:     c,
 					localErr:    fixedErr,
 					newAPIError: relaycommon.NewAPIErrorFromParamOverride(fixedErr),
-				}
+				})
 			}
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:     c,
 				localErr:    err,
 				newAPIError: types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid),
-			}
+			})
 		}
 	}
 
@@ -421,11 +499,11 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(jsonData))
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    err,
 			newAPIError: types.NewOpenAIError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError),
-		}
+		})
 	}
 	var httpResp *http.Response
 	if resp != nil {
@@ -456,47 +534,47 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 				}
 				model.RecordErrorLog(c, 1, channel.Id, testModel, "模型测试", err.Error(), 0, 0, false, group, other)
 			}
-			return testResult{
+			return returnChannelTestResult(testReqRecorder, testResult{
 				context:         c,
 				localErr:        err,
 				newAPIError:     types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError),
 				responseBody:    rawBody,
 				responseHeaders: httpResp.Header,
 				statusCode:      httpResp.StatusCode,
-			}
+			})
 		}
 	}
 	usageA, respErr := adaptor.DoResponse(c, httpResp, info)
 	if respErr != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    respErr,
 			newAPIError: respErr,
-		}
+		})
 	}
 	usage, usageErr := coerceTestUsage(usageA, isStream, info.GetEstimatePromptTokens())
 	if usageErr != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    usageErr,
 			newAPIError: types.NewOpenAIError(usageErr, types.ErrorCodeBadResponseBody, http.StatusInternalServerError),
-		}
+		})
 	}
 	result := w.Result()
 	respBody, err := readTestResponseBody(result.Body, isStream)
 	if err != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    err,
 			newAPIError: types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError),
-		}
+		})
 	}
 	if bodyErr := detectErrorFromTestResponseBody(respBody); bodyErr != nil {
-		return testResult{
+		return returnChannelTestResult(testReqRecorder, testResult{
 			context:     c,
 			localErr:    bodyErr,
 			newAPIError: types.NewOpenAIError(bodyErr, types.ErrorCodeBadResponseBody, http.StatusInternalServerError),
-		}
+		})
 	}
 	info.SetEstimatePromptTokens(usage.PromptTokens)
 
@@ -546,14 +624,14 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 			body = service.TransformResponseImages(body, service.ConvertURLToBase64, baseURL)
 		}
 	}
-	return testResult{
+	return returnChannelTestResult(testReqRecorder, testResult{
 		context:         c,
 		localErr:        nil,
 		newAPIError:     nil,
 		responseBody:    body,
 		responseHeaders: finalResult.Header,
 		statusCode:      finalResult.StatusCode,
-	}
+	})
 }
 
 func coerceTestUsage(usageAny any, isStream bool, estimatePromptTokens int) (*dto.Usage, error) {

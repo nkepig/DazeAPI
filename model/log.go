@@ -154,10 +154,20 @@ func stripUsageFromLogs(logs []*Log) {
 }
 
 type ConsumeLogUsageQuery struct {
-	ID            int
-	RequestId     string
-	UserId        int
-	UserWhitelist []int
+	ID               int
+	RequestId        string
+	UserId           int
+	UserWhitelist    []int
+	ChannelWhitelist []int
+}
+
+// LogListScope controls admin fine-grained visibility for list/stat queries.
+// When ChannelWhitelist is non-nil, logs are scoped to those channel ids (all users),
+// and UserWhitelist is ignored. When MaskUsername is true, username/user_id are cleared.
+type LogListScope struct {
+	UserWhitelist    []int
+	ChannelWhitelist []int
+	MaskUsername     bool
 }
 
 func GetConsumeLogUsage(query ConsumeLogUsageQuery) (map[string]interface{}, error) {
@@ -176,7 +186,12 @@ func GetConsumeLogUsage(query ConsumeLogUsageQuery) (map[string]interface{}, err
 	if query.UserId > 0 {
 		tx = tx.Where("user_id = ?", query.UserId)
 	}
-	if query.UserWhitelist != nil {
+	if query.ChannelWhitelist != nil {
+		if len(query.ChannelWhitelist) == 0 {
+			return nil, gorm.ErrRecordNotFound
+		}
+		tx = tx.Where("channel_id IN ?", query.ChannelWhitelist)
+	} else if query.UserWhitelist != nil {
 		tx = tx.Where("user_id IN ?", query.UserWhitelist)
 	}
 	if err := tx.Select("other").Take(&log).Error; err != nil {
@@ -384,12 +399,14 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	enqueueLog(log)
 }
 
-// GetAllLogs returns logs across all users. When userWhitelist != nil, results
-// are restricted to logs whose user_id is in the whitelist (admin fine-grained
-// permission: manage_users whitelist). When maskChannelName is true, the
-// ChannelName field is cleared before returning (non-root admins must not see
-// channel names, only IDs).
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, userWhitelist []int, maskChannelName bool) (logs []*Log, total int64, err error) {
+// GetAllLogs returns logs across all users. See LogListScope for admin restrictions.
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, scope LogListScope) (logs []*Log, total int64, err error) {
+	if scope.ChannelWhitelist != nil && len(scope.ChannelWhitelist) == 0 {
+		return []*Log{}, 0, nil
+	}
+	if scope.ChannelWhitelist != nil {
+		username = ""
+	}
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
@@ -421,8 +438,10 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if group != "" {
 		tx = tx.Where("logs."+"\"group\""+" = ?", group)
 	}
-	if userWhitelist != nil {
-		tx = tx.Where("logs.user_id IN ?", userWhitelist)
+	if scope.ChannelWhitelist != nil {
+		tx = tx.Where("logs.channel_id IN ?", scope.ChannelWhitelist)
+	} else if scope.UserWhitelist != nil {
+		tx = tx.Where("logs.user_id IN ?", scope.UserWhitelist)
 	}
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
@@ -440,9 +459,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		}
 	}
 
-	// Only resolve channel names when not masked. When masked, leave ChannelName
-	// as empty string so the frontend only sees the channel id.
-	if !maskChannelName && channelIds.Len() > 0 {
+	if channelIds.Len() > 0 {
 		channelMap := make(map[int]string, channelIds.Len())
 		if common.MemoryCacheEnabled {
 			channelSyncLock.RLock()
@@ -466,6 +483,13 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		}
 		for i := range logs {
 			logs[i].ChannelName = channelMap[logs[i].ChannelId]
+		}
+	}
+
+	if scope.MaskUsername {
+		for i := range logs {
+			logs[i].Username = ""
+			logs[i].UserId = 0
 		}
 	}
 
@@ -527,9 +551,14 @@ type Stat struct {
 	Tokens int `json:"tokens"`
 }
 
-// SumUsedQuota aggregates quota/rpm/tpm stats. When userWhitelist != nil, stats
-// are restricted to logs whose user_id is in the whitelist.
-func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, userWhitelist []int) (stat Stat, err error) {
+// SumUsedQuota aggregates quota/rpm/tpm stats. Scope mirrors GetAllLogs.
+func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, scope LogListScope) (stat Stat, err error) {
+	if scope.ChannelWhitelist != nil && len(scope.ChannelWhitelist) == 0 {
+		return Stat{}, nil
+	}
+	if scope.ChannelWhitelist != nil {
+		username = ""
+	}
 	tx := LOG_DB.Table("logs").Select("sum(quota) quota, coalesce(sum(prompt_tokens), 0) + coalesce(sum(completion_tokens), 0) tokens")
 
 	// 为rpm和tpm创建单独的查询
@@ -567,9 +596,12 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		tx = tx.Where("\"group\""+" = ?", group)
 		rpmTpmQuery = rpmTpmQuery.Where("\"group\""+" = ?", group)
 	}
-	if userWhitelist != nil {
-		tx = tx.Where("user_id IN ?", userWhitelist)
-		rpmTpmQuery = rpmTpmQuery.Where("user_id IN ?", userWhitelist)
+	if scope.ChannelWhitelist != nil {
+		tx = tx.Where("channel_id IN ?", scope.ChannelWhitelist)
+		rpmTpmQuery = rpmTpmQuery.Where("channel_id IN ?", scope.ChannelWhitelist)
+	} else if scope.UserWhitelist != nil {
+		tx = tx.Where("user_id IN ?", scope.UserWhitelist)
+		rpmTpmQuery = rpmTpmQuery.Where("user_id IN ?", scope.UserWhitelist)
 	}
 
 	tx = tx.Where("type = ?", LogTypeConsume)
